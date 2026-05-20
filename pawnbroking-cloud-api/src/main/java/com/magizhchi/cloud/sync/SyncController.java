@@ -117,12 +117,19 @@ public class SyncController {
     }
 
     private static String summary(Object payload) {
-        if (!(payload instanceof Map<?,?> m)) return "";
-        Object name = m.getOrDefault("name", m.getOrDefault("customer_name", m.get("description")));
-        Object amt  = m.getOrDefault("amount", m.getOrDefault("net_amount", m.get("total")));
+        if (!(payload instanceof Map<?,?> raw)) return "";
+        @SuppressWarnings("unchecked")
+        Map<Object,Object> m = (Map<Object,Object>) raw;
+        Object name = firstNonNull(m.get("name"), m.get("customer_name"), m.get("description"));
+        Object amt  = firstNonNull(m.get("amount"), m.get("net_amount"), m.get("total"));
         StringBuilder sb = new StringBuilder();
         if (name != null) sb.append(name);
         if (amt != null)  { if (sb.length() > 0) sb.append(" — "); sb.append("₹").append(amt); }
         return sb.length() == 0 ? "Tap to view" : sb.toString();
+    }
+
+    private static Object firstNonNull(Object... vals) {
+        for (Object v : vals) if (v != null) return v;
+        return null;
     }
 }
