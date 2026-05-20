@@ -1,0 +1,31 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  application: { name: pawnbroking-cloud-api }
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/pawnbroking_cloud}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+    hikari:
+      maximum-pool-size: 20
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    schemas: public
+    locations: classpath:db/migration
+
+pawnbroking:
+  jwt:
+    secret: ${JWT_SECRET:change-me-please-32-bytes-minimum-secret-key-here}
+    access-ttl-minutes: 60
+    refresh-ttl-days: 30
+  # comma-separated list of tenant schemas to provision on startup
+  tenants: ${TENANTS:alwarpuram,annanagar}
+  fcm:
+    credentials-path: ${GOOGLE_APPLICATION_CREDENTIALS:}
+    enabled: ${FCM_ENABLED:false}
+
+springdoc:
+  swagger-ui:
+    path: /swagger
