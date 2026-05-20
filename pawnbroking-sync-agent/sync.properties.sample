@@ -1,0 +1,14 @@
+# Copy to %PROGRAMDATA%\PawnBroking\sync.properties on each shop machine.
+# Different shop_id per machine: alwarpuram, annanagar, etc.
+
+db.url=jdbc:postgresql://localhost:5432/pawnbroking
+db.user=postgres
+db.password=changeme
+
+cloud.url=https://your-cloud-api.example.com
+cloud.api_key=ALWARPURAM_API_KEY_FROM_CLOUD_SHOP_CREDENTIALS_TABLE
+shop.id=alwarpuram
+
+batch.size=200
+poll.interval.ms=5000
+health.port=17654

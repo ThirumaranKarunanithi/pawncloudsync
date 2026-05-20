@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: pawnbroking_cloud
+    ports: ["5433:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+  api:
+    build: .
+    depends_on: [db]
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/pawnbroking_cloud
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: dev-secret-change-me-32-bytes-or-longer-please-please
+      TENANTS: alwarpuram,annanagar
+      FCM_ENABLED: "false"
+    ports: ["8080:8080"]
+volumes:
+  pgdata: {}

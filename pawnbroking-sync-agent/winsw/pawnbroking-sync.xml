@@ -1,0 +1,14 @@
+<service>
+    <id>pawnbroking-sync</id>
+    <name>Pawnbroking Sync Agent</name>
+    <description>Streams local PostgreSQL changes to the cloud.</description>
+    <executable>java</executable>
+    <arguments>-jar "%BASE%\pawnbroking-sync-agent.jar"</arguments>
+    <log mode="roll-by-size">
+        <sizeThreshold>10240</sizeThreshold>
+        <keepFiles>10</keepFiles>
+    </log>
+    <onfailure action="restart" delay="10 sec"/>
+    <startmode>Automatic</startmode>
+    <env name="PAWNBROKING_SYNC_CONFIG" value="%PROGRAMDATA%\PawnBroking\sync.properties"/>
+</service>
