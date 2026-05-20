@@ -6,7 +6,7 @@ in near real-time using `LISTEN/NOTIFY` + an outbox table.
 ## Build
 
 ```powershell
-cd D:\Pawnbroking\pawnbroking\pawnbroking-sync-agent
+cd D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-sync-agent
 mvn -DskipTests package
 # produces: target\pawnbroking-sync-agent.jar (fat jar)
 ```
@@ -26,7 +26,7 @@ Download WinSW.NET4.exe from https://github.com/winsw/winsw/releases and place
 it next to the jar, renamed `pawnbroking-sync.exe`. Then:
 
 ```powershell
-cd D:\Pawnbroking\pawnbroking\pawnbroking-sync-agent\target
+cd D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-sync-agent\target
 Copy-Item ..\winsw\pawnbroking-sync.xml .
 .\pawnbroking-sync.exe install
 .\pawnbroking-sync.exe start

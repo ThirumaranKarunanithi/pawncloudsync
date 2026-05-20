@@ -3,7 +3,7 @@
 
 db.url=jdbc:postgresql://localhost:5432/pawnbroking
 db.user=postgres
-db.password=changeme
+db.password=happykutty
 
 cloud.url=https://your-cloud-api.example.com
 cloud.api_key=ALWARPURAM_API_KEY_FROM_CLOUD_SHOP_CREDENTIALS_TABLE
