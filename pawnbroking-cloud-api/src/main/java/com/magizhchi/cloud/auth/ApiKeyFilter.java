@@ -43,6 +43,8 @@ public class ApiKeyFilter extends OncePerRequestFilter {
             chain.doFilter(req, res); return;
         }
 
+        // 1. Look up the API key. Failures here are auth problems.
+        String shopId;
         try {
             List<String> rows = jdbc.queryForList(
                     "SELECT shop_id FROM public.shop_credentials WHERE api_key = ? AND revoked_at IS NULL",
@@ -51,22 +53,26 @@ public class ApiKeyFilter extends OncePerRequestFilter {
                 log.warn("unknown api key (prefix={})", key.length() > 10 ? key.substring(0, 10) : key);
                 res.sendError(401, "bad api key"); return;
             }
-            String shopId = rows.get(0);
-            log.info("authenticated agent:{}", shopId);
-            TenantContext.set(shopId);
-            try {
-                SecurityContextHolder.getContext().setAuthentication(
-                    new UsernamePasswordAuthenticationToken(
-                        "agent:" + shopId, null,
-                        List.of(new SimpleGrantedAuthority("ROLE_AGENT"))));
-                chain.doFilter(req, res);
-            } finally {
-                TenantContext.clear();
-                SecurityContextHolder.clearContext();
-            }
+            shopId = rows.get(0);
         } catch (Exception e) {
-            log.error("ApiKeyFilter failure: {}", e.toString(), e);
-            res.sendError(500, "auth check failed: " + e.getMessage());
+            log.error("api key lookup failed: {}", e.toString(), e);
+            res.sendError(503, "auth backend unavailable");
+            return;
+        }
+
+        // 2. Populate context and let the controller run.
+        //    Controller exceptions must NOT be swallowed here.
+        log.info("authenticated agent:{}", shopId);
+        TenantContext.set(shopId);
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(
+                "agent:" + shopId, null,
+                List.of(new SimpleGrantedAuthority("ROLE_AGENT"))));
+        try {
+            chain.doFilter(req, res);
+        } finally {
+            TenantContext.clear();
+            SecurityContextHolder.clearContext();
         }
     }
 }
