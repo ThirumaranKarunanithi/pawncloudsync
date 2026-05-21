@@ -12,8 +12,14 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+    validate-on-migrate: false
     schemas: public
     locations: classpath:db/migration
+
+logging:
+  level:
+    com.magizhchi.cloud: DEBUG
+    org.springframework.security.web.FilterChainProxy: INFO
 
 pawnbroking:
   jwt:

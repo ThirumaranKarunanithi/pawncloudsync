@@ -5,6 +5,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -18,6 +20,7 @@ import java.util.List;
 /** For sync agents: Bearer <api_key> -> resolves shop_id from shop_credentials. */
 @Component
 public class ApiKeyFilter extends OncePerRequestFilter {
+    private static final Logger log = LoggerFactory.getLogger(ApiKeyFilter.class);
     private final JdbcTemplate jdbc;
     public ApiKeyFilter(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
@@ -26,31 +29,44 @@ public class ApiKeyFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String path = req.getRequestURI();
         if (!path.startsWith("/v1/sync")) { chain.doFilter(req, res); return; }
+        log.info("ApiKeyFilter saw {} {}", req.getMethod(), path);
 
         String h = req.getHeader("Authorization");
         if (h == null || !h.startsWith("Bearer ")) {
+            log.warn("missing/invalid Authorization header on {}", path);
             res.sendError(401, "missing bearer"); return;
         }
         String key = h.substring(7).trim();
         // skip JWTs - they look like a.b.c
-        if (key.split("\\.").length == 3) { chain.doFilter(req, res); return; }
+        if (key.split("\\.").length == 3) {
+            log.debug("looks like a JWT, skipping API key path");
+            chain.doFilter(req, res); return;
+        }
 
-        List<String> rows = jdbc.queryForList(
-                "SELECT shop_id FROM public.shop_credentials WHERE api_key = ? AND revoked_at IS NULL",
-                String.class, key);
-        if (rows.isEmpty()) { res.sendError(401, "bad api key"); return; }
-
-        String shopId = rows.get(0);
-        TenantContext.set(shopId);
         try {
-            SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(
-                    "agent:" + shopId, null,
-                    List.of(new SimpleGrantedAuthority("ROLE_AGENT"))));
-            chain.doFilter(req, res);
-        } finally {
-            TenantContext.clear();
-            SecurityContextHolder.clearContext();
+            List<String> rows = jdbc.queryForList(
+                    "SELECT shop_id FROM public.shop_credentials WHERE api_key = ? AND revoked_at IS NULL",
+                    String.class, key);
+            if (rows.isEmpty()) {
+                log.warn("unknown api key (prefix={})", key.length() > 10 ? key.substring(0, 10) : key);
+                res.sendError(401, "bad api key"); return;
+            }
+            String shopId = rows.get(0);
+            log.info("authenticated agent:{}", shopId);
+            TenantContext.set(shopId);
+            try {
+                SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(
+                        "agent:" + shopId, null,
+                        List.of(new SimpleGrantedAuthority("ROLE_AGENT"))));
+                chain.doFilter(req, res);
+            } finally {
+                TenantContext.clear();
+                SecurityContextHolder.clearContext();
+            }
+        } catch (Exception e) {
+            log.error("ApiKeyFilter failure: {}", e.toString(), e);
+            res.sendError(500, "auth check failed: " + e.getMessage());
         }
     }
 }
