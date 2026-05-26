@@ -85,6 +85,60 @@ public class ApiService {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply();
     }
 
+    // ── Box-OTP login (passwordless) ─────────────────────────────────────────
+
+    /** Asks the cloud-api to send an OTP for {@code email} via Magizhchi Share. */
+    public static void requestOtp(String email, Callback<Void> cb) {
+        EXEC.execute(() -> {
+            try {
+                JSONObject body = new JSONObject();
+                body.put("email",   email);
+                body.put("shop_id", AppConfig.SHOP_ID);
+                Request req = new Request.Builder()
+                    .url(AppConfig.BOX_SEND_OTP)
+                    .post(RequestBody.create(body.toString(), JSON))
+                    .build();
+                try (Response res = CLIENT.newCall(req).execute()) {
+                    String raw = res.body() != null ? res.body().string() : "";
+                    if (res.isSuccessful()) cb.onSuccess(null);
+                    else cb.onError(extractError(raw, res.code(), "Could not send OTP"));
+                }
+            } catch (Exception e) { cb.onError(e.getMessage()); }
+        });
+    }
+
+    /** Verifies OTP with cloud-api, persists the minted JWT, returns the User. */
+    public static void verifyOtpAndLogin(Context ctx, String email, String code, Callback<User> cb) {
+        EXEC.execute(() -> {
+            try {
+                JSONObject body = new JSONObject();
+                body.put("email",   email);
+                body.put("code",    code);
+                body.put("shop_id", AppConfig.SHOP_ID);
+                Request req = new Request.Builder()
+                    .url(AppConfig.BOX_VERIFY)
+                    .post(RequestBody.create(body.toString(), JSON))
+                    .build();
+                try (Response res = CLIENT.newCall(req).execute()) {
+                    String raw = res.body() != null ? res.body().string() : "";
+                    if (!res.isSuccessful()) {
+                        cb.onError(extractError(raw, res.code(), "OTP verification failed"));
+                        return;
+                    }
+                    JSONObject data = new JSONObject(raw);
+                    User user = User.fromLogin(data, email);
+                    SharedPreferences.Editor ed = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit();
+                    ed.putString("token",        user.token);
+                    ed.putString("userName",     user.userName);
+                    ed.putString("employeeName", user.employeeName);
+                    ed.putString("shopId",       AppConfig.SHOP_ID);
+                    ed.apply();
+                    cb.onSuccess(user);
+                }
+            } catch (Exception e) { cb.onError(e.getMessage()); }
+        });
+    }
+
     public static boolean isLoggedIn(Context ctx) {
         return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).contains("token");
     }

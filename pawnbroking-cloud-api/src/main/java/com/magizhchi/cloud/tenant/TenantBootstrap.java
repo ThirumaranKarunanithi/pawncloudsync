@@ -56,6 +56,8 @@ public class TenantBootstrap implements CommandLineRunner {
                     "VALUES (?,?,?) ON CONFLICT (shop_id) DO NOTHING",
                     shopId, schema, capitalize(shopId));
 
+        ensurePrimaryEmail(shopId);
+
         // apply DDL inside the tenant schema using search_path
         try (var conn = jdbc.getDataSource().getConnection()) {
             try (var st = conn.createStatement()) {
@@ -100,6 +102,38 @@ public class TenantBootstrap implements CommandLineRunner {
      *   MOBILE_SEED_USER_<SHOP>   (e.g. MOBILE_SEED_USER_ALWARPURAM)
      *   MOBILE_SEED_PASS_<SHOP>
      */
+    /**
+     * Records the designated login email for this shop. The Android app
+     * for this tenant can ONLY be signed into by this email (BoxAuthController
+     * enforces the match), and the same email is the one that should own
+     * the shop's Magizhchi Share drive for image uploads.
+     *
+     * Source of truth, in order:
+     *   1. TENANT_EMAIL_<SHOP> env var (set per environment in Railway)
+     *   2. hardcoded default for known shops below
+     *   3. left null — admin sets it manually via UPDATE public.tenants
+     */
+    private void ensurePrimaryEmail(String shopId) {
+        String defaultEmail;
+        switch (shopId) {
+            case "alwarpuram": defaultEmail = "rajeshwarialwarpuram@gmail.com"; break;
+            case "mylocal":    defaultEmail = "tirukaruna@gmail.com";           break;
+            default:           defaultEmail = null;
+        }
+        String email = System.getenv("TENANT_EMAIL_" + shopId.toUpperCase());
+        if (email == null || email.isBlank()) email = defaultEmail;
+        if (email == null || email.isBlank()) {
+            log.warn("no primary email set for shop '{}' — mobile login will be blocked " +
+                     "until you UPDATE public.tenants SET primary_email='...' WHERE shop_id='{}'",
+                     shopId, shopId);
+            return;
+        }
+        String normalized = email.trim().toLowerCase();
+        jdbc.update("UPDATE public.tenants SET primary_email = ? WHERE shop_id = ?",
+                    normalized, shopId);
+        log.info("primary email for shop '{}' = {}", shopId, normalized);
+    }
+
     private void seedSharedUser(String shopId) {
         String defaultUser = "alwarpuram".equals(shopId) ? "rajeshwarialwarpuram@gmail.com" : null;
         String defaultPass = "alwarpuram".equals(shopId) ? "HappyKutty" : null;

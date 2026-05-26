@@ -27,10 +27,13 @@ pawnbroking:
     access-ttl-minutes: 60
     refresh-ttl-days: 30
   # comma-separated list of tenant schemas to provision on startup
-  tenants: ${TENANTS:alwarpuram,annanagar}
+  tenants: ${TENANTS:alwarpuram,annanagar,mylocal}
   fcm:
     credentials-path: ${GOOGLE_APPLICATION_CREDENTIALS:}
     enabled: ${FCM_ENABLED:false}
+  # Magizhchi Share ("the box") — used for passwordless email-OTP login
+  box:
+    url: ${MAGIZHCHI_BOX_URL:https://box.magizhchi.software}
 
 springdoc:
   swagger-ui:

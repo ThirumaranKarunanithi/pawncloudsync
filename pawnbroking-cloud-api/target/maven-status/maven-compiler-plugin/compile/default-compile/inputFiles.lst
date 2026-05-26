@@ -1,5 +1,6 @@
 D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-cloud-api\src\main\java\com\magizhchi\cloud\auth\ApiKeyFilter.java
 D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-cloud-api\src\main\java\com\magizhchi\cloud\auth\AuthController.java
+D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-cloud-api\src\main\java\com\magizhchi\cloud\auth\BoxAuthController.java
 D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-cloud-api\src\main\java\com\magizhchi\cloud\auth\JwtFilter.java
 D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-cloud-api\src\main\java\com\magizhchi\cloud\auth\JwtService.java
 D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-cloud-api\src\main\java\com\magizhchi\cloud\auth\SecurityConfig.java

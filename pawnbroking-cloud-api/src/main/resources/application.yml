@@ -31,6 +31,9 @@ pawnbroking:
   fcm:
     credentials-path: ${GOOGLE_APPLICATION_CREDENTIALS:}
     enabled: ${FCM_ENABLED:false}
+  # Magizhchi Share ("the box") — used for passwordless email-OTP login
+  box:
+    url: ${MAGIZHCHI_BOX_URL:https://box.magizhchi.software}
 
 springdoc:
   swagger-ui:

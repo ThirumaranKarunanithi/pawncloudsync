@@ -3,8 +3,11 @@ com\magizhchi\cloud\sync\SyncController.class
 com\magizhchi\cloud\devices\DeviceController.class
 com\magizhchi\cloud\tenant\TenantBootstrap.class
 com\magizhchi\cloud\auth\AuthController.class
+com\magizhchi\cloud\auth\BoxAuthController.class
 com\magizhchi\cloud\auth\JwtService.class
 com\magizhchi\cloud\tenant\TenantContext.class
+com\magizhchi\cloud\auth\BoxAuthController$VerifyRequest.class
+com\magizhchi\cloud\auth\BoxAuthController$SendOtpRequest.class
 com\magizhchi\cloud\data\DataController.class
 com\magizhchi\cloud\auth\JwtFilter.class
 com\magizhchi\cloud\auth\AuthController$LoginRequest.class

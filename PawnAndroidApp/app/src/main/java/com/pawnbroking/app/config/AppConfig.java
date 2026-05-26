@@ -17,6 +17,8 @@ public class AppConfig {
 
     // ── Auth & devices ────────────────────────────────────────────────────────
     public static final String LOGIN              = BASE_URL + "/v1/auth/mobile";
+    public static final String BOX_SEND_OTP       = BASE_URL + "/v1/auth/box/send-otp";
+    public static final String BOX_VERIFY         = BASE_URL + "/v1/auth/box/verify";
     public static final String DEVICES            = BASE_URL + "/v1/devices";
 
     // ── Generic projection data API ───────────────────────────────────────────

@@ -14,6 +14,18 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.pawnbroking.app.models.User;
 import com.pawnbroking.app.services.ApiService;
 
+/**
+ * Two-tap email-OTP login over Magizhchi Share.
+ *
+ * The layout (single email field, single OTP field, single button) is
+ * intentionally unchanged — the same widgets drive both steps:
+ *   • Step 1: OTP field empty → "Send OTP" sends a code to the email
+ *   • Step 2: OTP field filled → "Verify & Sign In" exchanges the code
+ *
+ * The password-toggle eye icon stays useful for the OTP step (lets the
+ * user reveal what they typed). A long-press on the button resends a
+ * fresh OTP if the user wants one.
+ */
 public class LoginActivity extends AppCompatActivity {
 
     private EditText etUsername, etPassword;
@@ -22,18 +34,23 @@ public class LoginActivity extends AppCompatActivity {
     private TextView tvError;
     private ImageButton ibTogglePass;
     private boolean passVisible = false;
+    private boolean otpSent     = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        etUsername  = findViewById(R.id.etUsername);
-        etPassword  = findViewById(R.id.etPassword);
-        btnLogin    = findViewById(R.id.btnLogin);
-        progressBar = findViewById(R.id.progressBar);
-        tvError     = findViewById(R.id.tvError);
+        etUsername   = findViewById(R.id.etUsername);
+        etPassword   = findViewById(R.id.etPassword);
+        btnLogin     = findViewById(R.id.btnLogin);
+        progressBar  = findViewById(R.id.progressBar);
+        tvError      = findViewById(R.id.tvError);
         ibTogglePass = findViewById(R.id.ibTogglePass);
+
+        etUsername.setHint("Email");
+        etPassword.setHint("Tap \"Send OTP\" first");
+        btnLogin.setText("Send OTP");
 
         ibTogglePass.setOnClickListener(v -> {
             passVisible = !passVisible;
@@ -45,35 +62,78 @@ public class LoginActivity extends AppCompatActivity {
             ibTogglePass.setImageResource(passVisible ? android.R.drawable.ic_menu_view : android.R.drawable.ic_secure);
         });
 
-        btnLogin.setOnClickListener(v -> doLogin());
+        btnLogin.setOnClickListener(v -> onLoginTap());
+        // Long-press resends a fresh OTP without leaving the screen.
+        btnLogin.setOnLongClickListener(v -> {
+            String email = etUsername.getText().toString().trim();
+            if (!email.isEmpty()) sendOtp(email);
+            return true;
+        });
     }
 
-    private void doLogin() {
-        String user = etUsername.getText().toString().trim();
-        String pass = etPassword.getText().toString().trim();
-        if (user.isEmpty()) { etUsername.setError("Enter username"); return; }
-        if (pass.isEmpty()) { etPassword.setError("Enter password"); return; }
+    private void onLoginTap() {
+        String email = etUsername.getText().toString().trim();
+        String code  = etPassword.getText().toString().trim();
+        if (email.isEmpty()) { etUsername.setError("Enter email"); return; }
 
-        tvError.setVisibility(View.GONE);
-        progressBar.setVisibility(View.VISIBLE);
-        btnLogin.setEnabled(false);
+        if (!otpSent || code.isEmpty()) {
+            sendOtp(email);
+        } else {
+            verifyOtp(email, code);
+        }
+    }
 
-        ApiService.login(this, user, pass, new ApiService.Callback<User>() {
+    private void sendOtp(String email) {
+        showError(null);
+        setBusy(true);
+        ApiService.requestOtp(email, new ApiService.Callback<Void>() {
+            @Override public void onSuccess(Void result) {
+                runOnUiThread(() -> {
+                    setBusy(false);
+                    otpSent = true;
+                    etPassword.setHint("Enter 6-digit OTP");
+                    etPassword.requestFocus();
+                    btnLogin.setText("Verify & Sign In");
+                    showInfo("OTP sent to " + email);
+                });
+            }
+            @Override public void onError(String message) {
+                runOnUiThread(() -> { setBusy(false); showError(message); });
+            }
+        });
+    }
+
+    private void verifyOtp(String email, String code) {
+        showError(null);
+        setBusy(true);
+        ApiService.verifyOtpAndLogin(this, email, code, new ApiService.Callback<User>() {
             @Override public void onSuccess(User result) {
                 runOnUiThread(() -> {
-                    progressBar.setVisibility(View.GONE);
+                    setBusy(false);
                     startActivity(new Intent(LoginActivity.this, HomeActivity.class));
                     finish();
                 });
             }
             @Override public void onError(String message) {
-                runOnUiThread(() -> {
-                    progressBar.setVisibility(View.GONE);
-                    btnLogin.setEnabled(true);
-                    tvError.setText(message);
-                    tvError.setVisibility(View.VISIBLE);
-                });
+                runOnUiThread(() -> { setBusy(false); showError(message); });
             }
         });
+    }
+
+    private void setBusy(boolean busy) {
+        progressBar.setVisibility(busy ? View.VISIBLE : View.GONE);
+        btnLogin.setEnabled(!busy);
+    }
+
+    private void showError(String msg) {
+        if (msg == null || msg.isEmpty()) { tvError.setVisibility(View.GONE); return; }
+        tvError.setText(msg);
+        tvError.setVisibility(View.VISIBLE);
+    }
+
+    /** Reuses the error TextView as a neutral status line. */
+    private void showInfo(String msg) {
+        tvError.setText(msg);
+        tvError.setVisibility(View.VISIBLE);
     }
 }
