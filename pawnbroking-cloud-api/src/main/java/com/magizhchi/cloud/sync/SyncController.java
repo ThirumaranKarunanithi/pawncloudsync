@@ -6,8 +6,11 @@ import com.magizhchi.cloud.tenant.TenantContext;
 import com.magizhchi.cloud.tenant.TenantJdbc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.ConnectionCallback;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.sql.Savepoint;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.*;
@@ -38,53 +41,81 @@ public class SyncController {
         }
         @SuppressWarnings("unchecked")
         List<Map<String,Object>> events = (List<Map<String,Object>>) body.getOrDefault("events", List.of());
-        int[] counts = new int[]{0, 0};   // [accepted, duplicates]
+        int[] counts = new int[]{0, 0, 0};   // [accepted, duplicates, skipped]
         List<NotificationItem> notifs = new ArrayList<>();
 
         tenantJdbc.inTenant(jdbc -> {
             for (Map<String,Object> e : events) {
                 String eventId = (String) e.get("event_id");
-                String table   = (String) e.get("table");
-                String op      = (String) e.get("op");
-                String rowPk   = (String) e.get("row_pk");
-                Object payload = e.get("payload");
-                Timestamp created = Timestamp.from(
-                        Instant.parse((String) e.get("created_at")));
-                int n = jdbc.update(
-                    "INSERT INTO events(event_id, table_name, op, row_pk, payload, created_at) " +
-                    "VALUES (?::uuid, ?, ?, ?, ?::jsonb, ?) ON CONFLICT (event_id) DO NOTHING",
-                    eventId, table, op, rowPk, toJson(payload), created);
-                if (n == 0) { counts[1]++; continue; }
-                counts[0]++;
-
-                // Update projection
-                if ("D".equals(op)) {
-                    jdbc.update("UPDATE projections SET deleted = TRUE, last_op = 'D', " +
-                                "last_event_id = ?::uuid, last_updated_at = now() " +
-                                "WHERE table_name = ? AND row_pk = ?",
-                                eventId, table, rowPk);
-                } else {
-                    jdbc.update(
-                        "INSERT INTO projections(table_name,row_pk,payload,last_op,last_event_id,deleted) " +
-                        "VALUES (?,?,?::jsonb,?,?::uuid,FALSE) " +
-                        "ON CONFLICT (table_name,row_pk) DO UPDATE SET " +
-                        "  payload = EXCLUDED.payload, last_op = EXCLUDED.last_op, " +
-                        "  last_event_id = EXCLUDED.last_event_id, last_updated_at = now(), " +
-                        "  deleted = FALSE",
-                        table, rowPk, toJson(payload), op, eventId);
-                }
-
-                NotificationItem ni = humanize(table, op, rowPk, payload);
-                jdbc.update("INSERT INTO notifications(event_id, title, body, table_name, row_pk) " +
-                            "VALUES (?::uuid, ?, ?, ?, ?)",
-                            eventId, ni.title, ni.body, table, rowPk);
-                notifs.add(ni);
+                // Per-event SAVEPOINT so one poison row can't roll back the
+                // whole batch (a Postgres tx aborts on any SQLException and
+                // refuses all subsequent statements until rollback).
+                jdbc.execute((ConnectionCallback<Void>) conn -> {
+                    Savepoint sp = conn.setSavepoint();
+                    try {
+                        applyEvent(jdbc, e, counts, notifs);
+                        conn.releaseSavepoint(sp);
+                    } catch (Exception ex) {
+                        conn.rollback(sp);
+                        counts[2]++;
+                        log.warn("skipped event {} ({}): {}",
+                                 eventId, e.get("table"), ex.getMessage());
+                    }
+                    return null;
+                });
             }
             return null;
         });
 
         if (!notifs.isEmpty()) fcm.broadcast(ctxShop, notifs);
-        return Map.of("accepted", counts[0], "duplicates", counts[1]);
+        return Map.of("accepted", counts[0], "duplicates", counts[1], "skipped", counts[2]);
+    }
+
+    private void applyEvent(JdbcTemplate jdbc, Map<String,Object> e,
+                            int[] counts, List<NotificationItem> notifs) {
+        String eventId = (String) e.get("event_id");
+        String table   = (String) e.get("table");
+        String op      = (String) e.get("op");
+        String rowPk   = (String) e.get("row_pk");
+        Object payload = e.get("payload");
+        // Some local-DB triggers don't emit row_pk for tables with composite
+        // primary keys (e.g. company_advance_amount). Synthesize a stable
+        // key from event_id so the projections NOT NULL constraint is
+        // satisfied and the row is still queryable. Same event_id always
+        // maps to the same synthesized row_pk, so re-delivery is idempotent.
+        if (rowPk == null || rowPk.isBlank()) rowPk = "evt:" + eventId;
+        Timestamp created = e.get("created_at") != null
+                ? Timestamp.from(Instant.parse((String) e.get("created_at")))
+                : new Timestamp(System.currentTimeMillis());
+
+        int n = jdbc.update(
+            "INSERT INTO events(event_id, table_name, op, row_pk, payload, created_at) " +
+            "VALUES (?::uuid, ?, ?, ?, ?::jsonb, ?) ON CONFLICT (event_id) DO NOTHING",
+            eventId, table, op, rowPk, toJson(payload), created);
+        if (n == 0) { counts[1]++; return; }
+        counts[0]++;
+
+        if ("D".equals(op)) {
+            jdbc.update("UPDATE projections SET deleted = TRUE, last_op = 'D', " +
+                        "last_event_id = ?::uuid, last_updated_at = now() " +
+                        "WHERE table_name = ? AND row_pk = ?",
+                        eventId, table, rowPk);
+        } else {
+            jdbc.update(
+                "INSERT INTO projections(table_name,row_pk,payload,last_op,last_event_id,deleted) " +
+                "VALUES (?,?,?::jsonb,?,?::uuid,FALSE) " +
+                "ON CONFLICT (table_name,row_pk) DO UPDATE SET " +
+                "  payload = EXCLUDED.payload, last_op = EXCLUDED.last_op, " +
+                "  last_event_id = EXCLUDED.last_event_id, last_updated_at = now(), " +
+                "  deleted = FALSE",
+                table, rowPk, toJson(payload), op, eventId);
+        }
+
+        NotificationItem ni = humanize(table, op, rowPk, payload);
+        jdbc.update("INSERT INTO notifications(event_id, title, body, table_name, row_pk) " +
+                    "VALUES (?::uuid, ?, ?, ?, ?)",
+                    eventId, ni.title, ni.body, table, rowPk);
+        notifs.add(ni);
     }
 
     private static String toJson(Object o) {
