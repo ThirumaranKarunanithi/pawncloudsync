@@ -27,9 +27,21 @@ public class JwtFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
             throws ServletException, IOException {
         String h = req.getHeader("Authorization");
-        if (h == null || !h.startsWith("Bearer ")) { chain.doFilter(req, res); return; }
+        if (h == null || !h.startsWith("Bearer ")) {
+            // Diagnostic: any /v1/data or /v1/auth/box request without auth is a client bug.
+            String path = req.getRequestURI();
+            if (path.startsWith("/v1/data") || path.startsWith("/v1/auth/box/verify")) {
+                log.warn("missing Authorization header on {} {}  (UA={})",
+                         req.getMethod(), path, req.getHeader("User-Agent"));
+            }
+            chain.doFilter(req, res); return;
+        }
         String token = h.substring(7).trim();
-        if (token.split("\\.").length != 3) { chain.doFilter(req, res); return; } // not a JWT
+        if (token.split("\\.").length != 3) {
+            log.warn("Authorization present but not a JWT (parts={}) on {} {}",
+                     token.split("\\.").length, req.getMethod(), req.getRequestURI());
+            chain.doFilter(req, res); return;
+        }
 
         // 1. Validate the JWT itself. ONLY a JWT problem returns 401 here.
         Claims c;

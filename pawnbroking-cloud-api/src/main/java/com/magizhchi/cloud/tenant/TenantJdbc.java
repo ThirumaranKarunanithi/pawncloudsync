@@ -1,8 +1,10 @@
 package com.magizhchi.cloud.tenant;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -24,7 +26,8 @@ public class TenantJdbc {
 
     public <T> T inTenant(Function<JdbcTemplate, T> work) {
         String shop = TenantContext.get();
-        if (shop == null) throw new IllegalStateException("no tenant in context");
+        if (shop == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                "missing or invalid Authorization header (no tenant in context)");
         if (!shop.matches("[a-z0-9_]+")) throw new IllegalStateException("bad shop: " + shop);
 
         try (Connection conn = ds.getConnection()) {
