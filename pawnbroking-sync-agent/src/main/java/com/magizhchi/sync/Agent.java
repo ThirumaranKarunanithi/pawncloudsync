@@ -24,6 +24,11 @@ public class Agent {
         hc.setPoolName("pawnbroking-sync");
         HikariDataSource ds = new HikariDataSource(hc);
 
+        // Self-heal the local DB schema BEFORE anything else touches sync_outbox.
+        // If the user just restored the DB and lost our triggers, this fixes it.
+        SchemaGuard guard = new SchemaGuard(ds, cfg.shopId, cfg.schemaGuardIntervalMs);
+        guard.ensureNow();
+
         CloudClient cloud = new CloudClient(cfg);
         OutboxDrainer drainer = new OutboxDrainer(ds, cloud, cfg);
         ListenWorker listener = new ListenWorker(cfg, drainer);
@@ -34,15 +39,18 @@ public class Agent {
             log.info("shutdown signal received");
             drainer.stop();
             listener.stop();
+            guard.stop();
             health.stop();
             ds.close();
             stop.countDown();
         }));
 
-        Thread tDrain = new Thread(drainer, "drainer");
+        Thread tDrain  = new Thread(drainer,  "drainer");
         Thread tListen = new Thread(listener, "listener");
+        Thread tGuard  = new Thread(guard,    "schema-guard");
         tDrain.start();
         tListen.start();
+        tGuard.start();
         health.start();
 
         stop.await();

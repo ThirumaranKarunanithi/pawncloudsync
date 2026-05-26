@@ -1,0 +1,16 @@
+com\magizhchi\cloud\auth\SecurityConfig.class
+com\magizhchi\cloud\sync\SyncController.class
+com\magizhchi\cloud\devices\DeviceController.class
+com\magizhchi\cloud\tenant\TenantBootstrap.class
+com\magizhchi\cloud\auth\AuthController.class
+com\magizhchi\cloud\auth\JwtService.class
+com\magizhchi\cloud\tenant\TenantContext.class
+com\magizhchi\cloud\data\DataController.class
+com\magizhchi\cloud\auth\JwtFilter.class
+com\magizhchi\cloud\auth\AuthController$LoginRequest.class
+com\magizhchi\cloud\auth\ApiKeyFilter.class
+com\magizhchi\cloud\devices\DeviceController$DeviceReq.class
+com\magizhchi\cloud\sync\SyncController$NotificationItem.class
+com\magizhchi\cloud\fcm\FcmService.class
+com\magizhchi\cloud\CloudApiApplication.class
+com\magizhchi\cloud\tenant\TenantJdbc.class

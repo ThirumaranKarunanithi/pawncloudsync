@@ -26,7 +26,7 @@ android {
     kotlinOptions { jvmTarget = "17" }
     buildTypes {
         debug   { buildConfigField("String", "API_BASE", "\"http://10.0.2.2:8080\"") }
-        release { buildConfigField("String", "API_BASE", "\"https://your-cloud.example.com\"") }
+        release { buildConfigField("String", "API_BASE", "\"https://devpawn.magizhchi.academy\"") }
     }
 }
 

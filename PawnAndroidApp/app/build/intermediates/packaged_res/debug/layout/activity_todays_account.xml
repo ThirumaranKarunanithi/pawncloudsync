@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_dark"
+    android:orientation="vertical">
+
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/bg_card"
+        android:theme="@style/ToolbarTheme"
+        app:titleTextColor="@color/gold" />
+
+    <!-- Company + Date Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_card"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="10dp">
+
+        <TextView
+            android:id="@+id/tvCompanyName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="@color/white"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <ImageButton
+            android:id="@+id/btnPickDate"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="@null"
+            android:src="@android:drawable/ic_menu_today"
+            android:tint="@color/gold" />
+
+        <TextView
+            android:id="@+id/tvSelectedDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textColor="@color/gold"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Account Status badge (YET TO CLOSE / CLOSED) -->
+    <LinearLayout
+        android:id="@+id/layoutStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
+        android:background="@color/bg_card"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Account Status"
+            android:textColor="@color/white54"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/tvAccountStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_card" />
+    </LinearLayout>
+
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="48dp"
+        android:indeterminateTint="@color/gold"
+        android:visibility="gone" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:id="@+id/layoutContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp"
+            android:visibility="gone">
+
+            <!-- ── Previous Day Balance Card ── -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_card"
+                android:orientation="vertical"
+                android:padding="14dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="PREVIOUS DAY"
+                    android:textColor="@color/gold"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.1" />
+
+                <View android:layout_width="match_parent" android:layout_height="1dp"
+                    android:background="#1AFFFFFF" android:layout_marginTop="6dp" android:layout_marginBottom="8dp"/>
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="Date"
+                        android:textColor="@color/white54" android:textSize="12sp" />
+                    <TextView android:id="@+id/tvPreDate"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:textColor="@color/white" android:textSize="12sp" />
+                </LinearLayout>
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp" android:orientation="horizontal">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="Actual Balance"
+                        android:textColor="@color/white54" android:textSize="12sp" />
+                    <TextView android:id="@+id/tvPreActual"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:textColor="@color/blue" android:textSize="12sp" android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp" android:orientation="horizontal">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="Available Balance"
+                        android:textColor="@color/white54" android:textSize="12sp" />
+                    <TextView android:id="@+id/tvPreAvailable"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:textColor="@color/green" android:textSize="12sp" android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp" android:orientation="horizontal">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="Deficit"
+                        android:textColor="@color/white54" android:textSize="12sp" />
+                    <TextView android:id="@+id/tvPreDeficit"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:textSize="12sp" android:textStyle="bold" />
+                </LinearLayout>
+
+                <TextView android:id="@+id/tvPreNote"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textColor="@color/white54" android:textSize="11sp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <!-- ── Operations Table Card ── -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_card"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:padding="14dp"
+                    android:paddingBottom="8dp"
+                    android:text="OPERATIONS"
+                    android:textColor="@color/gold"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.1" />
+
+                <HorizontalScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:scrollbars="horizontal">
+
+                    <TableLayout
+                        android:id="@+id/tableOperations"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:stretchColumns="0">
+
+                        <!-- Header row -->
+                        <TableRow android:background="#0D000000" android:padding="6dp">
+                            <TextView android:text="Operation"
+                                android:textColor="@color/gold" android:textSize="11sp"
+                                android:textStyle="bold" android:padding="8dp" />
+                            <TextView android:text="Count"
+                                android:textColor="@color/gold" android:textSize="11sp"
+                                android:textStyle="bold" android:padding="8dp"
+                                android:gravity="center" android:minWidth="50dp" />
+                            <TextView android:text="Debit"
+                                android:textColor="@color/gold" android:textSize="11sp"
+                                android:textStyle="bold" android:padding="8dp"
+                                android:gravity="end" android:minWidth="80dp" />
+                            <TextView android:text="Credit"
+                                android:textColor="@color/gold" android:textSize="11sp"
+                                android:textStyle="bold" android:padding="8dp"
+                                android:gravity="end" android:minWidth="80dp" />
+                        </TableRow>
+
+                    </TableLayout>
+                </HorizontalScrollView>
+
+                <!-- Totals row -->
+                <View android:layout_width="match_parent" android:layout_height="1dp"
+                    android:background="#33FFFFFF" android:layout_marginTop="4dp" />
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:padding="12dp">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="TOTAL"
+                        android:textColor="@color/gold" android:textSize="13sp" android:textStyle="bold" />
+                    <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:orientation="vertical" android:gravity="end">
+                        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:text="Debit: " android:textColor="@color/white54" android:textSize="12sp" />
+                            <TextView android:id="@+id/tvTotalDebit"
+                                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:textColor="#EF9A9A" android:textSize="12sp" android:textStyle="bold" />
+                        </LinearLayout>
+                        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:orientation="horizontal" android:layout_marginTop="4dp">
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:text="Credit: " android:textColor="@color/white54" android:textSize="12sp" />
+                            <TextView android:id="@+id/tvTotalCredit"
+                                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:textColor="#A5D6A7" android:textSize="12sp" android:textStyle="bold" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- ── Today's Balance Card ── -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_card"
+                android:orientation="vertical"
+                android:padding="14dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="TODAY'S BALANCE"
+                    android:textColor="@color/gold"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.1" />
+
+                <View android:layout_width="match_parent" android:layout_height="1dp"
+                    android:background="#1AFFFFFF" android:layout_marginTop="6dp" android:layout_marginBottom="8dp"/>
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="Actual Balance"
+                        android:textColor="@color/white54" android:textSize="12sp" />
+                    <TextView android:id="@+id/tvActualBalance"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:textColor="@color/blue" android:textSize="14sp" android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp" android:orientation="horizontal">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="Available Balance"
+                        android:textColor="@color/white54" android:textSize="12sp" />
+                    <TextView android:id="@+id/tvAvailableBalance"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:textColor="@color/green" android:textSize="14sp" android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp" android:orientation="horizontal">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="Deficit"
+                        android:textColor="@color/white54" android:textSize="12sp" />
+                    <TextView android:id="@+id/tvDeficit"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:textSize="14sp" android:textStyle="bold" />
+                </LinearLayout>
+
+                <TextView android:id="@+id/tvTodaysNote"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textColor="@color/white54" android:textSize="11sp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <View android:layout_width="1dp" android:layout_height="16dp" />
+
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

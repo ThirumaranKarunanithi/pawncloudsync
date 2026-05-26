@@ -1,0 +1,110 @@
+[
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/drawable_bg_card.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/drawable/bg_card.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/drawable_chip_unselected.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/drawable/chip_unselected.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/layout_activity_settings.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/layout/activity_settings.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/layout_item_customer.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/layout/item_customer.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/drawable_bg_input.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/drawable/bg_input.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/drawable_ic_launcher_background.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/drawable/ic_launcher_background.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/layout_item_bill.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/layout/item_bill.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/layout_activity_bills.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/layout/activity_bills.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/layout_activity_account_detail.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/layout/activity_account_detail.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/layout_activity_login.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/layout/activity_login.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/layout_activity_home.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/layout/activity_home.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/drawable_ic_logo.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/drawable/ic_logo.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/layout_activity_stock_details.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/layout/activity_stock_details.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/drawable_chip_selected.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/drawable/chip_selected.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/drawable_chip_filter.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/drawable/chip_filter.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/layout_activity_bill_detail.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/layout/activity_bill_detail.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/layout_activity_monthly_report.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/layout/activity_monthly_report.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/layout_activity_trial_balance.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/layout/activity_trial_balance.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/layout_activity_todays_account.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/layout/activity_todays_account.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/menu_menu_detail.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/menu/menu_detail.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/layout_activity_customers.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/layout/activity_customers.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/layout_activity_billing.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/layout/activity_billing.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/menu_menu_home.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/menu/menu_home.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/layout_item_stock_bill.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/layout/item_stock_bill.xml"
+    }
+]

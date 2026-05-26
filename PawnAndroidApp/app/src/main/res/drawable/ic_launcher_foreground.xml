@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Rajeshwari Pawn Broking launcher foreground.
+    Rendered inside the standard 108×108dp adaptive-icon safe zone (72×72dp).
+    Gold "R" centred on a transparent field, surrounded by a thin decorative ring.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer decorative ring -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#E6B800"
+        android:strokeWidth="2"
+        android:pathData="M54,18 A36,36 0 1,1 53.99,18 Z" />
+
+    <!-- Inner ring (thinner) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#E6B800"
+        android:strokeWidth="0.8"
+        android:pathData="M54,23 A31,31 0 1,1 53.99,23 Z" />
+
+    <!-- Four small diamond ornaments at cardinal points -->
+    <path
+        android:fillColor="#E6B800"
+        android:pathData="M54,14 L56,18 L54,22 L52,18 Z" />
+    <path
+        android:fillColor="#E6B800"
+        android:pathData="M54,86 L56,90 L54,94 L52,90 Z" />
+    <path
+        android:fillColor="#E6B800"
+        android:pathData="M14,54 L18,52 L22,54 L18,56 Z" />
+    <path
+        android:fillColor="#E6B800"
+        android:pathData="M86,54 L90,52 L94,54 L90,56 Z" />
+
+    <!-- Gold "R" glyph — drawn as filled paths, centred in ~108×108 viewport -->
+    <!-- Vertical stem -->
+    <path
+        android:fillColor="#E6B800"
+        android:pathData="M38,30 L46,30 L46,78 L38,78 Z" />
+    <!-- Top bowl of R: outer arc right side -->
+    <path
+        android:fillColor="#E6B800"
+        android:pathData="
+            M46,30 L62,30
+            Q76,30 76,44
+            Q76,58 62,58
+            L46,58 Z" />
+    <!-- Top bowl inner cutout (creates the bowl hollow) -->
+    <path
+        android:fillColor="#0C1B33"
+        android:pathData="
+            M48,36 L61,36
+            Q68,36 68,44
+            Q68,52 61,52
+            L48,52 Z" />
+    <!-- Leg of R (diagonal from bowl junction) -->
+    <path
+        android:fillColor="#E6B800"
+        android:pathData="M53,58 L62,58 L70,78 L61,78 Z" />
+
+</vector>

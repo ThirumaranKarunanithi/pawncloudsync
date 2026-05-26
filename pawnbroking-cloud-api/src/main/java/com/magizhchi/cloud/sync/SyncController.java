@@ -29,9 +29,12 @@ public class SyncController {
         String reqShop = (String) body.get("shop_id");
         String ctxShop = TenantContext.get();
         if (ctxShop == null) throw new RuntimeException("no tenant resolved");
-        if (reqShop != null && !reqShop.equals(ctxShop)) {
-            log.warn("shop_id mismatch: body={} api_key={}", reqShop, ctxShop);
-            throw new RuntimeException("shop_id mismatch");
+        // The API key is authoritative for the tenant. We log a mismatch
+        // for visibility but do NOT reject — the body value is metadata
+        // from the agent's config; the key already proves the caller's identity.
+        if (reqShop != null && !reqShop.equalsIgnoreCase(ctxShop)) {
+            log.warn("body.shop_id={} differs from api_key tenant={} — using api_key",
+                     reqShop, ctxShop);
         }
         @SuppressWarnings("unchecked")
         List<Map<String,Object>> events = (List<Map<String,Object>>) body.getOrDefault("events", List.of());

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Light-mode colours. Dark-mode overrides are in values-night/colors.xml -->
+<resources>
+    <color name="bg_dark">#F0F4F8</color>
+    <color name="bg_card">#FFFFFF</color>
+    <color name="card_border">#E2E8F0</color>
+    <color name="gold">#B45309</color>
+    <color name="gold_dark">#92400E</color>
+    <color name="white">#0F172A</color>
+    <color name="white54">#64748B</color>
+    <color name="white38">#94A3B8</color>
+    <color name="green">#15803D</color>
+    <color name="orange">#C2410C</color>
+    <color name="blue">#1D4ED8</color>
+    <color name="red">#B91C1C</color>
+</resources>

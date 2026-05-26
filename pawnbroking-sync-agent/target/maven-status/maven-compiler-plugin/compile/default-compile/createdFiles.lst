@@ -1,0 +1,9 @@
+com\magizhchi\sync\AgentState.class
+com\magizhchi\sync\Config.class
+com\magizhchi\sync\ListenWorker.class
+com\magizhchi\sync\OutboxDrainer.class
+com\magizhchi\sync\HealthServer.class
+com\magizhchi\sync\SchemaGuard.class
+com\magizhchi\sync\CloudClient$Result.class
+com\magizhchi\sync\Agent.class
+com\magizhchi\sync\CloudClient.class

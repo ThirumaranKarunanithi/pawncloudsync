@@ -10,17 +10,19 @@ public final class Config {
     public final String cloudUrl, cloudApiKey, shopId;
     public final int batchSize, healthPort;
     public final long pollIntervalMs;
+    public final long schemaGuardIntervalMs;
 
     private Config(Properties p) {
-        this.dbUrl          = require(p, "db.url");
-        this.dbUser         = require(p, "db.user");
-        this.dbPassword     = require(p, "db.password");
-        this.cloudUrl       = require(p, "cloud.url");
-        this.cloudApiKey    = require(p, "cloud.api_key");
-        this.shopId         = require(p, "shop.id");
-        this.batchSize      = Integer.parseInt(p.getProperty("batch.size", "200"));
-        this.pollIntervalMs = Long.parseLong(p.getProperty("poll.interval.ms", "5000"));
-        this.healthPort     = Integer.parseInt(p.getProperty("health.port", "17654"));
+        this.dbUrl                 = require(p, "db.url");
+        this.dbUser                = require(p, "db.user");
+        this.dbPassword            = require(p, "db.password");
+        this.cloudUrl              = require(p, "cloud.url");
+        this.cloudApiKey           = require(p, "cloud.api_key");
+        this.shopId                = require(p, "shop.id");
+        this.batchSize             = Integer.parseInt(p.getProperty("batch.size", "200"));
+        this.pollIntervalMs        = Long.parseLong(p.getProperty("poll.interval.ms", "5000"));
+        this.healthPort            = Integer.parseInt(p.getProperty("health.port", "17654"));
+        this.schemaGuardIntervalMs = Long.parseLong(p.getProperty("schema.guard.interval.ms", "30000"));
     }
 
     private static String require(Properties p, String k) {

@@ -86,6 +86,36 @@ public class TenantBootstrap implements CommandLineRunner {
                         "VALUES (?,?,?,'admin')", shopId, "admin", hash);
             log.warn("default mobile login for shop '{}': admin / admin   (CHANGE IT)", shopId);
         }
+
+        seedSharedUser(shopId);
+    }
+
+    /**
+     * Idempotently seeds the "magizhchi share" mobile user for the alwarpuram
+     * tenant — used by the Android app to log in without an admin re-entering
+     * credentials each time. Safe to re-run: password is updated to match the
+     * configured value on every boot so credential drift can't lock anyone out.
+     *
+     * Overridable per shop via env vars:
+     *   MOBILE_SEED_USER_<SHOP>   (e.g. MOBILE_SEED_USER_ALWARPURAM)
+     *   MOBILE_SEED_PASS_<SHOP>
+     */
+    private void seedSharedUser(String shopId) {
+        String defaultUser = "alwarpuram".equals(shopId) ? "rajeshwarialwarpuram@gmail.com" : null;
+        String defaultPass = "alwarpuram".equals(shopId) ? "HappyKutty" : null;
+        if (defaultUser == null) return;
+
+        String envSuffix = shopId.toUpperCase();
+        String username = System.getenv().getOrDefault("MOBILE_SEED_USER_" + envSuffix, defaultUser);
+        String password = System.getenv().getOrDefault("MOBILE_SEED_PASS_" + envSuffix, defaultPass);
+        String hash = new BCryptPasswordEncoder().encode(password);
+
+        jdbc.update(
+            "INSERT INTO public.app_users(shop_id, username, password_hash, role) " +
+            "VALUES (?,?,?,'admin') " +
+            "ON CONFLICT (shop_id, username) DO UPDATE SET password_hash = EXCLUDED.password_hash",
+            shopId, username, hash);
+        log.info("seeded mobile user '{}' for shop '{}' (magizhchi share)", username, shopId);
     }
 
     private static String quote(String ident) {

@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_dark"
+    android:orientation="vertical">
+
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/bg_card"
+        android:theme="@style/ToolbarTheme"
+        app:titleTextColor="@color/gold" />
+
+    <!-- Company + count bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_card"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp">
+
+        <TextView
+            android:id="@+id/tvCompanyName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="@color/white"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvRowCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/white54"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="48dp"
+        android:indeterminateTint="@color/gold"
+        android:visibility="gone" />
+
+    <!-- Controls: two rows -->
+    <LinearLayout
+        android:id="@+id/layoutControls"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_card"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <!-- Row 1: Select All | Deselect All -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="2dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Rows:"
+                android:textColor="@color/white54"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btnSelectAll"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="Select All"
+                android:textSize="11sp"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:textColor="@color/gold"
+                android:layout_marginEnd="8dp" />
+
+            <Button
+                android:id="@+id/btnDeselectAll"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="Deselect All"
+                android:textSize="11sp"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:textColor="@color/white54" />
+        </LinearLayout>
+
+        <!-- Divider -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:background="#22FFFFFF" />
+
+        <!-- Row 2: Summary mode — All | Selected | Deselected -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="6dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Summary:"
+                android:textColor="@color/white54"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btnAll"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="All"
+                android:textSize="11sp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:textColor="@color/gold"
+                android:layout_marginEnd="6dp" />
+
+            <Button
+                android:id="@+id/btnSelected"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="Selected"
+                android:textSize="11sp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:textColor="@color/white54"
+                android:layout_marginEnd="6dp" />
+
+            <Button
+                android:id="@+id/btnDeselected"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="Deselected"
+                android:textSize="11sp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:textColor="@color/white54" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Summary card -->
+    <LinearLayout
+        android:id="@+id/layoutSummary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_card"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="4dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="SUMMARY"
+                android:textColor="@color/gold"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.1" />
+
+            <TextView
+                android:id="@+id/tvSummaryMonths"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white54"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <!-- Row 1: Open -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:layout_marginTop="4dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="Open Bills"
+                android:textColor="@color/white54" android:textSize="12sp" />
+            <TextView android:id="@+id/tvSumPawnBills"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textColor="#64B5F6" android:textSize="12sp" android:textStyle="bold" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="  |  " android:textColor="@color/white38" android:textSize="12sp" />
+            <TextView android:id="@+id/tvSumPawnAmt"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textColor="@color/white" android:textSize="12sp" android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Row 2: Close -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:layout_marginTop="4dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="Close Bills"
+                android:textColor="@color/white54" android:textSize="12sp" />
+            <TextView android:id="@+id/tvSumRedeemBills"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textColor="#64B5F6" android:textSize="12sp" android:textStyle="bold" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="  |  " android:textColor="@color/white38" android:textSize="12sp" />
+            <TextView android:id="@+id/tvSumRedeemAmt"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textColor="@color/white" android:textSize="12sp" android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Row 3: Profit -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:layout_marginTop="4dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="Gross Profit"
+                android:textColor="@color/white54" android:textSize="12sp" />
+            <TextView android:id="@+id/tvSumProfit"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textColor="#A5D6A7" android:textSize="13sp" android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Row 4: Stock -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:layout_marginTop="4dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="Stock Bills"
+                android:textColor="@color/white54" android:textSize="12sp" />
+            <TextView android:id="@+id/tvSumStockBills"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textColor="#64B5F6" android:textSize="12sp" android:textStyle="bold" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="  |  " android:textColor="@color/white38" android:textSize="12sp" />
+            <TextView android:id="@+id/tvSumStockAmt"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textColor="@color/white" android:textSize="12sp" android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Row 5: Earned -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:layout_marginTop="4dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="Bills Earned"
+                android:textColor="@color/white54" android:textSize="12sp" />
+            <TextView android:id="@+id/tvSumEarnedBills"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textColor="#64B5F6" android:textSize="12sp" android:textStyle="bold" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="  |  " android:textColor="@color/white38" android:textSize="12sp" />
+            <TextView android:id="@+id/tvSumEarnedAmt"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textColor="@color/white" android:textSize="12sp" android:textStyle="bold" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Data table: horizontal + vertical scroll -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scrollbars="horizontal">
+
+        <ScrollView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:scrollbars="vertical">
+
+            <TableLayout
+                android:id="@+id/tableMonthly"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="4dp" />
+
+        </ScrollView>
+    </HorizontalScrollView>
+
+</LinearLayout>

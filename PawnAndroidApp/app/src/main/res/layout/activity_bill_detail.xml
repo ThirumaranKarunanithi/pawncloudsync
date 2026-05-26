@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_dark"
+    android:orientation="vertical">
+
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/bg_card"
+        android:theme="@style/ToolbarTheme"
+        app:menu="@menu/menu_detail"
+        app:titleTextColor="@color/gold" />
+
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="64dp"
+        android:indeterminateTint="@color/gold"
+        android:visibility="gone" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:id="@+id/layoutContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:visibility="gone">
+
+            <!-- Header Card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_card"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:id="@+id/tvMaterialIcon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="★"
+                    android:textSize="36sp" />
+
+                <TextView
+                    android:id="@+id/tvBillNumber"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvCompanyName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/white54"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/tvStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/chip_unselected"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:paddingTop="6dp"
+                    android:paddingBottom="6dp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Customer Section -->
+            <LinearLayout android:id="@+id/sectionCustomer"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp" android:background="@drawable/bg_card"
+                android:orientation="vertical">
+                <TextView style="@style/SectionHeader" android:text="Customer Information" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#1AFFFFFF"/>
+            </LinearLayout>
+
+            <!-- Jewel Section -->
+            <LinearLayout android:id="@+id/sectionJewel"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp" android:background="@drawable/bg_card"
+                android:orientation="vertical">
+                <TextView style="@style/SectionHeader" android:text="Jewel Details" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#1AFFFFFF"/>
+            </LinearLayout>
+
+            <!-- Financial Section -->
+            <LinearLayout android:id="@+id/sectionFinancial"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp" android:background="@drawable/bg_card"
+                android:orientation="vertical">
+                <TextView style="@style/SectionHeader" android:text="Financial Details" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#1AFFFFFF"/>
+            </LinearLayout>
+
+            <!-- Dates Section -->
+            <LinearLayout android:id="@+id/sectionDates"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp" android:background="@drawable/bg_card"
+                android:orientation="vertical">
+                <TextView style="@style/SectionHeader" android:text="Dates" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#1AFFFFFF"/>
+            </LinearLayout>
+
+            <!-- Closing Section -->
+            <LinearLayout android:id="@+id/sectionClosing"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp" android:background="@drawable/bg_card"
+                android:orientation="vertical" android:visibility="gone">
+                <TextView style="@style/SectionHeader" android:text="Closing Details" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#1AFFFFFF"/>
+            </LinearLayout>
+
+            <!-- Note Section -->
+            <LinearLayout android:id="@+id/sectionNote"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp" android:background="@drawable/bg_card"
+                android:orientation="vertical" android:visibility="gone">
+                <TextView style="@style/SectionHeader" android:text="Note" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#1AFFFFFF"/>
+                <TextView android:id="@+id/tvNote"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:padding="16dp" android:textColor="@color/white54" android:textSize="13sp" />
+            </LinearLayout>
+
+            <View android:layout_width="1dp" android:layout_height="24dp" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

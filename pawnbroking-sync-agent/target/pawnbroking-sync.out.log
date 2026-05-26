@@ -1,0 +1,526 @@
+16:45:50 INFO  c.m.sync.Agent - starting sync agent for shop=mylocal -> https://devpawn.magizhchi.academy
+16:45:50 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Starting...
+16:45:50 INFO  c.z.h.p.HikariPool - pawnbroking-sync - Added connection org.postgresql.jdbc.PgConnection@c88a337
+16:45:50 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Start completed.
+16:45:50 INFO  c.m.s.ListenWorker - LISTEN sync_channel started
+16:45:50 INFO  c.m.s.ListenWorker - LISTEN sync_channel started
+16:56:37 INFO  c.m.s.OutboxDrainer - sent 1 events accepted=1 duplicates=0
+17:00:40 INFO  c.m.s.OutboxDrainer - sent 200 events accepted=200 duplicates=0
+17:00:42 INFO  c.m.s.OutboxDrainer - sent 200 events accepted=200 duplicates=0
+17:00:44 INFO  c.m.s.OutboxDrainer - sent 200 events accepted=200 duplicates=0
+17:00:46 INFO  c.m.s.OutboxDrainer - sent 200 events accepted=200 duplicates=0
+17:00:48 INFO  c.m.s.OutboxDrainer - sent 200 events accepted=200 duplicates=0
+17:00:50 INFO  c.m.s.OutboxDrainer - sent 200 events accepted=200 duplicates=0
+17:00:51 INFO  c.m.s.OutboxDrainer - sent 200 events accepted=200 duplicates=0
+17:01:11 INFO  c.m.s.OutboxDrainer - sent 1 events accepted=1 duplicates=0
+17:10:55 WARN  c.m.s.ListenWorker - listener crashed, reconnecting in 3s: org.postgresql.util.PSQLException: FATAL: terminating connection due to administrator command
+17:10:55 WARN  c.m.s.ListenWorker - listener crashed, reconnecting in 3s: org.postgresql.util.PSQLException: FATAL: terminating connection due to administrator command
+17:10:56 WARN  c.z.h.pool.PoolBase - pawnbroking-sync - Failed to validate connection org.postgresql.jdbc.PgConnection@c88a337 (This connection has been closed.). Possibly consider using a shorter maxLifetime value.
+17:10:56 WARN  c.z.h.pool.PoolBase - pawnbroking-sync - Failed to validate connection org.postgresql.jdbc.PgConnection@5e983546 (This connection has been closed.). Possibly consider using a shorter maxLifetime value.
+17:10:56 WARN  c.z.h.pool.PoolBase - pawnbroking-sync - Failed to validate connection org.postgresql.jdbc.PgConnection@64438e2b (This connection has been closed.). Possibly consider using a shorter maxLifetime value.
+17:10:56 WARN  c.z.h.pool.PoolBase - pawnbroking-sync - Failed to validate connection org.postgresql.jdbc.PgConnection@3b23042b (This connection has been closed.). Possibly consider using a shorter maxLifetime value.
+17:10:58 WARN  c.m.s.ListenWorker - listener crashed, reconnecting in 3s: org.postgresql.util.PSQLException: FATAL: database "pawnbroking" does not exist
+17:10:58 WARN  c.m.s.ListenWorker - listener crashed, reconnecting in 3s: org.postgresql.util.PSQLException: FATAL: database "pawnbroking" does not exist
+17:11:01 WARN  c.m.s.ListenWorker - listener crashed, reconnecting in 3s: org.postgresql.util.PSQLException: FATAL: database "pawnbroking" does not exist
+17:11:01 WARN  c.m.s.ListenWorker - listener crashed, reconnecting in 3s: org.postgresql.util.PSQLException: FATAL: database "pawnbroking" does not exist
+17:11:04 INFO  c.m.s.ListenWorker - LISTEN sync_channel started
+17:11:04 INFO  c.m.s.ListenWorker - LISTEN sync_channel started
+17:11:06 WARN  c.m.s.OutboxDrainer - drain failed, backing off 1000ms: org.postgresql.util.PSQLException: ERROR: relation "sync_outbox" does not exist
+  Position: 76
+17:11:07 WARN  c.m.s.OutboxDrainer - drain failed, backing off 2000ms: org.postgresql.util.PSQLException: ERROR: relation "sync_outbox" does not exist
+  Position: 76
+17:11:09 WARN  c.m.s.OutboxDrainer - drain failed, backing off 4000ms: org.postgresql.util.PSQLException: ERROR: relation "sync_outbox" does not exist
+  Position: 76
+17:11:13 WARN  c.m.s.OutboxDrainer - drain failed, backing off 8000ms: org.postgresql.util.PSQLException: ERROR: relation "sync_outbox" does not exist
+  Position: 76
+17:11:21 WARN  c.m.s.OutboxDrainer - drain failed, backing off 16000ms: org.postgresql.util.PSQLException: ERROR: relation "sync_outbox" does not exist
+  Position: 76
+17:11:37 WARN  c.m.s.OutboxDrainer - drain failed, backing off 32000ms: org.postgresql.util.PSQLException: ERROR: relation "sync_outbox" does not exist
+  Position: 76
+17:12:09 WARN  c.m.s.OutboxDrainer - drain failed, backing off 64000ms: org.postgresql.util.PSQLException: ERROR: relation "sync_outbox" does not exist
+  Position: 76
+17:13:14 WARN  c.m.s.OutboxDrainer - drain failed, backing off 128000ms: org.postgresql.util.PSQLException: ERROR: relation "sync_outbox" does not exist
+  Position: 76
+17:15:22 WARN  c.m.s.OutboxDrainer - drain failed, backing off 256000ms: org.postgresql.util.PSQLException: ERROR: relation "sync_outbox" does not exist
+  Position: 76
+17:19:38 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: org.postgresql.util.PSQLException: ERROR: relation "sync_outbox" does not exist
+  Position: 76
+17:24:38 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: org.postgresql.util.PSQLException: ERROR: relation "sync_outbox" does not exist
+  Position: 76
+17:29:05 INFO  c.m.sync.Agent - shutdown signal received
+17:29:05 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Shutdown initiated...
+17:29:05 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Shutdown completed.
+13:56:59 INFO  c.m.sync.Agent - starting sync agent for shop=mylocal -> https://devpawn.magizhchi.academy
+13:56:59 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Starting...
+13:56:59 INFO  c.z.h.p.HikariPool - pawnbroking-sync - Added connection org.postgresql.jdbc.PgConnection@5a56cdac
+13:56:59 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Start completed.
+13:57:00 INFO  c.m.s.HealthServer - health server on http://127.0.0.1:17654/health
+13:57:00 INFO  c.m.s.ListenWorker - LISTEN sync_channel started
+13:57:00 INFO  c.m.s.ListenWorker - LISTEN sync_channel started
+13:57:00 WARN  c.m.s.OutboxDrainer - drain failed, backing off 1000ms: java.lang.RuntimeException: transient cloud failure status=-1
+13:57:01 WARN  c.m.s.OutboxDrainer - drain failed, backing off 2000ms: java.lang.RuntimeException: transient cloud failure status=-1
+13:57:03 WARN  c.m.s.OutboxDrainer - drain failed, backing off 4000ms: java.lang.RuntimeException: transient cloud failure status=-1
+13:57:07 WARN  c.m.s.OutboxDrainer - drain failed, backing off 8000ms: java.lang.RuntimeException: transient cloud failure status=-1
+13:57:17 WARN  c.m.s.OutboxDrainer - drain failed, backing off 16000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:57:34 WARN  c.m.s.OutboxDrainer - drain failed, backing off 32000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:58:07 WARN  c.m.s.OutboxDrainer - drain failed, backing off 64000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:59:12 WARN  c.m.s.OutboxDrainer - drain failed, backing off 128000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:01:22 WARN  c.m.s.OutboxDrainer - drain failed, backing off 256000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:05:39 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:10:40 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:15:41 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:20:42 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:25:43 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:30:48 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:35:49 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:40:50 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:45:51 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:50:53 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:55:54 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:00:55 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:05:56 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:10:57 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:15:59 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:21:00 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:26:01 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:31:02 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:36:03 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:41:05 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:46:06 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:51:07 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:56:08 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:01:09 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:06:10 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:11:11 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:16:13 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:21:14 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:26:15 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:31:16 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:36:17 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:41:19 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:46:20 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+21:49:34 WARN  c.z.h.p.HikariPool - pawnbroking-sync - Thread starvation or clock leap detected (housekeeper delta=5h1m2s430ms662탎300ns).
+21:51:54 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+21:56:55 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+22:01:57 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+22:06:58 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+22:12:00 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+22:17:01 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+22:22:02 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+22:27:03 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+22:32:05 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+22:37:06 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+22:42:07 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+22:47:08 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+22:52:10 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+22:57:11 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+23:02:12 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+23:07:14 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+23:12:15 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+23:17:16 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+23:22:17 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+23:27:18 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+23:32:19 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+23:37:20 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+23:42:22 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+23:47:23 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+23:52:24 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+23:57:25 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+00:02:27 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+00:07:28 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+00:12:29 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+00:17:30 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+00:22:31 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+00:27:32 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+00:32:33 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+00:37:35 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+00:42:36 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+00:47:37 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+00:52:38 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+00:57:39 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+01:02:40 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+01:07:41 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+01:12:43 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+01:17:44 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+01:22:45 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+01:27:46 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+01:32:47 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+01:37:48 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+01:42:49 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+01:47:50 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+01:52:52 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+01:57:53 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+02:02:54 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+02:07:55 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+02:12:56 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+02:17:57 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+02:22:58 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+02:28:00 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+02:33:01 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+02:38:02 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+02:43:03 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+02:48:04 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+02:53:05 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+02:58:07 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+03:03:08 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+03:08:09 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+03:13:10 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+03:18:11 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+03:23:12 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+03:28:14 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+03:33:15 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+03:38:16 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+03:43:17 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+03:48:18 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+03:53:20 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+03:58:21 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+09:09:03 WARN  c.z.h.p.HikariPool - pawnbroking-sync - Thread starvation or clock leap detected (housekeeper delta=5h9m53s233ms333탎).
+09:12:45 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+09:17:46 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+09:22:48 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+09:27:49 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+09:32:50 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+09:37:51 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+09:42:52 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+09:47:53 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+09:52:55 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+09:57:56 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:02:57 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:07:58 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:12:59 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:18:00 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:23:01 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:28:02 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:33:04 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:42:55 WARN  c.z.h.p.HikariPool - pawnbroking-sync - Thread starvation or clock leap detected (housekeeper delta=1h9m20s988ms943탎700ns).
+11:46:55 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=-1
+11:51:56 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:56:57 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:01:58 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:06:59 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:12:00 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:17:01 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:22:03 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:27:04 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:47:09 WARN  c.z.h.p.HikariPool - pawnbroking-sync - Thread starvation or clock leap detected (housekeeper delta=15m42s530ms830탎200ns).
+12:47:17 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:47:58 WARN  c.z.h.p.HikariPool - pawnbroking-sync - Thread starvation or clock leap detected (housekeeper delta=1h19s99ms356탎100ns).
+13:52:26 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=-1
+13:57:26 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=-1
+14:02:26 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=-1
+14:07:26 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=-1
+14:12:27 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:17:31 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:22:32 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:42:31 WARN  c.z.h.p.HikariPool - pawnbroking-sync - Thread starvation or clock leap detected (housekeeper delta=20h15m32s733ms830탎200ns).
+10:42:36 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=-1
+10:47:36 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:52:37 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:57:38 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:02:39 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:07:40 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:12:42 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:17:43 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:22:44 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:27:45 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:32:46 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:37:47 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:42:49 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:47:50 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:52:51 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:57:52 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:02:53 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:07:54 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:12:56 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:17:57 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:22:58 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:27:59 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:33:00 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:38:01 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:43:02 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:48:04 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:53:05 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:58:06 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:03:07 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:08:08 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:13:10 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:18:11 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:23:13 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:28:14 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:33:15 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:38:17 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:43:18 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:48:20 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:53:21 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:58:22 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:03:23 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:08:24 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:13:26 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:18:27 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:23:28 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:28:30 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:33:31 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:38:32 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:43:34 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:48:35 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:53:36 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:58:37 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:03:38 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:08:39 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:13:40 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:18:42 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:23:44 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:28:45 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:33:46 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:38:48 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:43:49 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:48:50 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:53:51 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:58:52 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:03:54 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:08:55 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:13:56 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:18:57 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:23:58 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:28:59 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:34:00 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:39:02 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:44:03 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:49:04 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:54:05 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:59:07 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+17:04:08 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+17:09:09 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+17:14:10 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+17:15:02 INFO  c.m.sync.Agent - shutdown signal received
+17:15:02 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Shutdown initiated...
+17:15:02 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Shutdown completed.
+17:16:31 INFO  c.m.sync.Agent - starting sync agent for shop=mylocal -> https://devpawn.magizhchi.academy
+17:16:31 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Starting...
+17:16:32 INFO  c.z.h.p.HikariPool - pawnbroking-sync - Added connection org.postgresql.jdbc.PgConnection@37d4349f
+17:16:32 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Start completed.
+17:16:32 INFO  c.m.s.HealthServer - health server on http://127.0.0.1:17654/health
+17:16:32 INFO  c.m.s.ListenWorker - LISTEN sync_channel started
+17:16:32 INFO  c.m.s.ListenWorker - LISTEN sync_channel started
+17:16:32 WARN  c.m.s.OutboxDrainer - drain failed, backing off 1000ms: java.lang.RuntimeException: transient cloud failure status=-1
+17:16:33 WARN  c.m.s.OutboxDrainer - drain failed, backing off 2000ms: java.lang.RuntimeException: transient cloud failure status=-1
+17:16:35 WARN  c.m.s.OutboxDrainer - drain failed, backing off 4000ms: java.lang.RuntimeException: transient cloud failure status=-1
+17:16:39 WARN  c.m.s.OutboxDrainer - drain failed, backing off 8000ms: java.lang.RuntimeException: transient cloud failure status=-1
+17:16:49 WARN  c.m.s.OutboxDrainer - drain failed, backing off 16000ms: java.lang.RuntimeException: transient cloud failure status=500
+17:17:00 INFO  c.m.sync.Agent - shutdown signal received
+17:17:00 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Shutdown initiated...
+17:17:00 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Shutdown completed.
+17:17:24 INFO  c.m.sync.Agent - starting sync agent for shop=mylocal -> https://devpawn.magizhchi.academy
+17:17:24 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Starting...
+17:17:24 INFO  c.z.h.p.HikariPool - pawnbroking-sync - Added connection org.postgresql.jdbc.PgConnection@37d4349f
+17:17:24 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Start completed.
+17:17:24 INFO  c.m.s.HealthServer - health server on http://127.0.0.1:17654/health
+17:17:25 INFO  c.m.s.ListenWorker - LISTEN sync_channel started
+17:17:25 INFO  c.m.s.ListenWorker - LISTEN sync_channel started
+17:17:25 WARN  c.m.s.OutboxDrainer - drain failed, backing off 1000ms: java.lang.RuntimeException: transient cloud failure status=-1
+17:17:26 WARN  c.m.s.OutboxDrainer - drain failed, backing off 2000ms: java.lang.RuntimeException: transient cloud failure status=-1
+17:17:28 WARN  c.m.s.OutboxDrainer - drain failed, backing off 4000ms: java.lang.RuntimeException: transient cloud failure status=-1
+17:17:31 INFO  c.m.sync.Agent - shutdown signal received
+17:17:31 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Shutdown initiated...
+17:17:31 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Shutdown completed.
+17:17:31 INFO  c.m.sync.Agent - sync agent stopped cleanly
+17:17:53 INFO  c.m.sync.Agent - starting sync agent for shop=mylocal -> https://devpawn.magizhchi.academy
+17:17:53 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Starting...
+17:17:53 INFO  c.z.h.p.HikariPool - pawnbroking-sync - Added connection org.postgresql.jdbc.PgConnection@485966cc
+17:17:53 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Start completed.
+17:17:54 INFO  c.m.s.HealthServer - health server on http://127.0.0.1:17654/health
+17:17:54 INFO  c.m.s.ListenWorker - LISTEN sync_channel started
+17:17:54 INFO  c.m.s.ListenWorker - LISTEN sync_channel started
+17:17:54 WARN  c.m.s.OutboxDrainer - drain failed, backing off 1000ms: java.lang.RuntimeException: transient cloud failure status=-1
+17:17:55 WARN  c.m.s.OutboxDrainer - drain failed, backing off 2000ms: java.lang.RuntimeException: transient cloud failure status=-1
+17:17:57 WARN  c.m.s.OutboxDrainer - drain failed, backing off 4000ms: java.lang.RuntimeException: transient cloud failure status=-1
+17:18:01 WARN  c.m.s.OutboxDrainer - drain failed, backing off 8000ms: java.lang.RuntimeException: transient cloud failure status=-1
+17:18:10 WARN  c.m.s.OutboxDrainer - drain failed, backing off 16000ms: java.lang.RuntimeException: transient cloud failure status=500
+17:18:27 WARN  c.m.s.OutboxDrainer - drain failed, backing off 32000ms: java.lang.RuntimeException: transient cloud failure status=500
+17:19:01 WARN  c.m.s.OutboxDrainer - drain failed, backing off 64000ms: java.lang.RuntimeException: transient cloud failure status=500
+17:20:06 WARN  c.m.s.OutboxDrainer - drain failed, backing off 128000ms: java.lang.RuntimeException: transient cloud failure status=500
+17:20:16 INFO  c.m.sync.Agent - shutdown signal received
+17:20:16 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Shutdown initiated...
+17:20:16 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Shutdown completed.
+17:20:16 INFO  c.m.sync.Agent - sync agent stopped cleanly
+10:05:22 INFO  c.m.sync.Agent - starting sync agent for shop=mylocal -> https://devpawn.magizhchi.academy
+10:05:22 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Starting...
+10:05:23 INFO  c.z.h.p.HikariPool - pawnbroking-sync - Added connection org.postgresql.jdbc.PgConnection@4dbb42b7
+10:05:23 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Start completed.
+10:05:24 INFO  c.m.s.HealthServer - health server on http://127.0.0.1:17654/health
+10:05:24 INFO  c.m.s.ListenWorker - LISTEN sync_channel started
+10:05:24 INFO  c.m.s.ListenWorker - LISTEN sync_channel started
+10:05:24 WARN  c.m.s.OutboxDrainer - drain failed, backing off 1000ms: java.lang.RuntimeException: transient cloud failure status=-1
+10:05:26 WARN  c.m.s.OutboxDrainer - drain failed, backing off 2000ms: java.lang.RuntimeException: transient cloud failure status=-1
+10:05:28 WARN  c.m.s.OutboxDrainer - drain failed, backing off 4000ms: java.lang.RuntimeException: transient cloud failure status=-1
+10:05:32 WARN  c.m.s.OutboxDrainer - drain failed, backing off 8000ms: java.lang.RuntimeException: transient cloud failure status=-1
+10:05:41 WARN  c.m.s.OutboxDrainer - drain failed, backing off 16000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:05:58 WARN  c.m.s.OutboxDrainer - drain failed, backing off 32000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:06:31 WARN  c.m.s.OutboxDrainer - drain failed, backing off 64000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:07:36 WARN  c.m.s.OutboxDrainer - drain failed, backing off 128000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:09:46 WARN  c.m.s.OutboxDrainer - drain failed, backing off 256000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:14:03 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:19:04 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:24:05 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:29:07 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:34:08 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:39:09 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:44:10 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:49:12 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:54:13 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+10:59:14 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:04:15 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:09:16 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:14:20 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=-1
+11:19:21 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:24:22 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:29:23 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:34:25 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:39:26 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:44:27 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:49:28 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:54:30 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+11:59:31 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:04:32 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:09:34 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:14:35 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:19:36 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:24:38 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:29:39 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:34:40 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:39:42 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:44:43 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:49:44 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:54:45 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+12:59:46 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:04:48 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:09:49 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:14:50 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:19:52 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:24:53 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:29:54 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:34:55 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:39:57 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:44:58 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+13:50:01 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=-1
+13:55:02 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:00:03 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:05:05 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:10:06 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:15:07 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:20:08 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:25:10 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:30:11 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:35:12 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:40:14 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:45:15 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:50:16 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:55:17 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:00:19 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:05:20 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:10:21 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:15:22 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:20:24 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:25:25 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:30:26 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:35:27 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:40:29 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:45:30 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:50:32 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+15:55:33 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:00:34 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:05:36 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:10:37 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:15:38 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:20:39 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:25:41 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:30:42 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:35:43 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:40:45 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+16:43:33 INFO  c.m.sync.Agent - shutdown signal received
+16:43:33 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Shutdown initiated...
+16:43:33 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Shutdown completed.
+16:43:33 INFO  c.m.sync.Agent - sync agent stopped cleanly
+17:36:57 INFO  c.m.sync.Agent - starting sync agent for shop=mylocal -> https://devpawn.magizhchi.academy
+17:36:57 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Starting...
+17:36:58 INFO  c.z.h.p.HikariPool - pawnbroking-sync - Added connection org.postgresql.jdbc.PgConnection@5a56cdac
+17:36:58 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Start completed.
+17:36:58 INFO  c.m.s.HealthServer - health server on http://127.0.0.1:17654/health
+17:36:58 INFO  c.m.s.ListenWorker - LISTEN sync_channel started
+17:36:58 INFO  c.m.s.ListenWorker - LISTEN sync_channel started
+17:36:58 WARN  c.m.s.OutboxDrainer - drain failed, backing off 1000ms: java.lang.RuntimeException: transient cloud failure status=-1
+17:36:59 WARN  c.m.s.OutboxDrainer - drain failed, backing off 2000ms: java.lang.RuntimeException: transient cloud failure status=-1
+17:37:01 WARN  c.m.s.OutboxDrainer - drain failed, backing off 4000ms: java.lang.RuntimeException: transient cloud failure status=-1
+17:37:05 WARN  c.m.s.OutboxDrainer - drain failed, backing off 8000ms: java.lang.RuntimeException: transient cloud failure status=-1
+17:37:15 WARN  c.m.s.OutboxDrainer - drain failed, backing off 16000ms: java.lang.RuntimeException: transient cloud failure status=500
+17:37:32 WARN  c.m.s.OutboxDrainer - drain failed, backing off 32000ms: java.lang.RuntimeException: transient cloud failure status=500
+17:38:06 WARN  c.m.s.OutboxDrainer - drain failed, backing off 64000ms: java.lang.RuntimeException: transient cloud failure status=500
+17:39:11 WARN  c.m.s.OutboxDrainer - drain failed, backing off 128000ms: java.lang.RuntimeException: transient cloud failure status=500
+17:41:20 WARN  c.m.s.OutboxDrainer - drain failed, backing off 256000ms: java.lang.RuntimeException: transient cloud failure status=500
+17:45:37 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+17:50:39 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+17:55:40 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+18:00:41 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+18:05:42 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+18:10:43 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+18:15:45 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+18:20:46 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+18:25:47 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+18:30:48 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+18:35:50 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+18:40:51 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+18:45:52 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+18:50:53 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+18:55:54 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+19:00:56 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+19:05:57 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+19:10:58 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+19:15:59 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+19:21:01 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+19:26:02 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+19:31:03 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+19:36:04 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+19:41:06 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+19:46:08 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+19:51:09 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+19:56:10 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+20:01:11 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+20:06:13 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+20:11:14 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+20:16:15 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+20:21:17 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+20:26:18 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+20:31:19 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+20:36:20 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+20:41:22 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+20:46:23 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+20:51:24 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+20:56:26 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+21:01:27 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+21:06:28 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+08:05:27 WARN  c.z.h.p.HikariPool - pawnbroking-sync - Thread starvation or clock leap detected (housekeeper delta=10h57m55s378ms834탎).
+08:05:50 INFO  c.m.sync.Agent - shutdown signal received
+08:05:50 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Shutdown initiated...
+08:05:50 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Shutdown completed.
+14:26:00 INFO  c.m.sync.Agent - starting sync agent for shop=mylocal -> https://devpawn.magizhchi.academy
+14:26:00 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Starting...
+14:26:00 INFO  c.z.h.p.HikariPool - pawnbroking-sync - Added connection org.postgresql.jdbc.PgConnection@bae7dc0
+14:26:00 INFO  c.z.h.HikariDataSource - pawnbroking-sync - Start completed.
+14:26:01 INFO  c.m.s.HealthServer - health server on http://127.0.0.1:17654/health
+14:26:01 INFO  c.m.s.ListenWorker - LISTEN sync_channel started
+14:26:01 INFO  c.m.s.ListenWorker - LISTEN sync_channel started
+14:26:01 WARN  c.m.s.OutboxDrainer - drain failed, backing off 1000ms: java.lang.RuntimeException: transient cloud failure status=-1
+14:26:02 WARN  c.m.s.OutboxDrainer - drain failed, backing off 2000ms: java.lang.RuntimeException: transient cloud failure status=-1
+14:26:04 WARN  c.m.s.OutboxDrainer - drain failed, backing off 4000ms: java.lang.RuntimeException: transient cloud failure status=-1
+14:26:08 WARN  c.m.s.OutboxDrainer - drain failed, backing off 8000ms: java.lang.RuntimeException: transient cloud failure status=-1
+14:26:18 WARN  c.m.s.OutboxDrainer - drain failed, backing off 16000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:26:35 WARN  c.m.s.OutboxDrainer - drain failed, backing off 32000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:27:08 WARN  c.m.s.OutboxDrainer - drain failed, backing off 64000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:28:13 WARN  c.m.s.OutboxDrainer - drain failed, backing off 128000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:30:22 WARN  c.m.s.OutboxDrainer - drain failed, backing off 256000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:34:40 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:39:41 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:44:42 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:49:43 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:54:44 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500
+14:59:46 WARN  c.m.s.OutboxDrainer - drain failed, backing off 300000ms: java.lang.RuntimeException: transient cloud failure status=500

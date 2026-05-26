@@ -45,9 +45,17 @@ public class OutboxDrainer implements Runnable {
                 }
             } catch (Exception e) {
                 Agent.STATE.get().lastError = e.getMessage();
-                log.warn("drain failed, backing off {}ms: {}", backoffMs, e.toString());
-                try { Thread.sleep(backoffMs); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
-                backoffMs = Math.min(backoffMs * 2, 5 * 60_000L);
+                // If sync_outbox was wiped by a DB restore, SchemaGuard will
+                // recreate it within its check interval. Log quietly and wait.
+                String msg = e.toString();
+                if (msg.contains("relation \"sync_outbox\" does not exist")) {
+                    log.warn("sync_outbox missing — waiting for SchemaGuard to repair...");
+                    try { Thread.sleep(5_000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                } else {
+                    log.warn("drain failed, backing off {}ms: {}", backoffMs, msg);
+                    try { Thread.sleep(backoffMs); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                    backoffMs = Math.min(backoffMs * 2, 5 * 60_000L);
+                }
             }
         }
     }

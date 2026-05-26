@@ -3,12 +3,17 @@
 
 db.url=jdbc:postgresql://localhost:5432/pawnbroking
 db.user=postgres
-db.password=happykutty
+db.password=CHANGE_ME
 
-cloud.url=https://your-cloud-api.example.com
-cloud.api_key=ALWARPURAM_API_KEY_FROM_CLOUD_SHOP_CREDENTIALS_TABLE
+cloud.url=https://devpawn.magizhchi.academy
+cloud.api_key=PUT_THE_PER_SHOP_API_KEY_HERE
 shop.id=alwarpuram
 
 batch.size=200
 poll.interval.ms=5000
 health.port=17654
+
+# How often SchemaGuard checks/repairs the local DB schema (sync_outbox
+# table + triggers). After a DB restore wipes these, the agent will
+# re-install them within this interval — no manual psql work needed.
+schema.guard.interval.ms=30000
