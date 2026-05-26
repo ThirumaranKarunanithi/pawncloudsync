@@ -13,7 +13,7 @@ public class AppConfig {
     public static final String BASE_URL = "https://devpawn.magizhchi.academy";
 
     /** Tenant key. Matches a row in public.tenants on the cloud DB. */
-    public static final String SHOP_ID  = "alwarpuram";
+    public static final String SHOP_ID  = "mylocal";
 
     // ── Auth & devices ────────────────────────────────────────────────────────
     public static final String LOGIN              = BASE_URL + "/v1/auth/mobile";
@@ -27,13 +27,16 @@ public class AppConfig {
     public static final String DATA_NOTIFICATIONS = DATA_BASE + "/notifications";
 
     // ── Projection table names (rows in <schema>.projections) ─────────────────
-    public static final String TBL_COMPANY        = "company_master";
-    public static final String TBL_CUSTOMER       = "customer_master";
-    public static final String TBL_BILL_OPENING   = "bill_opening";
-    public static final String TBL_BILL_CLOSING   = "bill_closing";
-    public static final String TBL_STOCK          = "stock_master";
+    // These match the desktop app's actual table names (see V2 trigger).
+    // `company_billing` holds ALL bills, distinguished by the `status` column
+    // (OPENED, LOCKED, CLOSED, CANCELLED). The app filters client-side.
+    public static final String TBL_COMPANY        = "company";
+    public static final String TBL_CUSTOMER       = "customer_details";
+    public static final String TBL_BILL_OPENING   = "company_billing";
+    public static final String TBL_BILL_CLOSING   = "company_billing";
+    public static final String TBL_STOCK          = "company_billing";
     public static final String TBL_REPLEDGE       = "repledge_billing";
-    public static final String TBL_ADVANCE        = "advance_amount";
+    public static final String TBL_ADVANCE        = "company_advance_amount";
 
     /** Bill image proxy is not yet implemented on the cloud — returns null. */
     public static String billImageUrl(String companyId, String materialType,

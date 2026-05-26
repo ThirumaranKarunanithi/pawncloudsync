@@ -22,15 +22,18 @@ public class DataController {
     @GetMapping("/dashboard")
     public Map<String,Object> dashboard() {
         return t.inTenant(j -> {
+            // Table names mirror the desktop app's schema, not the stylised
+            // names the previous /api/* server invented.
             Long bills = j.queryForObject(
-                "SELECT count(*) FROM projections WHERE table_name='bill_opening' " +
-                "AND last_updated_at::date = current_date AND NOT deleted", Long.class);
+                "SELECT count(*) FROM projections WHERE table_name='company_billing' " +
+                "AND (payload->>'opening_date')::date = current_date AND NOT deleted",
+                Long.class);
             Long customers = j.queryForObject(
-                "SELECT count(*) FROM projections WHERE table_name='customer_master' AND NOT deleted",
+                "SELECT count(*) FROM projections WHERE table_name='customer_details' AND NOT deleted",
                 Long.class);
             Double advTotal = j.queryForObject(
-                "SELECT COALESCE(sum((payload->>'amount')::numeric),0) FROM projections " +
-                "WHERE table_name='advance_amount' AND NOT deleted", Double.class);
+                "SELECT COALESCE(sum((payload->>'paid_amount')::numeric),0) FROM projections " +
+                "WHERE table_name='company_advance_amount' AND NOT deleted", Double.class);
             return Map.of(
                 "shop_id", TenantContext.get(),
                 "todays_bills", bills,

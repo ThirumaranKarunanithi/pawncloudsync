@@ -154,13 +154,43 @@ public class ApiService {
             : ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("token", null);
     }
 
-    private static Context appCtx; // set once from PawnApp/SplashActivity if you want to skip ctx args
+    private static Context appCtx; // set from PawnApp.onCreate (primary path)
     public static void bindContext(Context ctx) { appCtx = ctx == null ? null : ctx.getApplicationContext(); }
+
+    /**
+     * Returns the Application context for SharedPreferences access. Tries the
+     * bound context first; if {@link #bindContext} hasn't been called yet
+     * (e.g. PawnApp.onCreate hasn't run, or this is invoked from a background
+     * worker before any activity), falls back to the running Application via
+     * ActivityThread reflection. Without this fallback, the JWT can't be read
+     * and every authenticated request goes out without a Bearer header.
+     */
+    private static Context resolveCtx() {
+        if (appCtx != null) return appCtx;
+        try {
+            Class<?> at = Class.forName("android.app.ActivityThread");
+            Object app = at.getMethod("currentApplication").invoke(null);
+            if (app instanceof Context c) {
+                appCtx = c;
+                android.util.Log.w("ApiService",
+                    "bindContext was not called — recovered Application via ActivityThread");
+                return c;
+            }
+        } catch (Throwable ignored) {}
+        android.util.Log.e("ApiService",
+            "no Application context available — outgoing requests will be unauthenticated");
+        return null;
+    }
 
     private static Request.Builder authed(HttpUrl url) {
         Request.Builder b = new Request.Builder().url(url);
-        String t = token(appCtx);
-        if (t != null && !t.isEmpty()) b.header("Authorization", "Bearer " + t);
+        String t = token(resolveCtx());
+        if (t != null && !t.isEmpty()) {
+            b.header("Authorization", "Bearer " + t);
+        } else {
+            android.util.Log.w("ApiService",
+                "no JWT in prefs — request to " + url.encodedPath() + " will be unauthenticated");
+        }
         return b;
     }
 
@@ -221,6 +251,7 @@ public class ApiService {
                 HttpUrl url = HttpUrl.parse(AppConfig.DATA_BASE + "/" + table + "/" + billNumber).newBuilder().build();
                 try (Response res = CLIENT.newCall(authed(url).get().build()).execute()) {
                     String raw = res.body() != null ? res.body().string() : "{}";
+                    if (res.code() == 404) { cb.onError("Bill " + billNumber + " not found"); return; }
                     checkStatus(res, raw);
                     cb.onSuccess(unwrapPayload(new JSONObject(raw)));
                 }
