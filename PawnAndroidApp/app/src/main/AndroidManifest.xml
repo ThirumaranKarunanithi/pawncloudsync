@@ -33,6 +33,7 @@
         <activity android:name=".CustomersActivity"      android:exported="false" />
         <activity android:name=".SettingsActivity"        android:exported="false" />
         <activity android:name=".BillingActivity"          android:exported="false" />
+        <activity android:name=".NotificationsActivity"    android:exported="false" />
 
     </application>
 

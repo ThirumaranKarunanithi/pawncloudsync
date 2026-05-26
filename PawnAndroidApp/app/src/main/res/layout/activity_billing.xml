@@ -911,6 +911,200 @@
                 </LinearLayout>
                 <!-- ── END REPLEDGE INFORMATION ── -->
 
+                <!-- ── REPLEDGE BILL OPENING - DETAILS (toggles with repledge section) ── -->
+                <LinearLayout android:id="@+id/layoutRepledgeOpening"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView style="@style/SectionHeader"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="REPLEDGE BILL OPENING - DETAILS" />
+
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:background="@drawable/bg_card"
+                        android:orientation="vertical"
+                        android:padding="16dp" android:layout_marginBottom="16dp">
+
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+                            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                                android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="8dp">
+                                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                    android:text="Interest %" android:textColor="@color/white54" android:textSize="11sp" />
+                                <TextView android:id="@+id/tvReplOpenInterest"
+                                    android:layout_width="match_parent" android:layout_height="44dp"
+                                    android:background="@drawable/bg_input"
+                                    android:gravity="center_vertical" android:paddingStart="12dp"
+                                    android:layout_marginTop="4dp"
+                                    android:textColor="@color/orange" android:textSize="14sp" android:textStyle="bold" />
+                            </LinearLayout>
+                            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                                android:layout_weight="1" android:orientation="vertical">
+                                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                    android:text="Interest Type" android:textColor="@color/white54" android:textSize="11sp" />
+                                <TextView android:id="@+id/tvReplOpenInterestType"
+                                    android:layout_width="match_parent" android:layout_height="44dp"
+                                    android:background="@drawable/bg_input"
+                                    android:gravity="center_vertical" android:paddingStart="10dp"
+                                    android:layout_marginTop="4dp"
+                                    android:textColor="@color/white" android:textSize="14sp" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:orientation="horizontal" android:layout_marginTop="8dp">
+                            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                                android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="8dp">
+                                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                    android:text="Document Charge" android:textColor="@color/white54" android:textSize="11sp" />
+                                <TextView android:id="@+id/tvReplOpenDocCharge"
+                                    android:layout_width="match_parent" android:layout_height="44dp"
+                                    android:background="@drawable/bg_input"
+                                    android:gravity="center_vertical" android:paddingStart="10dp"
+                                    android:layout_marginTop="4dp"
+                                    android:textColor="@color/white" android:textSize="14sp" />
+                            </LinearLayout>
+                            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                                android:layout_weight="1" android:orientation="vertical">
+                                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                    android:text="Open Taken Amount" android:textColor="@color/white54" android:textSize="11sp" />
+                                <TextView android:id="@+id/tvReplOpenTaken"
+                                    android:layout_width="match_parent" android:layout_height="44dp"
+                                    android:background="@drawable/bg_input"
+                                    android:gravity="center_vertical" android:paddingStart="10dp"
+                                    android:layout_marginTop="4dp"
+                                    android:textColor="@color/green" android:textSize="14sp" android:textStyle="bold" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:orientation="horizontal" android:layout_marginTop="8dp">
+                            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                                android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="8dp">
+                                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                    android:text="To Give Amount" android:textColor="@color/white54" android:textSize="11sp" />
+                                <TextView android:id="@+id/tvReplOpenToGive"
+                                    android:layout_width="match_parent" android:layout_height="44dp"
+                                    android:background="@drawable/bg_input"
+                                    android:gravity="center_vertical" android:paddingStart="10dp"
+                                    android:layout_marginTop="4dp"
+                                    android:textColor="@color/blue" android:textSize="14sp" android:textStyle="bold" />
+                            </LinearLayout>
+                            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                                android:layout_weight="1" android:orientation="vertical">
+                                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                    android:text="Given Amount" android:textColor="@color/white54" android:textSize="11sp" />
+                                <TextView android:id="@+id/tvReplOpenGiven"
+                                    android:layout_width="match_parent" android:layout_height="44dp"
+                                    android:background="@drawable/bg_input"
+                                    android:gravity="center_vertical" android:paddingStart="10dp"
+                                    android:layout_marginTop="4dp"
+                                    android:textColor="@color/white" android:textSize="14sp" android:textStyle="bold" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                    </LinearLayout>
+                </LinearLayout>
+                <!-- ── END REPLEDGE BILL OPENING ── -->
+
+                <!-- ── REPLEDGE BILL CLOSING - DETAILS ── -->
+                <LinearLayout android:id="@+id/layoutRepledgeClosing"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView style="@style/SectionHeader"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="REPLEDGE BILL CLOSING - DETAILS" />
+
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:background="@drawable/bg_card"
+                        android:orientation="vertical"
+                        android:padding="16dp" android:layout_marginBottom="16dp">
+
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+                            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                                android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="8dp">
+                                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                    android:text="Closing Date" android:textColor="@color/white54" android:textSize="11sp" />
+                                <TextView android:id="@+id/tvReplClosingDate"
+                                    android:layout_width="match_parent" android:layout_height="44dp"
+                                    android:background="@drawable/bg_input"
+                                    android:gravity="center_vertical" android:paddingStart="12dp"
+                                    android:layout_marginTop="4dp"
+                                    android:textColor="@color/white" android:textSize="14sp" />
+                            </LinearLayout>
+                            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                                android:layout_weight="1" android:orientation="vertical">
+                                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                    android:text="Total Days / Months" android:textColor="@color/white54" android:textSize="11sp" />
+                                <TextView android:id="@+id/tvReplCloseTotalDays"
+                                    android:layout_width="match_parent" android:layout_height="44dp"
+                                    android:background="@drawable/bg_input"
+                                    android:gravity="center_vertical" android:paddingStart="10dp"
+                                    android:layout_marginTop="4dp"
+                                    android:textColor="@color/white" android:textSize="14sp" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:orientation="horizontal" android:layout_marginTop="8dp">
+                            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                                android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="8dp">
+                                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                    android:text="Close Taken Amount" android:textColor="@color/white54" android:textSize="11sp" />
+                                <TextView android:id="@+id/tvReplCloseTaken"
+                                    android:layout_width="match_parent" android:layout_height="44dp"
+                                    android:background="@drawable/bg_input"
+                                    android:gravity="center_vertical" android:paddingStart="10dp"
+                                    android:layout_marginTop="4dp"
+                                    android:textColor="@color/green" android:textSize="14sp" android:textStyle="bold" />
+                            </LinearLayout>
+                            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                                android:layout_weight="1" android:orientation="vertical">
+                                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                    android:text="To Get Amount" android:textColor="@color/white54" android:textSize="11sp" />
+                                <TextView android:id="@+id/tvReplCloseToGet"
+                                    android:layout_width="match_parent" android:layout_height="44dp"
+                                    android:background="@drawable/bg_input"
+                                    android:gravity="center_vertical" android:paddingStart="10dp"
+                                    android:layout_marginTop="4dp"
+                                    android:textColor="@color/blue" android:textSize="14sp" android:textStyle="bold" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:orientation="horizontal" android:layout_marginTop="8dp">
+                            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                                android:layout_weight="1" android:orientation="vertical" android:layout_marginEnd="8dp">
+                                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                    android:text="Got Amount" android:textColor="@color/white54" android:textSize="11sp" />
+                                <TextView android:id="@+id/tvReplCloseGot"
+                                    android:layout_width="match_parent" android:layout_height="44dp"
+                                    android:background="@drawable/bg_input"
+                                    android:gravity="center_vertical" android:paddingStart="10dp"
+                                    android:layout_marginTop="4dp"
+                                    android:textColor="@color/white" android:textSize="14sp" android:textStyle="bold" />
+                            </LinearLayout>
+                            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                                android:layout_weight="1" android:orientation="vertical">
+                                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                    android:text="Accepted Closing Date" android:textColor="@color/white54" android:textSize="11sp" />
+                                <TextView android:id="@+id/tvReplCloseAcceptedDate"
+                                    android:layout_width="match_parent" android:layout_height="44dp"
+                                    android:background="@drawable/bg_input"
+                                    android:gravity="center_vertical" android:paddingStart="10dp"
+                                    android:layout_marginTop="4dp"
+                                    android:textColor="@color/orange" android:textSize="14sp" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                    </LinearLayout>
+                </LinearLayout>
+                <!-- ── END REPLEDGE BILL CLOSING ── -->
+
                 <!-- ── BILL IMAGES ── -->
                 <TextView style="@style/SectionHeader"
                     android:layout_width="match_parent" android:layout_height="wrap_content"

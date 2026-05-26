@@ -2,6 +2,7 @@ package com.magizhchi.cloud.auth;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.magizhchi.cloud.share.MagizhchiBoxClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,6 +45,7 @@ public class BoxAuthController {
     private final JwtService jwt;
     private final String boxUrl;
     private final HttpClient http;
+    private final MagizhchiBoxClient box;
 
     public BoxAuthController(JdbcTemplate jdbc, JwtService jwt,
                              @Value("${pawnbroking.box.url}") String boxUrl) {
@@ -53,6 +55,7 @@ public class BoxAuthController {
         this.http = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
+        this.box = new MagizhchiBoxClient(this.boxUrl);
     }
 
     public record SendOtpRequest(String email, String shop_id) {}
@@ -81,6 +84,11 @@ public class BoxAuthController {
         String body = "{\"identifier\":\"" + jsonEscape(email) + "\","
                     + "\"code\":\""        + jsonEscape(req.code().trim()) + "\"}";
         JsonNode boxRes = callBox("/api/auth/login/verify", body);
+
+        // Capture the box's accessToken and (if we don't already have one)
+        // mint a long-lived mbk_ API token for this tenant. Used later by
+        // BillImageController to push/pull bill images on the user's behalf.
+        captureMagizhchiTokenIfMissing(req.shop_id(), boxRes);
 
         // Upsert user and mint OUR JWT (cloud-api's, not the box's). The
         // shop_id claim drives tenant resolution on every subsequent call.
@@ -121,6 +129,39 @@ public class BoxAuthController {
             return M.readTree(res.body());
         } catch (Exception e) {
             return M.createObjectNode();
+        }
+    }
+
+    /**
+     * One-shot bootstrap: on the very first successful OTP login for a
+     * tenant, use the box's freshly-issued accessToken to mint a long-
+     * lived mbk_ API token and stash it on public.tenants. From then on
+     * BillImageController uses that key to push/pull image bytes without
+     * needing the user to be online.
+     */
+    private void captureMagizhchiTokenIfMissing(String shopId, JsonNode loginRes) {
+        // Already have one? Skip — same token works until revoked.
+        Integer existing = jdbc.queryForObject(
+            "SELECT count(*) FROM public.tenants " +
+            "WHERE shop_id = ? AND magizhchi_token IS NOT NULL", Integer.class, shopId);
+        if (existing != null && existing > 0) return;
+
+        String accessToken = loginRes.path("accessToken").asText(null);
+        if (accessToken == null || accessToken.isBlank()) {
+            log.warn("box login returned no accessToken — cannot mint mbk_ for {}", shopId);
+            return;
+        }
+        try {
+            String mbk = box.issueApiToken(accessToken,
+                "Pawnbroking-Cloud (" + shopId + ")");
+            Long convId = box.personalConversationId(mbk);
+            jdbc.update(
+                "UPDATE public.tenants SET magizhchi_token = ?, magizhchi_conversation_id = ? WHERE shop_id = ?",
+                mbk, convId, shopId);
+            log.info("minted Magizhchi API token for shop '{}' (conv={})", shopId, convId);
+        } catch (Exception e) {
+            log.error("failed to mint Magizhchi token for {}: {}", shopId, e.toString());
+            // Don't fail the user's login — image features just stay disabled.
         }
     }
 

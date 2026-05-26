@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.magizhchi.cloud.tenant.TenantContext;
 import com.magizhchi.cloud.tenant.TenantJdbc;
 import org.postgresql.util.PGobject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -15,6 +17,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/v1/data")
 public class DataController {
+    private static final Logger log = LoggerFactory.getLogger(DataController.class);
     private static final ObjectMapper M = new ObjectMapper();
     private final TenantJdbc t;
     public DataController(TenantJdbc t) { this.t = t; }
@@ -46,21 +49,39 @@ public class DataController {
     @GetMapping("/{table}")
     public List<Map<String,Object>> list(@PathVariable String table,
                                           @RequestParam(defaultValue="100") int limit,
-                                          @RequestParam(required=false) String q) {
+                                          @RequestParam(required=false) String q,
+                                          @RequestParam(name="order_by", required=false) String orderBy) {
         if (!table.matches("[a-z_]+")) throw new IllegalArgumentException("bad table");
         int cap = Math.min(Math.max(limit, 1), 500);
+        // ORDER BY only allowed against a payload JSONB field. Caller passes
+        // "field" (ASC) or "field:desc"; field name is whitelisted to a-z_
+        // to keep SQL safe.
+        String orderField = null;
+        boolean orderDesc = false;
+        if (orderBy != null && !orderBy.isBlank()) {
+            String[] parts = orderBy.split(":");
+            if (parts[0].matches("[a-z_][a-z0-9_]*")) {
+                orderField = parts[0];
+                orderDesc  = parts.length > 1 && "desc".equalsIgnoreCase(parts[1]);
+            }
+        }
+        final String of = orderField;
+        final boolean odesc = orderDesc;
         return t.inTenant(j -> {
+            String order = of != null
+                ? "(payload->>'" + of + "') " + (odesc ? "DESC" : "ASC") + " NULLS LAST"
+                : "last_updated_at DESC";
             List<Map<String,Object>> rows;
             if (q == null || q.isBlank()) {
                 rows = j.queryForList(
                     "SELECT row_pk, payload, last_updated_at FROM projections " +
                     "WHERE table_name = ? AND NOT deleted " +
-                    "ORDER BY last_updated_at DESC LIMIT ?", table, cap);
+                    "ORDER BY " + order + " LIMIT ?", table, cap);
             } else {
                 rows = j.queryForList(
                     "SELECT row_pk, payload, last_updated_at FROM projections " +
                     "WHERE table_name = ? AND NOT deleted AND payload::text ILIKE ? " +
-                    "ORDER BY last_updated_at DESC LIMIT ?",
+                    "ORDER BY " + order + " LIMIT ?",
                     table, "%" + q + "%", cap);
             }
             return rehydrate(rows);
@@ -79,6 +100,56 @@ public class DataController {
                         table + " row '" + rowPk + "' not found");
             return rehydrateOne(rows.get(0));
         });
+    }
+
+    /**
+     * Monthly aggregation of company_billing for the MIS Report screen.
+     * Buckets by opening_date month; profit / earned use closing data.
+     * Returns the most recent {@code limit} months, newest first.
+     */
+    @GetMapping("/monthly-report")
+    public Map<String,Object> monthlyReport(@RequestParam(defaultValue="24") int limit) {
+        int cap = Math.min(Math.max(limit, 1), 120);
+        try {
+            return t.inTenant(j -> {
+                // Pull only rows whose opening_date prefix looks like a date,
+                // and treat any cast failure as zero per-row in PL/pgSQL.
+                List<Map<String,Object>> months = j.queryForList(
+                    "SELECT to_char(opd, 'YYYY-MM') AS month, " +
+                    "       count(*) AS \"pawnBills\", " +
+                    "       COALESCE(sum(amt), 0) AS \"pawnAmount\", " +
+                    "       count(*) FILTER (WHERE status='DELIVERED') AS \"redeemBills\", " +
+                    "       COALESCE(sum(cta) FILTER (WHERE status='DELIVERED'), 0) AS \"redeemAmount\", " +
+                    "       COALESCE(sum(cta - amt) FILTER (WHERE status='DELIVERED'), 0) AS \"profit\", " +
+                    "       count(*) FILTER (WHERE status NOT IN ('DELIVERED','CANCELLED')) AS \"stockBills\", " +
+                    "       COALESCE(sum(amt) FILTER (WHERE status NOT IN ('DELIVERED','CANCELLED')), 0) AS \"stockAmount\", " +
+                    "       count(*) FILTER (WHERE status='DELIVERED' AND cta > amt) AS \"earnedBills\", " +
+                    "       COALESCE(sum(cta - amt) FILTER (WHERE status='DELIVERED' AND cta > amt), 0) AS \"earnedAmount\" " +
+                    "  FROM ( " +
+                    "    SELECT " +
+                    "      to_date(substring(payload->>'opening_date' from 1 for 10), 'YYYY-MM-DD') AS opd, " +
+                    "      CASE WHEN payload->>'amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
+                    "           THEN (payload->>'amount')::numeric ELSE 0 END AS amt, " +
+                    "      CASE WHEN payload->>'close_taken_amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
+                    "           THEN (payload->>'close_taken_amount')::numeric ELSE 0 END AS cta, " +
+                    "      COALESCE(payload->>'status', '') AS status " +
+                    "    FROM projections " +
+                    "    WHERE table_name = 'company_billing' AND NOT deleted " +
+                    "      AND payload->>'opening_date' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' " +
+                    "  ) src " +
+                    "  GROUP BY month " +
+                    "  ORDER BY month DESC " +
+                    "  LIMIT ?",
+                    cap);
+                return Map.of("total", months.size(), "months", months);
+            });
+        } catch (Exception e) {
+            // Log the real cause then return an empty result so the screen
+            // renders "0 months" instead of an opaque 500 in the toast.
+            log.error("monthlyReport failed: {}", e.toString(), e);
+            return Map.of("total", 0, "months", List.of(),
+                          "error", String.valueOf(e.getMessage()));
+        }
     }
 
     @GetMapping("/notifications")

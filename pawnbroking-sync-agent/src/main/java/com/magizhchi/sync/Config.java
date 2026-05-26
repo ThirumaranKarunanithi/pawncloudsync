@@ -11,6 +11,8 @@ public final class Config {
     public final int batchSize, healthPort;
     public final long pollIntervalMs;
     public final long schemaGuardIntervalMs;
+    public final long imageScanIntervalMs;
+    public final String imageRootOverride; // optional; null = auto-resolve per company
 
     private Config(Properties p) {
         this.dbUrl                 = require(p, "db.url");
@@ -23,6 +25,10 @@ public final class Config {
         this.pollIntervalMs        = Long.parseLong(p.getProperty("poll.interval.ms", "5000"));
         this.healthPort            = Integer.parseInt(p.getProperty("health.port", "17654"));
         this.schemaGuardIntervalMs = Long.parseLong(p.getProperty("schema.guard.interval.ms", "30000"));
+        this.imageScanIntervalMs   = Long.parseLong(p.getProperty("image.scan.interval.ms",   "60000"));
+        // Optional override; if blank we read camera_temp_file_name from each company.
+        String root = p.getProperty("image.root", "").trim();
+        this.imageRootOverride = root.isEmpty() ? null : root;
     }
 
     private static String require(Properties p, String k) {

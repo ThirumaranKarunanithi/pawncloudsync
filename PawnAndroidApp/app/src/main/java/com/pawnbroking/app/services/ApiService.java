@@ -36,7 +36,11 @@ import okhttp3.Response;
  * an error since they live on the desktop side of the sync pipeline.
  */
 public class ApiService {
-    private static final OkHttpClient CLIENT = new OkHttpClient();
+    private static final OkHttpClient CLIENT = new OkHttpClient.Builder()
+            .connectTimeout(java.time.Duration.ofSeconds(30))
+            .readTimeout   (java.time.Duration.ofSeconds(60))
+            .writeTimeout  (java.time.Duration.ofSeconds(60))
+            .build();
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
     private static final ExecutorService EXEC = Executors.newCachedThreadPool();
     private static final String PREFS = "pawn_prefs";
@@ -140,7 +144,12 @@ public class ApiService {
     }
 
     public static boolean isLoggedIn(Context ctx) {
-        return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).contains("token");
+        // contains("token") alone returns true for an empty/null value, which
+        // would leave the splash routing to Home with no real JWT and every
+        // data call 401'ing. Require a non-empty token to be considered
+        // logged in.
+        String t = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("token", null);
+        return t != null && !t.isEmpty();
     }
 
     public static String getSavedEmployeeName(Context ctx) {
@@ -247,16 +256,99 @@ public class ApiService {
                                      Callback<JSONObject> cb) {
         EXEC.execute(() -> {
             try {
-                String table = AppConfig.TBL_BILL_OPENING;
-                HttpUrl url = HttpUrl.parse(AppConfig.DATA_BASE + "/" + table + "/" + billNumber).newBuilder().build();
-                try (Response res = CLIENT.newCall(authed(url).get().build()).execute()) {
-                    String raw = res.body() != null ? res.body().string() : "{}";
-                    if (res.code() == 404) { cb.onError("Bill " + billNumber + " not found"); return; }
-                    checkStatus(res, raw);
-                    cb.onSuccess(unwrapPayload(new JSONObject(raw)));
+                // Bills are projected with composite row_pk =
+                // "<company_id>|<jewel_material_type>|<bill_number>". The
+                // mobile-side companyId is the SHOP_ID (e.g. "mylocal"), not
+                // the desktop's company id (e.g. "CMP1"), so we can't compose
+                // the row_pk directly. Use the cloud's ILIKE search on the
+                // JSONB payload and pick the row whose bill_number matches
+                // exactly (and material, when supplied).
+                JSONArray rows = fetchTableSync(AppConfig.TBL_BILL_OPENING, billNumber);
+                JSONObject match = null;
+                for (int i = 0; i < rows.length(); i++) {
+                    JSONObject body = unwrapPayload(rows.getJSONObject(i));
+                    if (!billNumber.equalsIgnoreCase(body.optString("bill_number", ""))) continue;
+                    if (type != null && !type.isEmpty()
+                        && !"ALL".equalsIgnoreCase(type)
+                        && !type.equalsIgnoreCase(body.optString("jewel_material_type", ""))) continue;
+                    match = body;
+                    break;
                 }
+                if (match == null) { cb.onError("Bill " + billNumber + " not found"); return; }
+                sanitizeNulls(match);
+                addBillAliases(match);
+                mergeRepledgeInto(match);
+                cb.onSuccess(match);
             } catch (Exception e) { cb.onError(e.getMessage()); }
         });
+    }
+
+    /**
+     * If the bill is linked to a repledge (company_billing.repledge_bill_id
+     * non-empty), look up that row in repledge_billing and copy its fields
+     * into the response with a `repl_` prefix so the Billing screen's
+     * REPLEDGE INFORMATION block — and any future repledge-opening/closing
+     * sub-sections — render with real data.
+     */
+    private static void mergeRepledgeInto(JSONObject bill) {
+        String repId = bill.optString("repledge_bill_id", "").trim();
+        if (repId.isEmpty()) return;
+        try {
+            JSONArray rows = fetchTableSync(AppConfig.TBL_REPLEDGE, repId, null);
+            JSONObject rb = null;
+            for (int i = 0; i < rows.length(); i++) {
+                JSONObject body = unwrapPayload(rows.getJSONObject(i));
+                if (repId.equalsIgnoreCase(body.optString("repledge_bill_id", ""))) {
+                    rb = body; break;
+                }
+            }
+            if (rb == null) return;
+            sanitizeNulls(rb);
+            // Defaults for fields that are commonly null in real data so the
+            // screen never shows blank labels next to populated rows.
+            if (rb.optString("interest_type", "").isEmpty()) {
+                String fallback = bill.optString("interest_type", "MONTH");
+                rb.put("interest_type", fallback.isEmpty() ? "MONTH" : fallback);
+            }
+            // Legacy field names the existing layout reads.
+            bill.put("repl_name",          rb.optString("repledge_name", ""));
+            bill.put("repl_bill_number",   rb.optString("repledge_bill_number", ""));
+            bill.put("repl_company_bill",  rb.optString("company_bill_number", ""));
+            bill.put("repl_opening_date",  rb.optString("opening_date", ""));
+            bill.put("repl_amount",        rb.optDouble("amount", 0));
+            bill.put("repl_status",        rb.optString("status", ""));
+            // Make every repledge field accessible to a richer sub-section
+            // later — prefixed so it never collides with the parent bill.
+            java.util.Iterator<String> it = rb.keys();
+            while (it.hasNext()) {
+                String k = it.next();
+                String pk = "repl_" + k;
+                if (!bill.has(pk)) bill.put(pk, rb.opt(k));
+            }
+        } catch (Exception ignored) { /* repledge linkage is optional */ }
+    }
+
+    /**
+     * The BillingActivity layout was written for the old REST server's field
+     * names. The desktop's actual columns differ — copy the values across so
+     * the screen renders without changing the layout XML.
+     */
+    private static JSONObject addBillAliases(JSONObject b) {
+        try {
+            // material_type ← jewel_material_type
+            if (!b.has("material_type") && b.has("jewel_material_type"))
+                b.put("material_type", b.optString("jewel_material_type"));
+            // taken_amount ← open_taken_amount
+            if (!b.has("taken_amount") && b.has("open_taken_amount"))
+                b.put("taken_amount", b.opt("open_taken_amount"));
+            // to_give_amount ← togive_amount
+            if (!b.has("to_give_amount") && b.has("togive_amount"))
+                b.put("to_give_amount", b.opt("togive_amount"));
+            // close_interest_type ← interest_type
+            if (!b.has("close_interest_type") && b.has("interest_type"))
+                b.put("close_interest_type", b.optString("interest_type"));
+        } catch (Exception ignored) {}
+        return b;
     }
 
     // ── Dashboard ─────────────────────────────────────────────────────────────
@@ -318,7 +410,15 @@ public class ApiService {
     public static void searchCustomers(String companyId, String query, Callback<JSONArray> cb) {
         EXEC.execute(() -> {
             try {
-                cb.onSuccess(fetchTableSync(AppConfig.TBL_CUSTOMER, query));
+                // Activities read flat customer fields (customer_name, spouse_*,
+                // mobile_number, area) — unwrap each projection row's payload
+                // before handing the array up.
+                JSONArray rows = fetchTableSync(AppConfig.TBL_CUSTOMER, query);
+                JSONArray flat = new JSONArray();
+                for (int i = 0; i < rows.length(); i++) {
+                    flat.put(unwrapPayload(rows.getJSONObject(i)));
+                }
+                cb.onSuccess(flat);
             } catch (Exception e) { cb.onError(e.getMessage()); }
         });
     }
@@ -330,14 +430,18 @@ public class ApiService {
                                 String customerName, String amountFrom, String amountTo,
                                 int page, int size,
                                 Callback<JSONObject> cb) {
-        fetchStock(AppConfig.TBL_STOCK, materialType, search, page, size, cb);
+        fetchStock(AppConfig.TBL_STOCK, materialType, search, page, size,
+                   from, to, customerName, amountFrom, amountTo,
+                   null, null, null, cb);
     }
 
     public static void getRepledgeStock(String companyId, String materialType, String search,
                                         String repledgeName,
                                         String repledgeDateFrom, String repledgeDateTo,
                                         int page, int size, Callback<JSONObject> cb) {
-        fetchStock(AppConfig.TBL_REPLEDGE, materialType, search, page, size, cb);
+        fetchStock(AppConfig.TBL_REPLEDGE, materialType, search, page, size,
+                   null, null, null, null, null,
+                   repledgeName, repledgeDateFrom, repledgeDateTo, cb);
     }
 
     public static void getAllStock(String companyId, String materialType, String search,
@@ -347,31 +451,101 @@ public class ApiService {
                                    String repledgeDateFrom, String repledgeDateTo,
                                    int page, int size,
                                    Callback<JSONObject> cb) {
-        fetchStock(AppConfig.TBL_STOCK, materialType, search, page, size, cb);
+        fetchStock(AppConfig.TBL_STOCK, materialType, search, page, size,
+                   compDateFrom, compDateTo, customerName, amountFrom, amountTo,
+                   repledgeName, repledgeDateFrom, repledgeDateTo, cb);
     }
 
+    /**
+     * Applies every active filter client-side. The cloud's /v1/data endpoint
+     * only honours `q` (free-text ILIKE) and `limit`; everything else
+     * (material, date range, amount range, customer/repledge name) is
+     * narrowed here before paging the slice back to the UI.
+     */
     private static void fetchStock(String table, String materialType, String search,
-                                   int page, int size, Callback<JSONObject> cb) {
+                                   int page, int size,
+                                   String compDateFrom, String compDateTo,
+                                   String customerName, String amountFrom, String amountTo,
+                                   String repledgeName,
+                                   String repledgeDateFrom, String repledgeDateTo,
+                                   Callback<JSONObject> cb) {
         EXEC.execute(() -> {
             try {
-                JSONArray rows = fetchTableSync(table, search);
+                // Ask the cloud to slice the top 500 by opening_date DESC so
+                // we get the most recent bills out of the full 39k, not an
+                // arbitrary 500 ordered by last_updated_at.
+                JSONArray rows = fetchTableSync(table, search, "opening_date:desc");
                 JSONArray filtered = new JSONArray();
+                double totalAmount = 0d;
+                double totalInterest = 0d;
+                Double amtFrom = parseDoubleOrNull(amountFrom);
+                Double amtTo   = parseDoubleOrNull(amountTo);
+                String custLc  = customerName == null ? null : customerName.toLowerCase();
+                String replLc  = repledgeName == null ? null : repledgeName.toLowerCase();
                 for (int i = 0; i < rows.length(); i++) {
                     JSONObject row = rows.getJSONObject(i);
                     JSONObject payload = row.optJSONObject("payload");
                     JSONObject body = payload != null ? payload : row;
                     if (materialType != null && !materialType.isEmpty()
+                        && !"ALL".equalsIgnoreCase(materialType)
                         && !materialType.equalsIgnoreCase(body.optString("jewel_material_type",
                             body.optString("material_type", "")))) continue;
-                    filtered.put(payload != null ? payload : row);
+                    String openingDate = body.optString("opening_date", "");
+                    if (compDateFrom != null && !compDateFrom.isEmpty()
+                        && (openingDate.isEmpty() || openingDate.compareTo(compDateFrom) < 0)) continue;
+                    if (compDateTo != null && !compDateTo.isEmpty()
+                        && (openingDate.isEmpty() || openingDate.compareTo(compDateTo) > 0)) continue;
+                    String replDate = body.optString("repledge_opening_date",
+                                      body.optString("opening_date", ""));
+                    if (repledgeDateFrom != null && !repledgeDateFrom.isEmpty()
+                        && (replDate.isEmpty() || replDate.compareTo(repledgeDateFrom) < 0)) continue;
+                    if (repledgeDateTo != null && !repledgeDateTo.isEmpty()
+                        && (replDate.isEmpty() || replDate.compareTo(repledgeDateTo) > 0)) continue;
+                    if (custLc != null && !custLc.isEmpty()
+                        && !body.optString("customer_name", "").toLowerCase().contains(custLc)) continue;
+                    if (replLc != null && !replLc.isEmpty()
+                        && !body.optString("repledge_name", "").toLowerCase().contains(replLc)) continue;
+                    double amt = body.optDouble("amount", 0);
+                    if (amtFrom != null && amt < amtFrom) continue;
+                    if (amtTo   != null && amt > amtTo  ) continue;
+                    // org.json's optString returns the literal "null" for
+                    // explicit JSON null values, which renders as the title
+                    // text on bill cards. Strip nulls so default-fallbacks
+                    // ("") actually fire in the adapter.
+                    sanitizeNulls(body);
+                    // Repledge cards show repledge_bill_id as the title. If
+                    // that column is null/empty in source, fall back to the
+                    // most useful identifier we do have so the card isn't
+                    // headerless on screen.
+                    if (AppConfig.TBL_REPLEDGE.equals(table)
+                        && body.optString("repledge_bill_id", "").isEmpty()) {
+                        String alt = body.optString("repledge_bill_number", "");
+                        if (alt.isEmpty()) alt = body.optString("company_bill_number", "");
+                        if (alt.isEmpty()) alt = body.optString("repledge_id", "");
+                        if (!alt.isEmpty()) body.put("repledge_bill_id", alt);
+                    }
+                    filtered.put(body);
+                    totalAmount   += amt;
+                    totalInterest += body.optDouble("interest", 0);
                 }
+                // Sort newest-first by opening_date. The cloud's
+                // last_updated_at DESC order is meaningless because the
+                // one-time replay stamped every row with the same instant.
+                java.util.List<JSONObject> sortable = new java.util.ArrayList<>();
+                for (int i = 0; i < filtered.length(); i++) sortable.add(filtered.getJSONObject(i));
+                sortable.sort((a, b) -> b.optString("opening_date", "")
+                                         .compareTo(a.optString("opening_date", "")));
                 int from = Math.max(page * size, 0);
-                int to   = Math.min(from + size, filtered.length());
+                int to   = Math.min(from + size, sortable.size());
                 JSONArray slice = new JSONArray();
-                for (int i = from; i < to; i++) slice.put(filtered.get(i));
+                for (int i = from; i < to; i++) slice.put(sortable.get(i));
                 JSONObject out = new JSONObject();
-                out.put("items", slice);
-                out.put("total", filtered.length());
+                // StockDetailsActivity reads these specific keys — match its
+                // contract exactly or the screen renders "0 bills ₹0.00".
+                out.put("bills",         slice);
+                out.put("total",         sortable.size());
+                out.put("totalAmount",   totalAmount);
+                out.put("totalInterest", totalInterest);
                 cb.onSuccess(out);
             } catch (Exception e) { cb.onError(e.getMessage()); }
         });
@@ -380,7 +554,18 @@ public class ApiService {
     // ── Reports (no cloud equivalent yet) ────────────────────────────────────
 
     public static void getMonthlyReport(String companyId, Callback<JSONObject> cb) {
-        cb.onError("Monthly report is not yet exposed by the cloud API.");
+        EXEC.execute(() -> {
+            try {
+                HttpUrl url = HttpUrl.parse(AppConfig.DATA_BASE + "/monthly-report").newBuilder()
+                    .addQueryParameter("limit", "24")
+                    .build();
+                try (Response res = CLIENT.newCall(authed(url).get().build()).execute()) {
+                    String raw = res.body() != null ? res.body().string() : "{}";
+                    checkStatus(res, raw);
+                    cb.onSuccess(new JSONObject(raw));
+                }
+            } catch (Exception e) { cb.onError(e.getMessage()); }
+        });
     }
 
     public static void getTrialBalance(String companyId, String from, String to,
@@ -416,12 +601,53 @@ public class ApiService {
         cb.onError("Bills must be saved on the desktop; the cloud is read-only from mobile.");
     }
 
+    // ── Notifications ─────────────────────────────────────────────────────────
+
+    /** Fetches the latest cloud notifications (newest first). */
+    public static void getNotifications(int limit, Callback<JSONArray> cb) {
+        EXEC.execute(() -> {
+            try {
+                HttpUrl url = HttpUrl.parse(AppConfig.DATA_NOTIFICATIONS).newBuilder()
+                    .addQueryParameter("limit", String.valueOf(Math.max(limit, 1)))
+                    .build();
+                try (Response res = CLIENT.newCall(authed(url).get().build()).execute()) {
+                    String raw = res.body() != null ? res.body().string() : "[]";
+                    checkStatus(res, raw);
+                    cb.onSuccess(new JSONArray(raw));
+                }
+            } catch (Exception e) { cb.onError(e.getMessage()); }
+        });
+    }
+
+    /** Records the highest notif_id the user has seen so the bell badge
+     *  only shows entries newer than this. */
+    public static void markNotificationsRead(Context ctx, long lastNotifId) {
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+           .putLong("last_read_notif_id", lastNotifId).apply();
+    }
+
+    public static long getLastReadNotifId(Context ctx) {
+        return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                  .getLong("last_read_notif_id", 0L);
+    }
+
     // ── Internals ─────────────────────────────────────────────────────────────
 
     private static JSONArray fetchTableSync(String table, String query) throws Exception {
+        return fetchTableSync(table, query, null);
+    }
+
+    /**
+     * @param orderBy optional `field` or `field:desc` (e.g. "opening_date:desc")
+     *                — pushed to the cloud so the top-N slice is the right
+     *                rows. Without it, the cloud orders by last_updated_at
+     *                which the one-time replay made meaningless.
+     */
+    private static JSONArray fetchTableSync(String table, String query, String orderBy) throws Exception {
         HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/" + table).newBuilder()
             .addQueryParameter("limit", "500");
-        if (query != null && !query.isEmpty()) b.addQueryParameter("q", query);
+        if (query  != null && !query.isEmpty())   b.addQueryParameter("q",        query);
+        if (orderBy != null && !orderBy.isEmpty()) b.addQueryParameter("order_by", orderBy);
         try (Response res = CLIENT.newCall(authed(b.build()).get().build()).execute()) {
             String raw = res.body() != null ? res.body().string() : "[]";
             checkStatus(res, raw);
@@ -449,8 +675,12 @@ public class ApiService {
     }
 
     private static boolean matchesFilter(Bill bill, String type, String status) {
-        if (type != null && !type.isEmpty() && !type.equalsIgnoreCase(bill.materialType)) return false;
-        if (status != null && !status.isEmpty() && !status.equalsIgnoreCase(bill.status)) return false;
+        if (type != null && !type.isEmpty()
+            && !"ALL".equalsIgnoreCase(type)
+            && !type.equalsIgnoreCase(bill.materialType)) return false;
+        if (status != null && !status.isEmpty()
+            && !"ALL".equalsIgnoreCase(status)
+            && !status.equalsIgnoreCase(bill.status)) return false;
         return true;
     }
 
@@ -465,6 +695,16 @@ public class ApiService {
     }
 
     private static void checkStatus(Response res, String raw) throws Exception {
+        if (res.code() == 401) {
+            // The saved JWT is missing, expired, or signed with an old
+            // secret — purge it so the next app launch routes back to
+            // Login instead of looping on dead requests.
+            Context c = resolveCtx();
+            if (c != null) {
+                c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply();
+            }
+            throw new Exception("Session expired — please sign in again");
+        }
         if (!res.isSuccessful())
             throw new Exception("API error " + res.code() + ": " + raw);
     }
@@ -472,6 +712,23 @@ public class ApiService {
     private static String capitalize(String s) {
         return s == null || s.isEmpty() ? s
             : Character.toUpperCase(s.charAt(0)) + s.substring(1);
+    }
+
+    private static Double parseDoubleOrNull(String s) {
+        if (s == null || s.isEmpty()) return null;
+        try { return Double.parseDouble(s); } catch (Exception e) { return null; }
+    }
+
+    /** Drop keys whose value is the JSON null sentinel so optString returns
+     *  the default ("") instead of the literal text "null". */
+    private static void sanitizeNulls(JSONObject o) {
+        java.util.List<String> drop = new java.util.ArrayList<>();
+        java.util.Iterator<String> it = o.keys();
+        while (it.hasNext()) {
+            String k = it.next();
+            if (o.isNull(k)) drop.add(k);
+        }
+        for (String k : drop) o.remove(k);
     }
 
     public static class BillsResult {

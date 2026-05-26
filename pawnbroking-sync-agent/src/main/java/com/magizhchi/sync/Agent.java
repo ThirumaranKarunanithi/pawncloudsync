@@ -33,6 +33,7 @@ public class Agent {
         OutboxDrainer drainer = new OutboxDrainer(ds, cloud, cfg);
         ListenWorker listener = new ListenWorker(cfg, drainer);
         HealthServer health = new HealthServer(cfg.healthPort);
+        ImageWatcher imageWatcher = new ImageWatcher(ds, cfg);
 
         CountDownLatch stop = new CountDownLatch(1);
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -40,17 +41,20 @@ public class Agent {
             drainer.stop();
             listener.stop();
             guard.stop();
+            imageWatcher.stop();
             health.stop();
             ds.close();
             stop.countDown();
         }));
 
-        Thread tDrain  = new Thread(drainer,  "drainer");
-        Thread tListen = new Thread(listener, "listener");
-        Thread tGuard  = new Thread(guard,    "schema-guard");
+        Thread tDrain  = new Thread(drainer,      "drainer");
+        Thread tListen = new Thread(listener,     "listener");
+        Thread tGuard  = new Thread(guard,        "schema-guard");
+        Thread tImage  = new Thread(imageWatcher, "image-watcher");
         tDrain.start();
         tListen.start();
         tGuard.start();
+        tImage.start();
         health.start();
 
         stop.await();

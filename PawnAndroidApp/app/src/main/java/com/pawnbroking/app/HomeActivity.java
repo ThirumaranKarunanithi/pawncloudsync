@@ -2,6 +2,8 @@ package com.pawnbroking.app;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -18,6 +20,9 @@ import androidx.appcompat.widget.Toolbar;
 import com.pawnbroking.app.models.Company;
 import com.pawnbroking.app.services.ApiService;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +35,17 @@ public class HomeActivity extends AppCompatActivity {
 
     private List<Company> companies = new ArrayList<>();
     private Company selectedCompany;
+
+    // Notification bell
+    private TextView tvBellBadge;
+    private final Handler pollHandler = new Handler(Looper.getMainLooper());
+    private static final long POLL_INTERVAL_MS = 30_000L;
+    private final Runnable pollRunnable = new Runnable() {
+        @Override public void run() {
+            refreshBellBadge();
+            pollHandler.postDelayed(this, POLL_INTERVAL_MS);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,11 +72,21 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_home, menu);
+        MenuItem bell = menu.findItem(R.id.action_notifications);
+        if (bell != null) {
+            View v = bell.getActionView();
+            if (v != null) {
+                tvBellBadge = v.findViewById(R.id.tvBellBadge);
+                v.setOnClickListener(x -> openNotifications());
+            }
+        }
+        refreshBellBadge();
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_notifications) { openNotifications(); return true; }
         if (item.getItemId() == R.id.action_settings) {
             startActivity(new Intent(this, SettingsActivity.class));
             return true;
@@ -70,6 +96,48 @@ public class HomeActivity extends AppCompatActivity {
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void openNotifications() {
+        startActivity(new Intent(this, NotificationsActivity.class));
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        // Refresh badge immediately and start the 30s poll loop.
+        refreshBellBadge();
+        pollHandler.postDelayed(pollRunnable, POLL_INTERVAL_MS);
+    }
+
+    @Override protected void onPause() {
+        super.onPause();
+        pollHandler.removeCallbacks(pollRunnable);
+    }
+
+    private void refreshBellBadge() {
+        ApiService.getNotifications(50, new ApiService.Callback<JSONArray>() {
+            @Override public void onSuccess(JSONArray data) {
+                long lastRead = ApiService.getLastReadNotifId(HomeActivity.this);
+                int unread = 0;
+                for (int i = 0; i < data.length(); i++) {
+                    JSONObject o = data.optJSONObject(i);
+                    if (o != null && o.optLong("notif_id", 0) > lastRead) unread++;
+                }
+                final int count = unread;
+                runOnUiThread(() -> applyBadge(count));
+            }
+            @Override public void onError(String msg) { /* silent on poll */ }
+        });
+    }
+
+    private void applyBadge(int count) {
+        if (tvBellBadge == null) return;
+        if (count <= 0) {
+            tvBellBadge.setVisibility(View.GONE);
+        } else {
+            tvBellBadge.setText(count > 99 ? "99+" : String.valueOf(count));
+            tvBellBadge.setVisibility(View.VISIBLE);
+        }
     }
 
     private void loadCompanies() {

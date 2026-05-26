@@ -38,9 +38,22 @@ public class AppConfig {
     public static final String TBL_REPLEDGE       = "repledge_billing";
     public static final String TBL_ADVANCE        = "company_advance_amount";
 
-    /** Bill image proxy is not yet implemented on the cloud — returns null. */
+    /** Bill image proxy. Cloud-api fetches the bytes from Magizhchi Share
+     *  using the per-tenant mbk_ token and streams them back. */
+    public static final String BILL_IMAGE = BASE_URL + "/v1/bills/image";
+
     public static String billImageUrl(String companyId, String materialType,
                                        String billNumber, String imageName) {
-        return null;
+        try {
+            return BILL_IMAGE
+                + "?companyId="    + java.net.URLEncoder.encode(companyId,    "UTF-8")
+                + "&materialType=" + java.net.URLEncoder.encode(materialType.toUpperCase(), "UTF-8")
+                + "&billNumber="   + java.net.URLEncoder.encode(billNumber,   "UTF-8")
+                + "&imageName="    + java.net.URLEncoder.encode(imageName,    "UTF-8");
+        } catch (java.io.UnsupportedEncodingException e) {
+            return BILL_IMAGE + "?companyId=" + companyId
+                + "&materialType=" + materialType + "&billNumber=" + billNumber
+                + "&imageName=" + imageName;
+        }
     }
 }

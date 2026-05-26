@@ -78,6 +78,14 @@ public class BillingActivity extends AppCompatActivity {
     private TextView tvReplBillId, tvReplStatus, tvReplName;
     private TextView tvReplBillNumber, tvReplCompanyBill;
     private TextView tvReplOpenedDate, tvReplAmount;
+    // Repledge opening details
+    private LinearLayout layoutRepledgeOpening;
+    private TextView tvReplOpenInterest, tvReplOpenInterestType, tvReplOpenDocCharge;
+    private TextView tvReplOpenTaken, tvReplOpenToGive, tvReplOpenGiven;
+    // Repledge closing details
+    private LinearLayout layoutRepledgeClosing;
+    private TextView tvReplClosingDate, tvReplCloseTotalDays;
+    private TextView tvReplCloseTaken, tvReplCloseToGet, tvReplCloseGot, tvReplCloseAcceptedDate;
 
     // Bill images
     private LinearLayout layoutClosingImages;
@@ -199,6 +207,22 @@ public class BillingActivity extends AppCompatActivity {
         tvReplCompanyBill     = findViewById(R.id.tvReplCompanyBill);
         tvReplOpenedDate      = findViewById(R.id.tvReplOpenedDate);
         tvReplAmount          = findViewById(R.id.tvReplAmount);
+
+        // Repledge opening / closing details (new sections)
+        layoutRepledgeOpening   = findViewById(R.id.layoutRepledgeOpening);
+        tvReplOpenInterest      = findViewById(R.id.tvReplOpenInterest);
+        tvReplOpenInterestType  = findViewById(R.id.tvReplOpenInterestType);
+        tvReplOpenDocCharge     = findViewById(R.id.tvReplOpenDocCharge);
+        tvReplOpenTaken         = findViewById(R.id.tvReplOpenTaken);
+        tvReplOpenToGive        = findViewById(R.id.tvReplOpenToGive);
+        tvReplOpenGiven         = findViewById(R.id.tvReplOpenGiven);
+        layoutRepledgeClosing   = findViewById(R.id.layoutRepledgeClosing);
+        tvReplClosingDate       = findViewById(R.id.tvReplClosingDate);
+        tvReplCloseTotalDays    = findViewById(R.id.tvReplCloseTotalDays);
+        tvReplCloseTaken        = findViewById(R.id.tvReplCloseTaken);
+        tvReplCloseToGet        = findViewById(R.id.tvReplCloseToGet);
+        tvReplCloseGot          = findViewById(R.id.tvReplCloseGot);
+        tvReplCloseAcceptedDate = findViewById(R.id.tvReplCloseAcceptedDate);
 
         // Bill images
         layoutClosingImages = findViewById(R.id.layoutClosingImages);
@@ -445,8 +469,30 @@ public class BillingActivity extends AppCompatActivity {
             }
             tvReplStatus.setTextColor(replColor);
             layoutRepledgeSection.setVisibility(View.VISIBLE);
+
+            // ── Repledge bill opening details (from linked repledge_billing row) ──
+            tvReplOpenInterest.setText(    fmt(r.optDouble("repl_interest",          0)));
+            tvReplOpenInterestType.setText(r.optString("repl_interest_type",          ""));
+            tvReplOpenDocCharge.setText(   fmt(r.optDouble("repl_document_charge",   0)));
+            tvReplOpenTaken.setText(       fmt(r.optDouble("repl_open_taken_amount", 0)));
+            tvReplOpenToGive.setText(      fmt(r.optDouble("repl_togive_amount",     0)));
+            tvReplOpenGiven.setText(       fmt(r.optDouble("repl_given_amount",      0)));
+            layoutRepledgeOpening.setVisibility(View.VISIBLE);
+
+            // ── Repledge bill closing details ──
+            String rClosingDate = r.optString("repl_closing_date", "");
+            tvReplClosingDate.setText(     rClosingDate.isEmpty() ? "—" : rClosingDate);
+            tvReplCloseTotalDays.setText(  r.optString("repl_total_days_or_months",  "—"));
+            tvReplCloseTaken.setText(      fmt(r.optDouble("repl_close_taken_amount",0)));
+            tvReplCloseToGet.setText(      fmt(r.optDouble("repl_toget_amount",      0)));
+            tvReplCloseGot.setText(        fmt(r.optDouble("repl_got_amount",        0)));
+            String rAccDate = r.optString("repl_accepted_closing_date", "");
+            tvReplCloseAcceptedDate.setText(rAccDate.isEmpty() ? "—" : rAccDate);
+            layoutRepledgeClosing.setVisibility(View.VISIBLE);
         } else {
             layoutRepledgeSection.setVisibility(View.GONE);
+            layoutRepledgeOpening.setVisibility(View.GONE);
+            layoutRepledgeClosing.setVisibility(View.GONE);
         }
 
         // Bill images — load opening images always; closing only for non-open statuses
@@ -567,14 +613,24 @@ public class BillingActivity extends AppCompatActivity {
 
     /** Loads a single S3 image into an ImageView; tap opens full-screen viewer. */
     private void loadImg(String url, ImageView iv, String title) {
+        if (url == null) { iv.setImageResource(android.R.color.darker_gray); return; }
         Glide.with(this)
-             .load(url)
+             .load(authedGlide(url))
              .diskCacheStrategy(DiskCacheStrategy.ALL)
              .placeholder(android.R.color.darker_gray)
              .error(android.R.color.darker_gray)
              .into(iv);
 
         iv.setOnClickListener(v -> openImageFullScreen(url, title));
+    }
+
+    /** Wraps a URL with the saved JWT so Glide's GET passes through JwtFilter. */
+    private com.bumptech.glide.load.model.GlideUrl authedGlide(String url) {
+        String token = getSharedPreferences("pawn_prefs", MODE_PRIVATE).getString("token", "");
+        com.bumptech.glide.load.model.LazyHeaders.Builder lh =
+            new com.bumptech.glide.load.model.LazyHeaders.Builder();
+        if (token != null && !token.isEmpty()) lh.addHeader("Authorization", "Bearer " + token);
+        return new com.bumptech.glide.load.model.GlideUrl(url, lh.build());
     }
 
     /** Shows the image full-screen in a dismiss-on-tap dialog. */
@@ -590,7 +646,7 @@ public class BillingActivity extends AppCompatActivity {
         full.setScaleType(ImageView.ScaleType.FIT_CENTER);
 
         Glide.with(this)
-             .load(url)
+             .load(authedGlide(url))
              .diskCacheStrategy(DiskCacheStrategy.ALL)
              .into(full);
 

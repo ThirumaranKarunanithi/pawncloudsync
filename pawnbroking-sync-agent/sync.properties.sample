@@ -17,3 +17,11 @@ health.port=17654
 # table + triggers). After a DB restore wipes these, the agent will
 # re-install them within this interval — no manual psql work needed.
 schema.guard.interval.ms=30000
+
+# How often ImageWatcher scans the bill-image directories on disk and
+# uploads new files to the cloud. Defaults to 60s.
+image.scan.interval.ms=60000
+# Optional override for the image root path. If blank (the default) the
+# watcher reads company_other_settings.camera_temp_file_name for each
+# company so multiple shops with different paths just work.
+#image.root=D:\\Pawnbroking\\pawnbrokingImages\\Test

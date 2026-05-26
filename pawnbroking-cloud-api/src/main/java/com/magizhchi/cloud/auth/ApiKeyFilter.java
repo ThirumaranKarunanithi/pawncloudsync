@@ -28,7 +28,10 @@ public class ApiKeyFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
             throws ServletException, IOException {
         String path = req.getRequestURI();
-        if (!path.startsWith("/v1/sync")) { chain.doFilter(req, res); return; }
+        // sync-agent → /v1/sync (event drain) and /v1/bills/image (image upload).
+        // Anything else (mobile JWT paths) is handled by JwtFilter.
+        boolean apiKeyPath = path.startsWith("/v1/sync") || path.startsWith("/v1/bills/image");
+        if (!apiKeyPath) { chain.doFilter(req, res); return; }
         log.info("ApiKeyFilter saw {} {}", req.getMethod(), path);
 
         String h = req.getHeader("Authorization");

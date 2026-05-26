@@ -55,7 +55,9 @@ public class StockDetailsActivity extends AppCompatActivity {
     private ProgressBar progressBar;
     private RecyclerView recyclerView;
     private TextView tvCompanyName, tvSummaryCount, tvSummaryAmount, tvSummaryInterest;
-    private LinearLayout layoutSummary, layoutFilterContent, layoutMaterial;
+    private LinearLayout layoutSummary, layoutMaterial;
+    /** Was a LinearLayout, now a NestedScrollView (capped height to keep bills visible). */
+    private View layoutFilterContent;
     private LinearLayout layoutDateInput, layoutAmountInput, layoutFilterChips;
     private EditText etSearch, etDateFrom, etDateTo, etAmountFrom, etAmountTo, etNameInput;
     private Button btnToggleFilters, btnModeCompany, btnModeRepledge, btnModeAll;
