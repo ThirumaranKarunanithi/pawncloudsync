@@ -17,6 +17,14 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
+import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.components.Description;
+import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.components.YAxis;
+import com.github.mikephil.charting.data.Entry;
+import com.github.mikephil.charting.data.LineData;
+import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.pawnbroking.app.models.Company;
 import com.pawnbroking.app.services.ApiService;
 
@@ -32,6 +40,7 @@ public class HomeActivity extends AppCompatActivity {
     private ProgressBar progressCompany;
     private TextView tvNoCompany;
     private View layoutContent;
+    private LineChart chartBillCount, chartBillAmount;
 
     private List<Company> companies = new ArrayList<>();
     private Company selectedCompany;
@@ -59,6 +68,10 @@ public class HomeActivity extends AppCompatActivity {
         progressCompany = findViewById(R.id.progressCompany);
         tvNoCompany     = findViewById(R.id.tvNoCompany);
         layoutContent   = findViewById(R.id.layoutContent);
+        chartBillCount  = findViewById(R.id.chartBillCount);
+        chartBillAmount = findViewById(R.id.chartBillAmount);
+        styleChart(chartBillCount);
+        styleChart(chartBillAmount);
 
         // Main buttons
         findViewById(R.id.btnStockDetails).setOnClickListener(v   -> open(StockDetailsActivity.class));
@@ -161,11 +174,13 @@ public class HomeActivity extends AppCompatActivity {
                     spinnerCompany.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
                         @Override public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
                             selectedCompany = companies.get(pos);
+                            loadCharts();
                         }
                         @Override public void onNothingSelected(AdapterView<?> p) {}
                     });
                     selectedCompany = companies.get(0);
                     layoutContent.setVisibility(View.VISIBLE);
+                    loadCharts();
                 });
             }
             @Override public void onError(String message) {
@@ -192,5 +207,108 @@ public class HomeActivity extends AppCompatActivity {
         ApiService.logout(this);
         startActivity(new Intent(this, LoginActivity.class));
         finish();
+    }
+
+    // ── Monthly charts ───────────────────────────────────────────────────────
+
+    private void styleChart(LineChart chart) {
+        chart.setNoDataText("No data yet");
+        chart.setNoDataTextColor(0xFF888888);
+        chart.setDrawGridBackground(false);
+        chart.setTouchEnabled(true);
+        chart.setPinchZoom(false);
+        chart.setScaleEnabled(false);
+        Description d = new Description();
+        d.setText("");
+        chart.setDescription(d);
+        chart.getLegend().setTextColor(0xFFFFFFFF);
+        XAxis x = chart.getXAxis();
+        x.setPosition(XAxis.XAxisPosition.BOTTOM);
+        x.setTextColor(0xFFFFFFFF);
+        x.setLabelRotationAngle(-45f);
+        x.setGranularity(1f);
+        x.setDrawGridLines(false);
+        chart.getAxisLeft().setTextColor(0xFFFFFFFF);
+        chart.getAxisRight().setEnabled(false);
+    }
+
+    private void loadCharts() {
+        if (selectedCompany == null) return;
+        ApiService.getMonthlyReport(selectedCompany.id, new ApiService.Callback<org.json.JSONObject>() {
+            @Override public void onSuccess(org.json.JSONObject data) {
+                runOnUiThread(() -> bindCharts(data));
+            }
+            @Override public void onError(String msg) { /* silent — chart shows "No data" */ }
+        });
+    }
+
+    private void bindCharts(org.json.JSONObject data) {
+        org.json.JSONArray months = data.optJSONArray("months");
+        if (months == null) months = new org.json.JSONArray();
+
+        // Cloud returns newest-first; charts read left-to-right by time.
+        java.util.List<String> labels = new java.util.ArrayList<>();
+        java.util.List<Entry> total = new java.util.ArrayList<>();
+        java.util.List<Entry> gold  = new java.util.ArrayList<>();
+        java.util.List<Entry> silver= new java.util.ArrayList<>();
+        java.util.List<Entry> totalAmt = new java.util.ArrayList<>();
+        java.util.List<Entry> goldAmt  = new java.util.ArrayList<>();
+        java.util.List<Entry> silverAmt= new java.util.ArrayList<>();
+
+        int n = months.length();
+        for (int i = n - 1, idx = 0; i >= 0; i--, idx++) {
+            org.json.JSONObject m = months.optJSONObject(i);
+            if (m == null) continue;
+            labels.add(formatMonth(m.optString("month", "")));
+            total .add(new Entry(idx, (float) m.optDouble("pawnBills",   0)));
+            gold  .add(new Entry(idx, (float) m.optDouble("goldBills",   0)));
+            silver.add(new Entry(idx, (float) m.optDouble("silverBills", 0)));
+            totalAmt .add(new Entry(idx, (float) m.optDouble("pawnAmount",   0)));
+            goldAmt  .add(new Entry(idx, (float) m.optDouble("goldAmount",   0)));
+            silverAmt.add(new Entry(idx, (float) m.optDouble("silverAmount", 0)));
+        }
+
+        renderChart(chartBillCount, labels, total, gold, silver,
+                    "Total", "Gold", "Silver");
+        renderChart(chartBillAmount, labels, totalAmt, goldAmt, silverAmt,
+                    "Total", "Gold", "Silver");
+    }
+
+    private void renderChart(LineChart chart, java.util.List<String> labels,
+                             java.util.List<Entry> a, java.util.List<Entry> b, java.util.List<Entry> c,
+                             String labelA, String labelB, String labelC) {
+        if (labels.isEmpty()) { chart.clear(); chart.invalidate(); return; }
+        LineDataSet dsTotal = makeSet(a, labelA, 0xFF9C27B0);       // purple
+        LineDataSet dsGold  = makeSet(b, labelB, 0xFFE6B800);       // gold
+        LineDataSet dsSilver= makeSet(c, labelC, 0xFF42A5F5);       // blue
+        LineData ld = new LineData(dsTotal, dsGold, dsSilver);
+        chart.setData(ld);
+        chart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
+        // Force a label at every month so each data point is annotated,
+        // matching the desktop chart's MMM-YYYY tick style.
+        chart.getXAxis().setLabelCount(labels.size(), true);
+        chart.animateY(400);
+        chart.invalidate();
+    }
+
+    private LineDataSet makeSet(java.util.List<Entry> entries, String label, int color) {
+        LineDataSet ds = new LineDataSet(entries, label);
+        ds.setColor(color);
+        ds.setCircleColor(color);
+        ds.setLineWidth(2f);
+        ds.setCircleRadius(3f);
+        ds.setDrawValues(false);
+        ds.setMode(LineDataSet.Mode.LINEAR);
+        return ds;
+    }
+
+    /** "2026-04" → "APR-2026". */
+    private static String formatMonth(String iso) {
+        if (iso == null || iso.length() < 7) return iso == null ? "" : iso;
+        String[] names = {"JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"};
+        try {
+            int mo = Integer.parseInt(iso.substring(5, 7));
+            return names[mo - 1] + "-" + iso.substring(0, 4);
+        } catch (Exception e) { return iso; }
     }
 }

@@ -208,12 +208,25 @@ public class ApiService {
     public static void getCompanies(Callback<List<Company>> cb) {
         EXEC.execute(() -> {
             try {
-                Company only = new Company(
-                    AppConfig.SHOP_ID,
-                    capitalize(AppConfig.SHOP_ID),
-                    "", null, null, null, "ACTIVE");
+                JSONArray rows = fetchTableSync(AppConfig.TBL_COMPANY, null);
                 List<Company> list = new ArrayList<>();
-                list.add(only);
+                for (int i = 0; i < rows.length(); i++) {
+                    JSONObject body = unwrapPayload(rows.getJSONObject(i));
+                    sanitizeNulls(body);
+                    list.add(Company.fromJson(body));
+                }
+                // Sort by name so the dropdown is stable across reloads.
+                list.sort((a, b) -> {
+                    String an = a.name == null ? "" : a.name;
+                    String bn = b.name == null ? "" : b.name;
+                    return an.compareToIgnoreCase(bn);
+                });
+                // Tenant has zero `company` rows → fall back to a synthesized
+                // entry so the spinner never goes empty + Home can still open.
+                if (list.isEmpty()) {
+                    list.add(new Company(AppConfig.SHOP_ID, capitalize(AppConfig.SHOP_ID),
+                                         "", null, null, null, "ACTIVE"));
+                }
                 cb.onSuccess(list);
             } catch (Exception e) { cb.onError(e.getMessage()); }
         });
@@ -236,7 +249,15 @@ public class ApiService {
                     JSONArray arr = new JSONArray(raw);
                     List<Bill> bills = new ArrayList<>();
                     for (int i = 0; i < arr.length(); i++) {
-                        Bill bill = Bill.fromJson(arr.getJSONObject(i));
+                        JSONObject row = arr.getJSONObject(i);
+                        JSONObject body = row.optJSONObject("payload");
+                        if (body == null) body = row;
+                        if (companyId != null && !companyId.isEmpty()
+                            && !"ALL".equalsIgnoreCase(companyId)
+                            && !companyId.equalsIgnoreCase(AppConfig.SHOP_ID)
+                            && !companyId.equalsIgnoreCase(body.optString("company_id", "")))
+                            continue;
+                        Bill bill = Bill.fromJson(row);
                         if (!matchesFilter(bill, type, status)) continue;
                         bills.add(bill);
                     }
@@ -271,6 +292,13 @@ public class ApiService {
                     if (type != null && !type.isEmpty()
                         && !"ALL".equalsIgnoreCase(type)
                         && !type.equalsIgnoreCase(body.optString("jewel_material_type", ""))) continue;
+                    // Multi-company tenant: don't return CMP2's E18444 when
+                    // the user is browsing CMP1.
+                    if (companyId != null && !companyId.isEmpty()
+                        && !"ALL".equalsIgnoreCase(companyId)
+                        && !companyId.equalsIgnoreCase(AppConfig.SHOP_ID)
+                        && !companyId.equalsIgnoreCase(body.optString("company_id", "")))
+                        continue;
                     match = body;
                     break;
                 }
@@ -410,13 +438,17 @@ public class ApiService {
     public static void searchCustomers(String companyId, String query, Callback<JSONArray> cb) {
         EXEC.execute(() -> {
             try {
-                // Activities read flat customer fields (customer_name, spouse_*,
-                // mobile_number, area) — unwrap each projection row's payload
-                // before handing the array up.
                 JSONArray rows = fetchTableSync(AppConfig.TBL_CUSTOMER, query);
                 JSONArray flat = new JSONArray();
                 for (int i = 0; i < rows.length(); i++) {
-                    flat.put(unwrapPayload(rows.getJSONObject(i)));
+                    JSONObject body = unwrapPayload(rows.getJSONObject(i));
+                    sanitizeNulls(body);
+                    if (companyId != null && !companyId.isEmpty()
+                        && !"ALL".equalsIgnoreCase(companyId)
+                        && !companyId.equalsIgnoreCase(AppConfig.SHOP_ID)
+                        && !companyId.equalsIgnoreCase(body.optString("company_id", "")))
+                        continue;
+                    flat.put(body);
                 }
                 cb.onSuccess(flat);
             } catch (Exception e) { cb.onError(e.getMessage()); }
@@ -430,7 +462,7 @@ public class ApiService {
                                 String customerName, String amountFrom, String amountTo,
                                 int page, int size,
                                 Callback<JSONObject> cb) {
-        fetchStock(AppConfig.TBL_STOCK, materialType, search, page, size,
+        fetchStock(AppConfig.TBL_STOCK, companyId, materialType, search, page, size,
                    from, to, customerName, amountFrom, amountTo,
                    null, null, null, cb);
     }
@@ -439,7 +471,7 @@ public class ApiService {
                                         String repledgeName,
                                         String repledgeDateFrom, String repledgeDateTo,
                                         int page, int size, Callback<JSONObject> cb) {
-        fetchStock(AppConfig.TBL_REPLEDGE, materialType, search, page, size,
+        fetchStock(AppConfig.TBL_REPLEDGE, companyId, materialType, search, page, size,
                    null, null, null, null, null,
                    repledgeName, repledgeDateFrom, repledgeDateTo, cb);
     }
@@ -451,7 +483,7 @@ public class ApiService {
                                    String repledgeDateFrom, String repledgeDateTo,
                                    int page, int size,
                                    Callback<JSONObject> cb) {
-        fetchStock(AppConfig.TBL_STOCK, materialType, search, page, size,
+        fetchStock(AppConfig.TBL_STOCK, companyId, materialType, search, page, size,
                    compDateFrom, compDateTo, customerName, amountFrom, amountTo,
                    repledgeName, repledgeDateFrom, repledgeDateTo, cb);
     }
@@ -462,7 +494,8 @@ public class ApiService {
      * (material, date range, amount range, customer/repledge name) is
      * narrowed here before paging the slice back to the UI.
      */
-    private static void fetchStock(String table, String materialType, String search,
+    private static void fetchStock(String table, String companyId,
+                                   String materialType, String search,
                                    int page, int size,
                                    String compDateFrom, String compDateTo,
                                    String customerName, String amountFrom, String amountTo,
@@ -486,6 +519,13 @@ public class ApiService {
                     JSONObject row = rows.getJSONObject(i);
                     JSONObject payload = row.optJSONObject("payload");
                     JSONObject body = payload != null ? payload : row;
+                    // Multi-company tenant: only keep rows for the selected
+                    // company. "ALL" or shop_id-as-companyId (legacy intent
+                    // extra) disables the filter.
+                    if (companyId != null && !companyId.isEmpty()
+                        && !"ALL".equalsIgnoreCase(companyId)
+                        && !companyId.equalsIgnoreCase(AppConfig.SHOP_ID)
+                        && !companyId.equalsIgnoreCase(body.optString("company_id", ""))) continue;
                     if (materialType != null && !materialType.isEmpty()
                         && !"ALL".equalsIgnoreCase(materialType)
                         && !materialType.equalsIgnoreCase(body.optString("jewel_material_type",
@@ -556,10 +596,13 @@ public class ApiService {
     public static void getMonthlyReport(String companyId, Callback<JSONObject> cb) {
         EXEC.execute(() -> {
             try {
-                HttpUrl url = HttpUrl.parse(AppConfig.DATA_BASE + "/monthly-report").newBuilder()
-                    .addQueryParameter("limit", "24")
-                    .build();
-                try (Response res = CLIENT.newCall(authed(url).get().build()).execute()) {
+                HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/monthly-report").newBuilder()
+                    .addQueryParameter("limit", "6");
+                if (companyId != null && !companyId.isEmpty()
+                    && !"ALL".equalsIgnoreCase(companyId)
+                    && !companyId.equalsIgnoreCase(AppConfig.SHOP_ID))
+                    b.addQueryParameter("companyId", companyId);
+                try (Response res = CLIENT.newCall(authed(b.build()).get().build()).execute()) {
                     String raw = res.body() != null ? res.body().string() : "{}";
                     checkStatus(res, raw);
                     cb.onSuccess(new JSONObject(raw));

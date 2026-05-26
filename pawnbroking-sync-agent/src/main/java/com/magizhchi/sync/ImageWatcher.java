@@ -44,6 +44,10 @@ public class ImageWatcher implements Runnable {
     private final Config cfg;
     private final HttpClient http;
     private volatile boolean running = true;
+    /** Magizhchi Share rate limit is 60 req/min/token. 1100ms keeps us
+     *  safely under (~54/min) without burning idle time. */
+    private static final long MIN_UPLOAD_INTERVAL_MS = 1_100L;
+    private long lastUploadAt = 0L;
 
     public ImageWatcher(DataSource ds, Config cfg) {
         this.ds = ds;
@@ -173,6 +177,9 @@ public class ImageWatcher implements Runnable {
 
     private void uploadOne(Path file, String companyId, String material,
                            String billNumber, String imageName) throws Exception {
+        // Client-side throttle so we stay under the box's 60 req/min limit.
+        throttle();
+
         byte[] bytes = Files.readAllBytes(file);
         BasicFileAttributes attrs = Files.readAttributes(file, BasicFileAttributes.class);
         String contentType = guessContentType(imageName);
@@ -189,11 +196,39 @@ public class ImageWatcher implements Runnable {
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                 .build();
         HttpResponse<String> r = http.send(req, HttpResponse.BodyHandlers.ofString());
+        // 429 / 502-rate-limit → honour Retry-After if present, then retry once.
+        if (r.statusCode() == 429 || (r.statusCode() == 502 && r.body() != null && r.body().contains("Rate limit"))) {
+            long retryS = parseRetryAfter(r);
+            log.info("box rate-limited, sleeping {}s then retrying {}", retryS, file.getFileName());
+            Thread.sleep(Math.max(1, retryS) * 1000L);
+            lastUploadAt = 0L; // reset throttle so retry isn't doubly delayed
+            r = http.send(req, HttpResponse.BodyHandlers.ofString());
+        }
         if (r.statusCode() / 100 != 2) {
             throw new IOException("cloud upload status=" + r.statusCode() + " body=" + r.body());
         }
         recordUploaded(file.toAbsolutePath().toString(), companyId, material,
                        billNumber, imageName, attrs.size(), attrs.lastModifiedTime().toInstant());
+    }
+
+    private synchronized void throttle() throws InterruptedException {
+        long since = System.currentTimeMillis() - lastUploadAt;
+        if (since < MIN_UPLOAD_INTERVAL_MS) Thread.sleep(MIN_UPLOAD_INTERVAL_MS - since);
+        lastUploadAt = System.currentTimeMillis();
+    }
+
+    private static long parseRetryAfter(HttpResponse<String> r) {
+        // Prefer the Retry-After header; fall back to "Retry in Ns" in the body.
+        long hdr = r.headers().firstValue("Retry-After")
+                .map(s -> { try { return Long.parseLong(s.trim()); } catch (Exception e) { return 0L; } })
+                .orElse(0L);
+        if (hdr > 0) return hdr;
+        if (r.body() != null) {
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("Retry in (\\d+)s").matcher(r.body());
+            if (m.find()) try { return Long.parseLong(m.group(1)); } catch (Exception ignored) {}
+        }
+        return 5;  // safe default
     }
 
     private void recordUploaded(String absPath, String companyId, String material,

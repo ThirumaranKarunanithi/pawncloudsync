@@ -72,6 +72,9 @@
         <activity
             android:name="com.pawnbroking.app.BillingActivity"
             android:exported="false" />
+        <activity
+            android:name="com.pawnbroking.app.NotificationsActivity"
+            android:exported="false" />
 
         <provider
             android:name="androidx.startup.InitializationProvider"

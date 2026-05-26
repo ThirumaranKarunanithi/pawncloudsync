@@ -23,9 +23,11 @@ public class Company {
     }
 
     public static Company fromJson(JSONObject j) throws Exception {
+        String name = j.optString("name", "");
+        if (name.isEmpty()) name = j.optString("id", "");
         return new Company(
             j.optString("id", ""),
-            j.getString("name"),
+            name,
             j.optString("city", ""),
             j.optString("area", null),
             j.optString("mobile_number", null),
@@ -34,6 +36,12 @@ public class Company {
         );
     }
 
+    /** Spinner shows "CMP1 — RAJESHWARI PAWN BROKING" so the user sees both
+     *  the short id and the business name, mirroring the desktop combobox. */
     @Override
-    public String toString() { return name; }
+    public String toString() {
+        if (id == null || id.isEmpty()) return name == null ? "" : name;
+        if (name == null || name.isEmpty() || name.equalsIgnoreCase(id)) return id;
+        return id + " — " + name;
+    }
 }

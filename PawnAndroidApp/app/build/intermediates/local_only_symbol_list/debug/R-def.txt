@@ -12,6 +12,7 @@ color red
 color white
 color white38
 color white54
+drawable bg_badge
 drawable bg_card
 drawable bg_input
 drawable chip_filter
@@ -21,6 +22,7 @@ drawable ic_launcher_background
 drawable ic_launcher_foreground
 drawable ic_logo
 id action_logout
+id action_notifications
 id action_refresh
 id action_settings
 id btnAddFilter
@@ -50,6 +52,8 @@ id cardAsset
 id cardExpense
 id cardIncome
 id cardLiability
+id chartBillAmount
+id chartBillCount
 id chipAll
 id chipAllStatus
 id chipClosed
@@ -66,6 +70,7 @@ id etPassword
 id etSearch
 id etUsername
 id ibTogglePass
+id ivBell
 id ivCloseCustomer
 id ivCloseJewel
 id ivCloseUser
@@ -83,6 +88,8 @@ id layoutDateInput
 id layoutFilterChips
 id layoutFilterContent
 id layoutMaterial
+id layoutRepledgeClosing
+id layoutRepledgeOpening
 id layoutRepledgeSection
 id layoutStatus
 id layoutSummary
@@ -115,8 +122,10 @@ id tvAddr
 id tvAmount
 id tvArea
 id tvAvailableBalance
+id tvBellBadge
 id tvBillNo
 id tvBillNumber
+id tvBody
 id tvCity
 id tvCloseAcceptedDate
 id tvCloseInterest
@@ -175,8 +184,20 @@ id tvReferredBy
 id tvReplAmount
 id tvReplBillId
 id tvReplBillNumber
+id tvReplCloseAcceptedDate
+id tvReplCloseGot
+id tvReplCloseTaken
+id tvReplCloseToGet
+id tvReplCloseTotalDays
+id tvReplClosingDate
 id tvReplCompanyBill
 id tvReplName
+id tvReplOpenDocCharge
+id tvReplOpenGiven
+id tvReplOpenInterest
+id tvReplOpenInterestType
+id tvReplOpenTaken
+id tvReplOpenToGive
 id tvReplOpenedDate
 id tvReplStatus
 id tvRowCount
@@ -200,6 +221,7 @@ id tvSummaryInterest
 id tvSummaryMonths
 id tvTakenAmt
 id tvThemeDesc
+id tvTitle
 id tvTo
 id tvToGetAmt
 id tvToGive
@@ -213,6 +235,8 @@ id tvTotalDebit
 id tvTotalExpense
 id tvTotalIncome
 id tvWeight
+id tvWhen
+layout action_view_bell
 layout activity_account_detail
 layout activity_bill_detail
 layout activity_billing
@@ -221,12 +245,14 @@ layout activity_customers
 layout activity_home
 layout activity_login
 layout activity_monthly_report
+layout activity_notifications
 layout activity_settings
 layout activity_stock_details
 layout activity_todays_account
 layout activity_trial_balance
 layout item_bill
 layout item_customer
+layout item_notification
 layout item_stock_bill
 menu menu_detail
 menu menu_home

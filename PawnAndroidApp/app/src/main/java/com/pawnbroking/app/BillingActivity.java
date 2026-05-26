@@ -495,9 +495,12 @@ public class BillingActivity extends AppCompatActivity {
             layoutRepledgeClosing.setVisibility(View.GONE);
         }
 
-        // Bill images — load opening images always; closing only for non-open statuses
+        // Bill images — load opening images always; closing only for non-open statuses.
+        // Use the bill's REAL company_id from the payload (e.g. "CMP1"), not the
+        // shop_id ("mylocal") — the cloud's bill_images table keys on company_id.
         String billNum = r.optString("bill_number", "");
-        loadBillImages(billNum, selectedMaterialType, statusVal);
+        String realCompany = r.optString("company_id", companyId);
+        loadBillImages(realCompany, billNum, selectedMaterialType, statusVal);
 
         layoutBillDetails.setVisibility(View.VISIBLE);
         Toast.makeText(this, "Loaded: " + billNum, Toast.LENGTH_SHORT).show();
@@ -582,7 +585,7 @@ public class BillingActivity extends AppCompatActivity {
      * Opening images are always shown.
      * Closing images are shown only when the bill is in a closed state.
      */
-    private void loadBillImages(String billNumber, String materialType, String status) {
+    private void loadBillImages(String realCompanyId, String billNumber, String materialType, String status) {
         if (billNumber.isEmpty()) return;
 
         boolean isClosed = "CLOSED".equals(status)
@@ -594,34 +597,79 @@ public class BillingActivity extends AppCompatActivity {
 
         layoutClosingImages.setVisibility(isClosed ? View.VISIBLE : View.GONE);
 
-        loadImg(AppConfig.billImageUrl(companyId, materialType, billNumber, "open_customer.png"),
+        loadImg(AppConfig.billImageUrl(realCompanyId, materialType, billNumber, "open_customer.png"),
                 ivOpenCustomer, "Opening – Customer");
-        loadImg(AppConfig.billImageUrl(companyId, materialType, billNumber, "open_jewel.png"),
+        loadImg(AppConfig.billImageUrl(realCompanyId, materialType, billNumber, "open_jewel.png"),
                 ivOpenJewel,    "Opening – Jewel");
-        loadImg(AppConfig.billImageUrl(companyId, materialType, billNumber, "open_user.png"),
+        loadImg(AppConfig.billImageUrl(realCompanyId, materialType, billNumber, "open_user.png"),
                 ivOpenUser,     "Opening – User");
 
         if (isClosed) {
-            loadImg(AppConfig.billImageUrl(companyId, materialType, billNumber, "close_customer.png"),
+            loadImg(AppConfig.billImageUrl(realCompanyId, materialType, billNumber, "close_customer.png"),
                     ivCloseCustomer, "Closing – Customer");
-            loadImg(AppConfig.billImageUrl(companyId, materialType, billNumber, "close_jewel.png"),
+            loadImg(AppConfig.billImageUrl(realCompanyId, materialType, billNumber, "close_jewel.png"),
                     ivCloseJewel,    "Closing – Jewel");
-            loadImg(AppConfig.billImageUrl(companyId, materialType, billNumber, "close_user.png"),
+            loadImg(AppConfig.billImageUrl(realCompanyId, materialType, billNumber, "close_user.png"),
                     ivCloseUser,     "Closing – User");
         }
     }
 
     /** Loads a single S3 image into an ImageView; tap opens full-screen viewer. */
     private void loadImg(String url, ImageView iv, String title) {
-        if (url == null) { iv.setImageResource(android.R.color.darker_gray); return; }
+        if (url == null) {
+            android.util.Log.w("BillImg", "loadImg: null URL for " + title);
+            iv.setImageResource(android.R.color.darker_gray);
+            return;
+        }
+        android.util.Log.d("BillImg", "loading " + url);
         Glide.with(this)
              .load(authedGlide(url))
-             .diskCacheStrategy(DiskCacheStrategy.ALL)
+             // Skip the disk cache on the request itself — previous failures
+             // (404 before upload, transient 502) get cached otherwise and
+             // the screen keeps showing grey even after the image is
+             // available. Memory cache stays on so scrolling is still smooth.
+             .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.NONE)
+             .skipMemoryCache(false)
              .placeholder(android.R.color.darker_gray)
              .error(android.R.color.darker_gray)
+             .listener(new com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable>() {
+                 @Override public boolean onLoadFailed(@androidx.annotation.Nullable com.bumptech.glide.load.engine.GlideException e,
+                                                       Object model, com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> t,
+                                                       boolean isFirstResource) {
+                     final String r2 = summariseGlideError(e);
+                     android.util.Log.w("BillImg", "FAILED " + title + ": " + r2);
+                     iv.post(() -> Toast.makeText(BillingActivity.this,
+                             title + ": " + r2, Toast.LENGTH_LONG).show());
+                     return false;
+                 }
+                 @Override public boolean onResourceReady(android.graphics.drawable.Drawable r, Object model,
+                                                          com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> t,
+                                                          com.bumptech.glide.load.DataSource ds, boolean isFirst) {
+                     android.util.Log.d("BillImg", "OK " + title + " (" + ds + ")");
+                     return false;
+                 }
+             })
              .into(iv);
 
         iv.setOnClickListener(v -> openImageFullScreen(url, title));
+    }
+
+    /** Boil a GlideException down to one short, useful line: HTTP code if it
+     *  was an HttpException, otherwise "ClassName: message" of the root cause. */
+    private static String summariseGlideError(com.bumptech.glide.load.engine.GlideException e) {
+        if (e == null) return "null";
+        Throwable root = e.getRootCauses().isEmpty() ? null : e.getRootCauses().get(0);
+        String s;
+        if (root instanceof com.bumptech.glide.load.HttpException he) {
+            s = "HTTP " + he.getStatusCode();
+        } else if (root != null) {
+            String cls = root.getClass().getSimpleName();
+            String msg = root.getMessage();
+            s = cls + (msg == null ? "" : ": " + msg);
+        } else {
+            s = e.toString();
+        }
+        return s.length() > 90 ? s.substring(0, 90) + "…" : s;
     }
 
     /** Wraps a URL with the saved JWT so Glide's GET passes through JwtFilter. */

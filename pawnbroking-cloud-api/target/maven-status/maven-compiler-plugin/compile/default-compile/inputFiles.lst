@@ -8,6 +8,8 @@ D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-cloud-api\src\main\java\com\magizhc
 D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-cloud-api\src\main\java\com\magizhchi\cloud\data\DataController.java
 D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-cloud-api\src\main\java\com\magizhchi\cloud\devices\DeviceController.java
 D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-cloud-api\src\main\java\com\magizhchi\cloud\fcm\FcmService.java
+D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-cloud-api\src\main\java\com\magizhchi\cloud\share\BillImageController.java
+D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-cloud-api\src\main\java\com\magizhchi\cloud\share\MagizhchiBoxClient.java
 D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-cloud-api\src\main\java\com\magizhchi\cloud\sync\SyncController.java
 D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-cloud-api\src\main\java\com\magizhchi\cloud\tenant\TenantBootstrap.java
 D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-cloud-api\src\main\java\com\magizhchi\cloud\tenant\TenantContext.java

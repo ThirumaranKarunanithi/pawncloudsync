@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:2:1-39:12
-INJECTED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:2:1-39:12
-INJECTED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:2:1-39:12
-INJECTED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:2:1-39:12
+ADDED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:2:1-40:12
+INJECTED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:2:1-40:12
+INJECTED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:2:1-40:12
+INJECTED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:2:1-40:12
 MERGED from [com.google.android.material:material:1.11.0] C:\Users\tiruk\.gradle\caches\transforms-3\375d77e3bac5523f6a4d9c17a7b2806c\transformed\material-1.11.0\AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.constraintlayout:constraintlayout:2.1.4] C:\Users\tiruk\.gradle\caches\transforms-3\4986230a3613e9c8878387b9e002f926\transformed\constraintlayout-2.1.4\AndroidManifest.xml:2:1-11:12
 MERGED from [androidx.appcompat:appcompat-resources:1.6.1] C:\Users\tiruk\.gradle\caches\transforms-3\273aad534e3fc4832a3bc3590781669e\transformed\jetified-appcompat-resources-1.6.1\AndroidManifest.xml:17:1-22:12
@@ -12,6 +12,7 @@ MERGED from [androidx.viewpager2:viewpager2:1.1.0-beta02] C:\Users\tiruk\.gradle
 MERGED from [androidx.recyclerview:recyclerview:1.3.2] C:\Users\tiruk\.gradle\caches\transforms-3\4fe0dd632fb97ea5194ceec69f750c7c\transformed\recyclerview-1.3.2\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.swiperefreshlayout:swiperefreshlayout:1.1.0] C:\Users\tiruk\.gradle\caches\transforms-3\a27474fd499bb3dd9b2ee28c5b36786d\transformed\swiperefreshlayout-1.1.0\AndroidManifest.xml:17:1-24:12
 MERGED from [com.github.bumptech.glide:glide:4.16.0] C:\Users\tiruk\.gradle\caches\transforms-3\e56cbc050f20ad0c64816dbf59823b81\transformed\jetified-glide-4.16.0\AndroidManifest.xml:2:1-9:12
+MERGED from [com.github.PhilJay:MPAndroidChart:v3.1.0] C:\Users\tiruk\.gradle\caches\transforms-3\7a363a53b246889a8f5bf3ff16abae0a\transformed\jetified-MPAndroidChart-v3.1.0\AndroidManifest.xml:2:1-20:12
 MERGED from [androidx.fragment:fragment:1.3.6] C:\Users\tiruk\.gradle\caches\transforms-3\e3917967b9622e6e90b56fba4bf42b43\transformed\fragment-1.3.6\AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.activity:activity:1.8.0] C:\Users\tiruk\.gradle\caches\transforms-3\44cca806ce7b0a80822ea1332ac9a47d\transformed\jetified-activity-1.8.0\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.emoji2:emoji2-views-helper:1.2.0] C:\Users\tiruk\.gradle\caches\transforms-3\06bef2c48a1388182723082ee3ca27f0\transformed\jetified-emoji2-views-helper-1.2.0\AndroidManifest.xml:2:1-7:12
@@ -63,8 +64,8 @@ ADDED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidM
 	android:name
 		ADDED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:4:22-64
 application
-ADDED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:6:5-37:19
-INJECTED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:6:5-37:19
+ADDED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:6:5-38:19
+INJECTED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:6:5-38:19
 MERGED from [com.google.android.material:material:1.11.0] C:\Users\tiruk\.gradle\caches\transforms-3\375d77e3bac5523f6a4d9c17a7b2806c\transformed\material-1.11.0\AndroidManifest.xml:22:5-20
 MERGED from [com.google.android.material:material:1.11.0] C:\Users\tiruk\.gradle\caches\transforms-3\375d77e3bac5523f6a4d9c17a7b2806c\transformed\material-1.11.0\AndroidManifest.xml:22:5-20
 MERGED from [androidx.constraintlayout:constraintlayout:2.1.4] C:\Users\tiruk\.gradle\caches\transforms-3\4986230a3613e9c8878387b9e002f926\transformed\constraintlayout-2.1.4\AndroidManifest.xml:9:5-20
@@ -187,6 +188,12 @@ ADDED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidM
 		ADDED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:35:60-84
 	android:name
 		ADDED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:35:19-50
+activity#com.pawnbroking.app.NotificationsActivity
+ADDED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:36:9-87
+	android:exported
+		ADDED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:36:60-84
+	android:name
+		ADDED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:36:19-56
 uses-sdk
 INJECTED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml
@@ -207,6 +214,8 @@ MERGED from [androidx.swiperefreshlayout:swiperefreshlayout:1.1.0] C:\Users\tiru
 MERGED from [androidx.swiperefreshlayout:swiperefreshlayout:1.1.0] C:\Users\tiruk\.gradle\caches\transforms-3\a27474fd499bb3dd9b2ee28c5b36786d\transformed\swiperefreshlayout-1.1.0\AndroidManifest.xml:20:5-22:41
 MERGED from [com.github.bumptech.glide:glide:4.16.0] C:\Users\tiruk\.gradle\caches\transforms-3\e56cbc050f20ad0c64816dbf59823b81\transformed\jetified-glide-4.16.0\AndroidManifest.xml:5:5-7:41
 MERGED from [com.github.bumptech.glide:glide:4.16.0] C:\Users\tiruk\.gradle\caches\transforms-3\e56cbc050f20ad0c64816dbf59823b81\transformed\jetified-glide-4.16.0\AndroidManifest.xml:5:5-7:41
+MERGED from [com.github.PhilJay:MPAndroidChart:v3.1.0] C:\Users\tiruk\.gradle\caches\transforms-3\7a363a53b246889a8f5bf3ff16abae0a\transformed\jetified-MPAndroidChart-v3.1.0\AndroidManifest.xml:16:5-18:41
+MERGED from [com.github.PhilJay:MPAndroidChart:v3.1.0] C:\Users\tiruk\.gradle\caches\transforms-3\7a363a53b246889a8f5bf3ff16abae0a\transformed\jetified-MPAndroidChart-v3.1.0\AndroidManifest.xml:16:5-18:41
 MERGED from [androidx.fragment:fragment:1.3.6] C:\Users\tiruk\.gradle\caches\transforms-3\e3917967b9622e6e90b56fba4bf42b43\transformed\fragment-1.3.6\AndroidManifest.xml:20:5-22:41
 MERGED from [androidx.fragment:fragment:1.3.6] C:\Users\tiruk\.gradle\caches\transforms-3\e3917967b9622e6e90b56fba4bf42b43\transformed\fragment-1.3.6\AndroidManifest.xml:20:5-22:41
 MERGED from [androidx.activity:activity:1.8.0] C:\Users\tiruk\.gradle\caches\transforms-3\44cca806ce7b0a80822ea1332ac9a47d\transformed\jetified-activity-1.8.0\AndroidManifest.xml:20:5-44

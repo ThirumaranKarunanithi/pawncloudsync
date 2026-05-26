@@ -31,6 +31,22 @@ CREATE TABLE IF NOT EXISTS projections (
 CREATE INDEX IF NOT EXISTS ix_proj_updated ON projections (last_updated_at DESC);
 CREATE INDEX IF NOT EXISTS ix_proj_payload_gin ON projections USING gin (payload jsonb_path_ops);
 
+-- Bill images: maps each (company, material, bill_number, image_name) to
+-- the Magizhchi Share file id that holds the bytes. Cloud-api streams the
+-- file from the box on demand using the tenant's stored mbk_ token.
+CREATE TABLE IF NOT EXISTS bill_images (
+    company_id      TEXT NOT NULL,
+    material_type   TEXT NOT NULL,
+    bill_number     TEXT NOT NULL,
+    image_name      TEXT NOT NULL,
+    magizhchi_file_id BIGINT NOT NULL,
+    uploaded_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    file_size_bytes BIGINT,
+    PRIMARY KEY (company_id, material_type, bill_number, image_name)
+);
+CREATE INDEX IF NOT EXISTS ix_bill_images_bill
+    ON bill_images (company_id, material_type, bill_number);
+
 -- Notification inbox per device (mobile reads recent items here).
 CREATE TABLE IF NOT EXISTS notifications (
     notif_id        BIGSERIAL PRIMARY KEY,

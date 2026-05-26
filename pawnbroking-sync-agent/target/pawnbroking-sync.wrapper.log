@@ -82,3 +82,30 @@
 2026-05-26 15:19:37,515 INFO  - Starting java -jar "D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-sync-agent\target\pawnbroking-sync-agent.jar"
 2026-05-26 15:19:37,526 INFO  - Started process 25260
 2026-05-26 15:19:37,533 DEBUG - Forwarding logs of the process System.Diagnostics.Process (java) to WinSW.SizeBasedRollingLogAppender
+2026-05-26 19:31:31,851 INFO  - Stopping pawnbroking-sync
+2026-05-26 19:31:31,852 DEBUG - ProcessKill 25260
+2026-05-26 19:31:31,861 DEBUG - Stopping process 25260...
+2026-05-26 19:31:32,346 DEBUG - Process 25260 canceled with code 143.
+2026-05-26 19:31:32,353 INFO  - Finished pawnbroking-sync
+2026-05-26 20:12:18,975 DEBUG - Starting WinSW in service mode
+2026-05-26 20:12:19,023 INFO  - Starting java -jar "D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-sync-agent\target\pawnbroking-sync-agent.jar"
+2026-05-26 20:12:19,062 INFO  - Started process 8436
+2026-05-26 20:12:19,069 DEBUG - Forwarding logs of the process System.Diagnostics.Process (java) to WinSW.SizeBasedRollingLogAppender
+2026-05-27 00:26:13,520 INFO  - Stopping pawnbroking-sync
+2026-05-27 00:26:13,520 DEBUG - ProcessKill 8436
+2026-05-27 00:26:13,524 DEBUG - Stopping process 8436...
+2026-05-27 00:26:14,089 DEBUG - Process 8436 canceled with code 130.
+2026-05-27 00:26:14,106 INFO  - Finished pawnbroking-sync
+2026-05-27 00:26:14,632 DEBUG - Starting WinSW in service mode
+2026-05-27 00:26:14,646 INFO  - Starting java -jar "D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-sync-agent\target\pawnbroking-sync-agent.jar"
+2026-05-27 00:26:14,663 INFO  - Started process 7264
+2026-05-27 00:26:14,669 DEBUG - Forwarding logs of the process System.Diagnostics.Process (java) to WinSW.SizeBasedRollingLogAppender
+2026-05-27 00:34:57,388 INFO  - Stopping pawnbroking-sync
+2026-05-27 00:34:57,388 DEBUG - ProcessKill 7264
+2026-05-27 00:34:57,390 DEBUG - Stopping process 7264...
+2026-05-27 00:34:57,907 DEBUG - Process 7264 canceled with code 130.
+2026-05-27 00:34:57,916 INFO  - Finished pawnbroking-sync
+2026-05-27 00:34:58,237 DEBUG - Starting WinSW in service mode
+2026-05-27 00:34:58,249 INFO  - Starting java -jar "D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-sync-agent\target\pawnbroking-sync-agent.jar"
+2026-05-27 00:34:58,260 INFO  - Started process 13268
+2026-05-27 00:34:58,266 DEBUG - Forwarding logs of the process System.Diagnostics.Process (java) to WinSW.SizeBasedRollingLogAppender

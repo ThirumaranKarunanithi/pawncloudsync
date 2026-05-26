@@ -3,6 +3,7 @@ D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-sync-agent\src\main\java\com\magizh
 D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-sync-agent\src\main\java\com\magizhchi\sync\CloudClient.java
 D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-sync-agent\src\main\java\com\magizhchi\sync\Config.java
 D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-sync-agent\src\main\java\com\magizhchi\sync\HealthServer.java
+D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-sync-agent\src\main\java\com\magizhchi\sync\ImageWatcher.java
 D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-sync-agent\src\main\java\com\magizhchi\sync\ListenWorker.java
 D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-sync-agent\src\main\java\com\magizhchi\sync\OutboxDrainer.java
 D:\Pawnbroking\PawnBrokingMobApp\pawnbroking-sync-agent\src\main\java\com\magizhchi\sync\SchemaGuard.java

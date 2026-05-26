@@ -51,13 +51,19 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- ── Collapsible filter panel ─────────────────────────────────────── -->
-        <LinearLayout
+        <!-- ── Collapsible filter panel (cap height so it can't push bills off-screen) ─ -->
+        <androidx.core.widget.NestedScrollView
             android:id="@+id/layoutFilterContent"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
+            android:maxHeight="280dp"
+            android:fillViewport="false"
             android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
 
             <!-- View mode: Company | Repledge | All Details -->
             <LinearLayout
@@ -288,6 +294,7 @@
                 android:visibility="gone" />
 
         </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
         <!-- ── End collapsible panel ─────────────────────────────────────────── -->
 
         <!-- Search box (always visible) -->

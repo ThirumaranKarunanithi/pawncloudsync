@@ -34,14 +34,19 @@
         android:textColor="@color/white"
         android:visibility="gone" />
 
-    <!-- Main content -->
-    <LinearLayout
+    <!-- Main content (scrollable so the charts + buttons all fit) -->
+    <ScrollView
         android:id="@+id/layoutContent"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:padding="20dp"
+        android:fillViewport="true"
         android:visibility="gone">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
 
         <!-- Logo + company name header -->
         <LinearLayout
@@ -100,7 +105,53 @@
             android:popupBackground="@color/bg_card" />
 
         <!-- Spacer -->
-        <View android:layout_width="1dp" android:layout_height="40dp" />
+        <View android:layout_width="1dp" android:layout_height="20dp" />
+
+        <!-- ═══ Total Number of Bills chart ═══ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="12dp"
+            android:layout_marginBottom="14dp">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:text="Total Number Of Bills"
+                android:textColor="@color/gold"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+            <com.github.mikephil.charting.charts.LineChart
+                android:id="@+id/chartBillCount"
+                android:layout_width="match_parent"
+                android:layout_height="220dp"
+                android:layout_marginTop="6dp" />
+        </LinearLayout>
+
+        <!-- ═══ Total Bill Amount chart ═══ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="12dp"
+            android:layout_marginBottom="20dp">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:text="Total Bill Amount"
+                android:textColor="@color/gold"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+            <com.github.mikephil.charting.charts.LineChart
+                android:id="@+id/chartBillAmount"
+                android:layout_width="match_parent"
+                android:layout_height="220dp"
+                android:layout_marginTop="6dp" />
+        </LinearLayout>
 
         <!-- Stock Details button -->
         <LinearLayout
@@ -312,5 +363,6 @@
         </LinearLayout>
 
     </LinearLayout>
+    </ScrollView>
 
 </LinearLayout>
