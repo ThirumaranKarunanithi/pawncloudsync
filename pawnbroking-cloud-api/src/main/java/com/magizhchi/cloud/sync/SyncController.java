@@ -111,11 +111,34 @@ public class SyncController {
                 table, rowPk, toJson(payload), op, eventId);
         }
 
+        // Skip agent/system tables — sync_image_uploads (and friends) are
+        // internal bookkeeping; the user shouldn't see them in the bell.
+        if (!isUserFacingTable(table)) return;
+
         NotificationItem ni = humanize(table, op, rowPk, payload);
         jdbc.update("INSERT INTO notifications(event_id, title, body, table_name, row_pk) " +
                     "VALUES (?::uuid, ?, ?, ?, ?)",
                     eventId, ni.title, ni.body, table, rowPk);
         notifs.add(ni);
+    }
+
+    private static boolean isUserFacingTable(String table) {
+        if (table == null) return false;
+        // Agent internals.
+        if (table.startsWith("sync_")) return false;
+        // Catalog / lookup tables nobody cares about getting notified for.
+        switch (table) {
+            case "operation_id_generator":
+            case "operation_list":
+            case "company_bill_number_generator":
+            case "screens":
+            case "role_master":
+            case "role_detail":
+            case "company_other_settings":
+                return false;
+            default:
+                return true;
+        }
     }
 
     private static String toJson(Object o) {

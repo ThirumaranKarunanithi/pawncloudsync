@@ -89,6 +89,25 @@ public class NotificationsActivity extends AppCompatActivity {
         });
     }
 
+    /** Bills are projected with row_pk "<company_id>|<material>|<bill_number>".
+     *  Parse and launch BillingActivity with the right extras so the bill
+     *  detail opens with images, customer info, etc. */
+    private void openIfBill(String table, String rowPk) {
+        if (!"company_billing".equals(table)) return;
+        if (rowPk == null || rowPk.isEmpty()) return;
+        String[] parts = rowPk.split("\\|");
+        if (parts.length < 3) return;
+        String company  = parts[0];
+        String material = parts[1];
+        String bill     = parts[2];
+        android.content.Intent i = new android.content.Intent(this, BillingActivity.class);
+        i.putExtra("companyId",    company);
+        i.putExtra("companyName",  company);
+        i.putExtra("billNumber",   bill);
+        i.putExtra("materialType", material);
+        startActivity(i);
+    }
+
     class NotifAdapter extends RecyclerView.Adapter<NotifAdapter.VH> {
         @Override public VH onCreateViewHolder(ViewGroup p, int v) {
             View view = LayoutInflater.from(p.getContext())
@@ -102,6 +121,11 @@ public class NotificationsActivity extends AppCompatActivity {
             String when = o.optString("created_at", "");
             if (when.length() >= 16) when = when.substring(0, 16).replace('T', ' ');
             h.tvWhen.setText(when);
+            // Tap a bill notification → open BillingActivity. For other
+            // tables just no-op (nothing meaningful to drill into).
+            String table = o.optString("table_name", "");
+            String rowPk = o.optString("row_pk", "");
+            h.itemView.setOnClickListener(v -> openIfBill(table, rowPk));
         }
         @Override public int getItemCount() { return items.size(); }
 

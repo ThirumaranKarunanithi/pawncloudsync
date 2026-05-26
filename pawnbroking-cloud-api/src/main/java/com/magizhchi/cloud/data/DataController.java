@@ -108,16 +108,29 @@ public class DataController {
      * Returns the most recent {@code limit} months, newest first.
      */
     @GetMapping("/monthly-report")
-    public Map<String,Object> monthlyReport(@RequestParam(defaultValue="24") int limit) {
+    public Map<String,Object> monthlyReport(
+            @RequestParam(defaultValue="24") int limit,
+            @RequestParam(name="companyId", required=false) String companyId) {
         int cap = Math.min(Math.max(limit, 1), 120);
+        String companyFilter = (companyId == null || companyId.isBlank()
+                                || "ALL".equalsIgnoreCase(companyId))
+                ? null : companyId;
         try {
             return t.inTenant(j -> {
-                // Pull only rows whose opening_date prefix looks like a date,
-                // and treat any cast failure as zero per-row in PL/pgSQL.
+                Object[] args = companyFilter == null
+                        ? new Object[]{ cap }
+                        : new Object[]{ companyFilter, cap };
+                String companyPredicate = companyFilter == null
+                        ? ""
+                        : " AND payload->>'company_id' = ? ";
                 List<Map<String,Object>> months = j.queryForList(
                     "SELECT to_char(opd, 'YYYY-MM') AS month, " +
                     "       count(*) AS \"pawnBills\", " +
                     "       COALESCE(sum(amt), 0) AS \"pawnAmount\", " +
+                    "       count(*) FILTER (WHERE mat='GOLD')   AS \"goldBills\", " +
+                    "       count(*) FILTER (WHERE mat='SILVER') AS \"silverBills\", " +
+                    "       COALESCE(sum(amt) FILTER (WHERE mat='GOLD'),   0) AS \"goldAmount\", " +
+                    "       COALESCE(sum(amt) FILTER (WHERE mat='SILVER'), 0) AS \"silverAmount\", " +
                     "       count(*) FILTER (WHERE status='DELIVERED') AS \"redeemBills\", " +
                     "       COALESCE(sum(cta) FILTER (WHERE status='DELIVERED'), 0) AS \"redeemAmount\", " +
                     "       COALESCE(sum(cta - amt) FILTER (WHERE status='DELIVERED'), 0) AS \"profit\", " +
@@ -132,20 +145,20 @@ public class DataController {
                     "           THEN (payload->>'amount')::numeric ELSE 0 END AS amt, " +
                     "      CASE WHEN payload->>'close_taken_amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
                     "           THEN (payload->>'close_taken_amount')::numeric ELSE 0 END AS cta, " +
+                    "      upper(COALESCE(payload->>'jewel_material_type', '')) AS mat, " +
                     "      COALESCE(payload->>'status', '') AS status " +
                     "    FROM projections " +
                     "    WHERE table_name = 'company_billing' AND NOT deleted " +
                     "      AND payload->>'opening_date' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' " +
+                              companyPredicate +
                     "  ) src " +
                     "  GROUP BY month " +
                     "  ORDER BY month DESC " +
                     "  LIMIT ?",
-                    cap);
+                    args);
                 return Map.of("total", months.size(), "months", months);
             });
         } catch (Exception e) {
-            // Log the real cause then return an empty result so the screen
-            // renders "0 months" instead of an opaque 500 in the toast.
             log.error("monthlyReport failed: {}", e.toString(), e);
             return Map.of("total", 0, "months", List.of(),
                           "error", String.valueOf(e.getMessage()));
