@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.magizhchi.cloud.tenant.TenantContext;
 import com.magizhchi.cloud.tenant.TenantJdbc;
 import org.postgresql.util.PGobject;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
@@ -66,10 +68,13 @@ public class DataController {
     public Map<String,Object> one(@PathVariable String table, @PathVariable String rowPk) {
         if (!table.matches("[a-z_]+")) throw new IllegalArgumentException("bad table");
         return t.inTenant(j -> {
-            Map<String,Object> row = j.queryForMap(
+            List<Map<String,Object>> rows = j.queryForList(
                 "SELECT row_pk, payload, last_updated_at, deleted FROM projections " +
                 "WHERE table_name = ? AND row_pk = ?", table, rowPk);
-            return rehydrateOne(row);
+            if (rows.isEmpty())
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        table + " row '" + rowPk + "' not found");
+            return rehydrateOne(rows.get(0));
         });
     }
 
