@@ -60,7 +60,7 @@ public class ImageWatcher implements Runnable {
 
     public void stop() { running = false; }
 
-    /** Idempotent — creates the tracker table if missing. */
+    /** Idempotent — creates both tracker tables if missing. */
     public void ensureTrackerTable() {
         try (Connection c = ds.getConnection(); Statement s = c.createStatement()) {
             s.execute(
@@ -74,8 +74,18 @@ public class ImageWatcher implements Runnable {
                 "  mtime        TIMESTAMPTZ NOT NULL," +
                 "  uploaded_at  TIMESTAMPTZ NOT NULL DEFAULT now()" +
                 ")");
+            s.execute(
+                "CREATE TABLE IF NOT EXISTS sync_backup_uploads (" +
+                "  abs_path      TEXT PRIMARY KEY," +
+                "  company_id    TEXT NOT NULL," +
+                "  relative_path TEXT NOT NULL," +
+                "  file_name     TEXT NOT NULL," +
+                "  size_bytes    BIGINT NOT NULL," +
+                "  mtime         TIMESTAMPTZ NOT NULL," +
+                "  uploaded_at   TIMESTAMPTZ NOT NULL DEFAULT now()" +
+                ")");
         } catch (Exception e) {
-            log.error("could not ensure sync_image_uploads table: {}", e.toString());
+            log.error("could not ensure tracker tables: {}", e.toString());
         }
     }
 
@@ -83,11 +93,8 @@ public class ImageWatcher implements Runnable {
     public void run() {
         ensureTrackerTable();
         while (running) {
-            try {
-                scanOnce();
-            } catch (Throwable t) {
-                log.warn("image scan failed: {}", t.toString());
-            }
+            try { scanOnce();         } catch (Throwable t) { log.warn("image scan failed: {}", t.toString()); }
+            try { scanBackupsOnce();  } catch (Throwable t) { log.warn("backup scan failed: {}", t.toString()); }
             try { Thread.sleep(cfg.imageScanIntervalMs); }
             catch (InterruptedException ie) { Thread.currentThread().interrupt(); break; }
         }
@@ -281,6 +288,127 @@ public class ImageWatcher implements Runnable {
                 + "Content-Disposition: form-data; name=\"" + name + "\"\r\n\r\n"
                 + (value == null ? "" : value) + "\r\n";
         baos.write(s.getBytes(StandardCharsets.UTF_8));
+    }
+
+    // ── Backup folder sync ────────────────────────────────────────────────────
+
+    /** Walk each company's backup_file_path and POST any new file to
+     *  /v1/files/backup. Shares the box rate-limit throttle with images. */
+    private void scanBackupsOnce() throws Exception {
+        List<CompanyRoot> roots = resolveBackupRoots();
+        if (roots.isEmpty()) return;
+        Set<String> alreadyUploaded = loadAlreadyUploadedBackupPaths();
+        int scanned = 0, uploaded = 0, skipped = 0;
+        for (CompanyRoot cr : roots) {
+            Path root = Paths.get(cr.root);
+            if (!Files.isDirectory(root)) {
+                log.debug("backup root for {} does not exist: {}", cr.companyId, cr.root);
+                continue;
+            }
+            try (var stream = Files.walk(root)) {
+                for (Path p : (Iterable<Path>) stream::iterator) {
+                    if (!Files.isRegularFile(p)) continue;
+                    scanned++;
+                    String abs = p.toAbsolutePath().toString();
+                    if (alreadyUploaded.contains(abs)) { skipped++; continue; }
+                    Path rel = root.relativize(p);
+                    String fileName = rel.getFileName().toString();
+                    Path parent = rel.getParent();
+                    String relPath = parent == null ? "" : parent.toString().replace('\\', '/');
+                    try {
+                        uploadBackup(p, cr.companyId, relPath, fileName);
+                        uploaded++;
+                    } catch (Exception ue) {
+                        log.warn("backup upload failed for {}: {}", abs, ue.getMessage());
+                    }
+                }
+            }
+        }
+        if (uploaded > 0 || scanned > 0) {
+            log.info("backup scan: roots={} scanned={} uploaded={} skipped={}",
+                     roots.size(), scanned, uploaded, skipped);
+        }
+    }
+
+    private List<CompanyRoot> resolveBackupRoots() throws Exception {
+        List<CompanyRoot> out = new ArrayList<>();
+        try (Connection c = ds.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                "SELECT id, backup_file_path FROM company " +
+                "WHERE backup_file_path IS NOT NULL AND trim(backup_file_path) <> ''");
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                String cid  = rs.getString(1);
+                String root = rs.getString(2);
+                if (cid != null && root != null && !root.isBlank())
+                    out.add(new CompanyRoot(cid, root));
+            }
+        }
+        return out;
+    }
+
+    private Set<String> loadAlreadyUploadedBackupPaths() throws Exception {
+        Set<String> out = new HashSet<>();
+        try (Connection c = ds.getConnection();
+             Statement s = c.createStatement();
+             ResultSet rs = s.executeQuery("SELECT abs_path FROM sync_backup_uploads")) {
+            while (rs.next()) out.add(rs.getString(1));
+        }
+        return out;
+    }
+
+    private void uploadBackup(Path file, String companyId, String relPath, String fileName) throws Exception {
+        throttle();
+        byte[] bytes = Files.readAllBytes(file);
+        BasicFileAttributes attrs = Files.readAttributes(file, BasicFileAttributes.class);
+        String contentType = guessContentType(fileName);
+
+        String boundary = "PawnSyncBackup" + Math.abs(RNG.nextLong());
+        var baos = new java.io.ByteArrayOutputStream();
+        appendTextPart(baos, boundary, "companyId",    companyId);
+        appendTextPart(baos, boundary, "relativePath", relPath);
+        appendTextPart(baos, boundary, "fileName",     fileName);
+        String head = "--" + boundary + "\r\n"
+                + "Content-Disposition: form-data; name=\"file\"; filename=\""
+                + fileName.replace("\"", "\\\"") + "\"\r\n"
+                + "Content-Type: " + contentType + "\r\n\r\n";
+        baos.write(head.getBytes(StandardCharsets.UTF_8));
+        baos.write(bytes);
+        baos.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+
+        HttpRequest req = HttpRequest.newBuilder(
+                URI.create(cfg.cloudUrl + "/v1/files/backup"))
+                .header("Authorization", "Bearer " + cfg.cloudApiKey)
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .timeout(Duration.ofMinutes(5))
+                .POST(HttpRequest.BodyPublishers.ofByteArray(baos.toByteArray()))
+                .build();
+        HttpResponse<String> r = http.send(req, HttpResponse.BodyHandlers.ofString());
+        if (r.statusCode() == 429 || (r.statusCode() == 502 && r.body() != null && r.body().contains("Rate limit"))) {
+            long retryS = parseRetryAfter(r);
+            log.info("box rate-limited (backup), sleeping {}s then retrying {}", retryS, fileName);
+            Thread.sleep(Math.max(1, retryS) * 1000L);
+            lastUploadAt = 0L;
+            r = http.send(req, HttpResponse.BodyHandlers.ofString());
+        }
+        if (r.statusCode() / 100 != 2) {
+            throw new IOException("cloud backup status=" + r.statusCode() + " body=" + r.body());
+        }
+        try (Connection c = ds.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                "INSERT INTO sync_backup_uploads(abs_path, company_id, relative_path, file_name, " +
+                "                                size_bytes, mtime) " +
+                "VALUES (?,?,?,?,?, ?::timestamptz) " +
+                "ON CONFLICT (abs_path) DO UPDATE SET " +
+                "  size_bytes=EXCLUDED.size_bytes, mtime=EXCLUDED.mtime, uploaded_at=now()")) {
+            ps.setString(1, file.toAbsolutePath().toString());
+            ps.setString(2, companyId);
+            ps.setString(3, relPath);
+            ps.setString(4, fileName);
+            ps.setLong  (5, attrs.size());
+            ps.setString(6, attrs.lastModifiedTime().toInstant().toString());
+            ps.executeUpdate();
+        }
     }
 
     private static String guessContentType(String name) {
