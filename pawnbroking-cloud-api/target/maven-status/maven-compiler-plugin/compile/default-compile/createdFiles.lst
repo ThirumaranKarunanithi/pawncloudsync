@@ -1,4 +1,5 @@
 com\magizhchi\cloud\share\MagizhchiBoxClient.class
+com\magizhchi\cloud\share\BackupFileController.class
 com\magizhchi\cloud\tenant\TenantBootstrap.class
 com\magizhchi\cloud\auth\AuthController.class
 com\magizhchi\cloud\auth\JwtService.class
@@ -9,6 +10,8 @@ com\magizhchi\cloud\devices\DeviceController$DeviceReq.class
 com\magizhchi\cloud\fcm\FcmService.class
 com\magizhchi\cloud\tenant\TenantJdbc.class
 com\magizhchi\cloud\auth\SecurityConfig.class
+com\magizhchi\cloud\data\DataController$WhereBuild.class
+com\magizhchi\cloud\share\BackupFileController$TenantToken.class
 com\magizhchi\cloud\sync\SyncController.class
 com\magizhchi\cloud\devices\DeviceController.class
 com\magizhchi\cloud\auth\BoxAuthController.class

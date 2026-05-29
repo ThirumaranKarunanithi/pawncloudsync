@@ -47,6 +47,20 @@ CREATE TABLE IF NOT EXISTS bill_images (
 CREATE INDEX IF NOT EXISTS ix_bill_images_bill
     ON bill_images (company_id, material_type, bill_number);
 
+-- Generic file backup: shop's `backup_file_path` directory (e.g.
+-- C:\Users\HP\Dropbox\ALWARPURAMBACKUP) mirrored into Magizhchi Share.
+-- relative_path is the on-disk subfolder ('' = root); file_name is the
+-- basename. Triple together is unique per company.
+CREATE TABLE IF NOT EXISTS backup_files (
+    company_id      TEXT NOT NULL,
+    relative_path   TEXT NOT NULL DEFAULT '',
+    file_name       TEXT NOT NULL,
+    magizhchi_file_id BIGINT NOT NULL,
+    file_size_bytes BIGINT,
+    uploaded_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (company_id, relative_path, file_name)
+);
+
 -- Notification inbox per device (mobile reads recent items here).
 CREATE TABLE IF NOT EXISTS notifications (
     notif_id        BIGSERIAL PRIMARY KEY,

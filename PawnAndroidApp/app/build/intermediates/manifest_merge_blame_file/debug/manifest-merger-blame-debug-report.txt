@@ -139,71 +139,78 @@
 77            android:exported="false" />
 77-->D:\Pawnbroking\PawnBrokingMobApp\PawnAndroidApp\app\src\main\AndroidManifest.xml:36:60-84
 78
-79        <provider
-79-->[androidx.emoji2:emoji2:1.2.0] C:\Users\tiruk\.gradle\caches\transforms-3\cd0e31776a03b70e2d22563fb2144838\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:24:9-32:20
-80            android:name="androidx.startup.InitializationProvider"
-80-->[androidx.emoji2:emoji2:1.2.0] C:\Users\tiruk\.gradle\caches\transforms-3\cd0e31776a03b70e2d22563fb2144838\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:25:13-67
-81            android:authorities="com.pawnbroking.app.androidx-startup"
-81-->[androidx.emoji2:emoji2:1.2.0] C:\Users\tiruk\.gradle\caches\transforms-3\cd0e31776a03b70e2d22563fb2144838\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:26:13-68
-82            android:exported="false" >
-82-->[androidx.emoji2:emoji2:1.2.0] C:\Users\tiruk\.gradle\caches\transforms-3\cd0e31776a03b70e2d22563fb2144838\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:27:13-37
-83            <meta-data
-83-->[androidx.emoji2:emoji2:1.2.0] C:\Users\tiruk\.gradle\caches\transforms-3\cd0e31776a03b70e2d22563fb2144838\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:29:13-31:52
-84                android:name="androidx.emoji2.text.EmojiCompatInitializer"
-84-->[androidx.emoji2:emoji2:1.2.0] C:\Users\tiruk\.gradle\caches\transforms-3\cd0e31776a03b70e2d22563fb2144838\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:30:17-75
-85                android:value="androidx.startup" />
-85-->[androidx.emoji2:emoji2:1.2.0] C:\Users\tiruk\.gradle\caches\transforms-3\cd0e31776a03b70e2d22563fb2144838\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:31:17-49
-86            <meta-data
-86-->[androidx.lifecycle:lifecycle-process:2.6.1] C:\Users\tiruk\.gradle\caches\transforms-3\54d0af492c7aef2bb735c053b834b579\transformed\jetified-lifecycle-process-2.6.1\AndroidManifest.xml:29:13-31:52
-87                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
-87-->[androidx.lifecycle:lifecycle-process:2.6.1] C:\Users\tiruk\.gradle\caches\transforms-3\54d0af492c7aef2bb735c053b834b579\transformed\jetified-lifecycle-process-2.6.1\AndroidManifest.xml:30:17-78
-88                android:value="androidx.startup" />
-88-->[androidx.lifecycle:lifecycle-process:2.6.1] C:\Users\tiruk\.gradle\caches\transforms-3\54d0af492c7aef2bb735c053b834b579\transformed\jetified-lifecycle-process-2.6.1\AndroidManifest.xml:31:17-49
-89            <meta-data
-89-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:29:13-31:52
-90                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
-90-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:30:17-85
-91                android:value="androidx.startup" />
-91-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:31:17-49
-92        </provider>
-93
-94        <receiver
-94-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:34:9-52:20
-95            android:name="androidx.profileinstaller.ProfileInstallReceiver"
-95-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:35:13-76
-96            android:directBootAware="false"
-96-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:36:13-44
-97            android:enabled="true"
-97-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:37:13-35
-98            android:exported="true"
-98-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:38:13-36
-99            android:permission="android.permission.DUMP" >
-99-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:39:13-57
-100            <intent-filter>
-100-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:40:13-42:29
-101                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
-101-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:41:17-91
-101-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:41:25-88
-102            </intent-filter>
-103            <intent-filter>
-103-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:43:13-45:29
-104                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
-104-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:44:17-85
-104-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:44:25-82
-105            </intent-filter>
-106            <intent-filter>
-106-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:46:13-48:29
-107                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
-107-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:47:17-88
-107-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:47:25-85
-108            </intent-filter>
-109            <intent-filter>
-109-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:49:13-51:29
-110                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
-110-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:50:17-95
-110-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:50:25-92
-111            </intent-filter>
-112        </receiver>
-113    </application>
-114
-115</manifest>
+79        <meta-data
+79-->[com.github.bumptech.glide:okhttp3-integration:4.16.0] C:\Users\tiruk\.gradle\caches\transforms-3\02170880ae972619230318e1c4122457\transformed\jetified-okhttp3-integration-4.16.0\AndroidManifest.xml:10:9-12:43
+80            android:name="com.bumptech.glide.integration.okhttp3.OkHttpGlideModule"
+80-->[com.github.bumptech.glide:okhttp3-integration:4.16.0] C:\Users\tiruk\.gradle\caches\transforms-3\02170880ae972619230318e1c4122457\transformed\jetified-okhttp3-integration-4.16.0\AndroidManifest.xml:11:13-84
+81            android:value="GlideModule" />
+81-->[com.github.bumptech.glide:okhttp3-integration:4.16.0] C:\Users\tiruk\.gradle\caches\transforms-3\02170880ae972619230318e1c4122457\transformed\jetified-okhttp3-integration-4.16.0\AndroidManifest.xml:12:13-40
+82
+83        <provider
+83-->[androidx.emoji2:emoji2:1.2.0] C:\Users\tiruk\.gradle\caches\transforms-3\cd0e31776a03b70e2d22563fb2144838\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:24:9-32:20
+84            android:name="androidx.startup.InitializationProvider"
+84-->[androidx.emoji2:emoji2:1.2.0] C:\Users\tiruk\.gradle\caches\transforms-3\cd0e31776a03b70e2d22563fb2144838\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:25:13-67
+85            android:authorities="com.pawnbroking.app.androidx-startup"
+85-->[androidx.emoji2:emoji2:1.2.0] C:\Users\tiruk\.gradle\caches\transforms-3\cd0e31776a03b70e2d22563fb2144838\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:26:13-68
+86            android:exported="false" >
+86-->[androidx.emoji2:emoji2:1.2.0] C:\Users\tiruk\.gradle\caches\transforms-3\cd0e31776a03b70e2d22563fb2144838\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:27:13-37
+87            <meta-data
+87-->[androidx.emoji2:emoji2:1.2.0] C:\Users\tiruk\.gradle\caches\transforms-3\cd0e31776a03b70e2d22563fb2144838\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:29:13-31:52
+88                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+88-->[androidx.emoji2:emoji2:1.2.0] C:\Users\tiruk\.gradle\caches\transforms-3\cd0e31776a03b70e2d22563fb2144838\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:30:17-75
+89                android:value="androidx.startup" />
+89-->[androidx.emoji2:emoji2:1.2.0] C:\Users\tiruk\.gradle\caches\transforms-3\cd0e31776a03b70e2d22563fb2144838\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:31:17-49
+90            <meta-data
+90-->[androidx.lifecycle:lifecycle-process:2.6.1] C:\Users\tiruk\.gradle\caches\transforms-3\54d0af492c7aef2bb735c053b834b579\transformed\jetified-lifecycle-process-2.6.1\AndroidManifest.xml:29:13-31:52
+91                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+91-->[androidx.lifecycle:lifecycle-process:2.6.1] C:\Users\tiruk\.gradle\caches\transforms-3\54d0af492c7aef2bb735c053b834b579\transformed\jetified-lifecycle-process-2.6.1\AndroidManifest.xml:30:17-78
+92                android:value="androidx.startup" />
+92-->[androidx.lifecycle:lifecycle-process:2.6.1] C:\Users\tiruk\.gradle\caches\transforms-3\54d0af492c7aef2bb735c053b834b579\transformed\jetified-lifecycle-process-2.6.1\AndroidManifest.xml:31:17-49
+93            <meta-data
+93-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:29:13-31:52
+94                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+94-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:30:17-85
+95                android:value="androidx.startup" />
+95-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:31:17-49
+96        </provider>
+97
+98        <receiver
+98-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:34:9-52:20
+99            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+99-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:35:13-76
+100            android:directBootAware="false"
+100-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:36:13-44
+101            android:enabled="true"
+101-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:37:13-35
+102            android:exported="true"
+102-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:38:13-36
+103            android:permission="android.permission.DUMP" >
+103-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:39:13-57
+104            <intent-filter>
+104-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:40:13-42:29
+105                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+105-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:41:17-91
+105-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:41:25-88
+106            </intent-filter>
+107            <intent-filter>
+107-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:43:13-45:29
+108                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+108-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:44:17-85
+108-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:44:25-82
+109            </intent-filter>
+110            <intent-filter>
+110-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:46:13-48:29
+111                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+111-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:47:17-88
+111-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:47:25-85
+112            </intent-filter>
+113            <intent-filter>
+113-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:49:13-51:29
+114                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+114-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:50:17-95
+114-->[androidx.profileinstaller:profileinstaller:1.3.0] C:\Users\tiruk\.gradle\caches\transforms-3\e4974d1565457fa4eab9bb90b299f5b8\transformed\jetified-profileinstaller-1.3.0\AndroidManifest.xml:50:25-92
+115            </intent-filter>
+116        </receiver>
+117    </application>
+118
+119</manifest>

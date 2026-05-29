@@ -51,6 +51,47 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- ── Tabs ALWAYS visible (Company | Repledge | All Details) ─────────── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnModeCompany"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1"
+                android:backgroundTint="#1E2A4A"
+                android:text="Company"
+                android:textColor="#AAAAAA"
+                android:textSize="10sp" />
+
+            <Button
+                android:id="@+id/btnModeRepledge"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:backgroundTint="#1E2A4A"
+                android:text="Repledge"
+                android:textColor="#AAAAAA"
+                android:textSize="10sp" />
+
+            <Button
+                android:id="@+id/btnModeAll"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:backgroundTint="@color/gold"
+                android:text="All Details"
+                android:textColor="#0D1B2A"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
         <!-- ── Collapsible filter panel (cap height so it can't push bills off-screen) ─ -->
         <androidx.core.widget.NestedScrollView
             android:id="@+id/layoutFilterContent"
@@ -64,47 +105,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
-
-            <!-- View mode: Company | Repledge | All Details -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/btnModeCompany"
-                    android:layout_width="0dp"
-                    android:layout_height="32dp"
-                    android:layout_weight="1"
-                    android:backgroundTint="@color/gold"
-                    android:text="Company"
-                    android:textColor="#0D1B2A"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
-
-                <Button
-                    android:id="@+id/btnModeRepledge"
-                    android:layout_width="0dp"
-                    android:layout_height="32dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="4dp"
-                    android:backgroundTint="#1E2A4A"
-                    android:text="Repledge"
-                    android:textColor="#AAAAAA"
-                    android:textSize="10sp" />
-
-                <Button
-                    android:id="@+id/btnModeAll"
-                    android:layout_width="0dp"
-                    android:layout_height="32dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="4dp"
-                    android:backgroundTint="#1E2A4A"
-                    android:text="All Details"
-                    android:textColor="#AAAAAA"
-                    android:textSize="10sp" />
-            </LinearLayout>
 
             <!-- Material type (hidden for Repledge mode) -->
             <LinearLayout

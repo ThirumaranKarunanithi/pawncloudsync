@@ -32,20 +32,16 @@
         "source": "C:\\Users\\tiruk\\.gradle\\daemon\\8.4\\com.pawnbroking.app-main-36:\\drawable\\ic_logo.xml"
     },
     {
-        "merged": "C:\\Users\\tiruk\\.gradle\\daemon\\8.4\\com.pawnbroking.app-merged_res-34:\\layout_activity_customers.xml.flat",
-        "source": "C:\\Users\\tiruk\\.gradle\\daemon\\8.4\\com.pawnbroking.app-main-36:\\layout\\activity_customers.xml"
-    },
-    {
         "merged": "C:\\Users\\tiruk\\.gradle\\daemon\\8.4\\com.pawnbroking.app-merged_res-34:\\drawable_ic_launcher_background.xml.flat",
         "source": "C:\\Users\\tiruk\\.gradle\\daemon\\8.4\\com.pawnbroking.app-main-36:\\drawable\\ic_launcher_background.xml"
     },
     {
-        "merged": "C:\\Users\\tiruk\\.gradle\\daemon\\8.4\\com.pawnbroking.app-merged_res-34:\\drawable_bg_card.xml.flat",
-        "source": "C:\\Users\\tiruk\\.gradle\\daemon\\8.4\\com.pawnbroking.app-main-36:\\drawable\\bg_card.xml"
+        "merged": "C:\\Users\\tiruk\\.gradle\\daemon\\8.4\\com.pawnbroking.app-merged_res-34:\\layout_activity_customers.xml.flat",
+        "source": "C:\\Users\\tiruk\\.gradle\\daemon\\8.4\\com.pawnbroking.app-main-36:\\layout\\activity_customers.xml"
     },
     {
-        "merged": "com.pawnbroking.app-merged_res-34:/layout_activity_home.xml.flat",
-        "source": "com.pawnbroking.app-main-36:/layout/activity_home.xml"
+        "merged": "C:\\Users\\tiruk\\.gradle\\daemon\\8.4\\com.pawnbroking.app-merged_res-34:\\drawable_bg_card.xml.flat",
+        "source": "C:\\Users\\tiruk\\.gradle\\daemon\\8.4\\com.pawnbroking.app-main-36:\\drawable\\bg_card.xml"
     },
     {
         "merged": "C:\\Users\\tiruk\\.gradle\\daemon\\8.4\\com.pawnbroking.app-merged_res-34:\\layout_activity_stock_details.xml.flat",
@@ -62,6 +58,10 @@
     {
         "merged": "C:\\Users\\tiruk\\.gradle\\daemon\\8.4\\com.pawnbroking.app-merged_res-34:\\drawable_chip_unselected.xml.flat",
         "source": "C:\\Users\\tiruk\\.gradle\\daemon\\8.4\\com.pawnbroking.app-main-36:\\drawable\\chip_unselected.xml"
+    },
+    {
+        "merged": "com.pawnbroking.app-merged_res-34:/layout_activity_stock_details.xml.flat",
+        "source": "com.pawnbroking.app-main-36:/layout/activity_stock_details.xml"
     },
     {
         "merged": "C:\\Users\\tiruk\\.gradle\\daemon\\8.4\\com.pawnbroking.app-merged_res-34:\\drawable_chip_selected.xml.flat",
