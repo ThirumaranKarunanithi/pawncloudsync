@@ -1,3 +1,4 @@
+// build-trigger: 90d JWT TTL + glide-okhttp (forces Railway watch-paths to fire)
 package com.magizhchi.cloud;
 
 import org.springframework.boot.SpringApplication;
