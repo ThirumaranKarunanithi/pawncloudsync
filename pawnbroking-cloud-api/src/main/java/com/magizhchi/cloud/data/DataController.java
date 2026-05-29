@@ -242,45 +242,124 @@ public class DataController {
                 ? null : companyId;
         try {
             return t.inTenant(j -> {
-                Object[] args = companyFilter == null
-                        ? new Object[]{ cap }
-                        : new Object[]{ companyFilter, cap };
+                // Mirrors the desktop's MIS query: three UNION ALL legs for
+                // pawn (openings, NOT CANCELED), redeem (closings in CLOSED/
+                // DELIVERED/REBILLED-*), and interest (todays_pf_amount from
+                // company_todays_account_available_amount). Outer SELECT uses
+                // a window for running cumulative stock_bills/stock_amount;
+                // per-month difference becomes earnedBills/earnedAmount.
+                // Gold/Silver breakdown is appended (FILTERed sums in the
+                // pawn leg) so the home chart's Gold + Silver lines still
+                // render — desktop SQL doesn't track this; we add it.
                 String companyPredicate = companyFilter == null
-                        ? ""
-                        : " AND payload->>'company_id' = ? ";
-                List<Map<String,Object>> months = j.queryForList(
-                    "SELECT to_char(opd, 'YYYY-MM') AS month, " +
-                    "       count(*) AS \"pawnBills\", " +
-                    "       COALESCE(sum(amt), 0) AS \"pawnAmount\", " +
-                    "       count(*) FILTER (WHERE mat='GOLD')   AS \"goldBills\", " +
-                    "       count(*) FILTER (WHERE mat='SILVER') AS \"silverBills\", " +
-                    "       COALESCE(sum(amt) FILTER (WHERE mat='GOLD'),   0) AS \"goldAmount\", " +
-                    "       COALESCE(sum(amt) FILTER (WHERE mat='SILVER'), 0) AS \"silverAmount\", " +
-                    "       count(*) FILTER (WHERE status='DELIVERED') AS \"redeemBills\", " +
-                    "       COALESCE(sum(cta) FILTER (WHERE status='DELIVERED'), 0) AS \"redeemAmount\", " +
-                    "       COALESCE(sum(cta - amt) FILTER (WHERE status='DELIVERED'), 0) AS \"profit\", " +
-                    "       count(*) FILTER (WHERE status NOT IN ('DELIVERED','CANCELLED')) AS \"stockBills\", " +
-                    "       COALESCE(sum(amt) FILTER (WHERE status NOT IN ('DELIVERED','CANCELLED')), 0) AS \"stockAmount\", " +
-                    "       count(*) FILTER (WHERE status='DELIVERED' AND cta > amt) AS \"earnedBills\", " +
-                    "       COALESCE(sum(cta - amt) FILTER (WHERE status='DELIVERED' AND cta > amt), 0) AS \"earnedAmount\" " +
+                        ? "" : " AND payload->>'company_id' = ? ";
+                // Each of pawn / redeem / interest legs gets the company
+                // filter parameter, so we pass it 3 times when present.
+                List<Object> args = new java.util.ArrayList<>();
+                if (companyFilter != null) {
+                    args.add(companyFilter);  // pawn
+                    args.add(companyFilter);  // redeem
+                    args.add(companyFilter);  // interest
+                }
+                args.add(cap);
+
+                String sql =
+                    "SELECT month, " +
+                    "       pawn_total_bill         AS \"pawnBills\", " +
+                    "       pawn_amount             AS \"pawnAmount\", " +
+                    "       gold_total_bill         AS \"goldBills\", " +
+                    "       silver_total_bill       AS \"silverBills\", " +
+                    "       gold_amount             AS \"goldAmount\", " +
+                    "       silver_amount           AS \"silverAmount\", " +
+                    "       redeem_total_bills      AS \"redeemBills\", " +
+                    "       redeem_amt              AS \"redeemAmount\", " +
+                    "       tot_profit              AS \"profit\", " +
+                    "       total_stock_bills       AS \"stockBills\", " +
+                    "       total_stock_amount      AS \"stockAmount\", " +
+                    "       (pawn_total_bill - redeem_total_bills)  AS \"earnedBills\", " +
+                    "       (pawn_amount     - redeem_amt)          AS \"earnedAmount\" " +
                     "  FROM ( " +
-                    "    SELECT " +
-                    "      to_date(substring(payload->>'opening_date' from 1 for 10), 'YYYY-MM-DD') AS opd, " +
-                    "      CASE WHEN payload->>'amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
-                    "           THEN (payload->>'amount')::numeric ELSE 0 END AS amt, " +
-                    "      CASE WHEN payload->>'close_taken_amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
-                    "           THEN (payload->>'close_taken_amount')::numeric ELSE 0 END AS cta, " +
-                    "      upper(COALESCE(payload->>'jewel_material_type', '')) AS mat, " +
-                    "      COALESCE(payload->>'status', '') AS status " +
-                    "    FROM projections " +
-                    "    WHERE table_name = 'company_billing' AND NOT deleted " +
-                    "      AND payload->>'opening_date' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' " +
-                              companyPredicate +
-                    "  ) src " +
-                    "  GROUP BY month " +
-                    "  ORDER BY month DESC " +
-                    "  LIMIT ?",
-                    args);
+                    "  SELECT mon, yyyy, " +
+                    "         CASE WHEN mon='01' THEN 'JAN' WHEN mon='02' THEN 'FEB' " +
+                    "              WHEN mon='03' THEN 'MAR' WHEN mon='04' THEN 'APR' " +
+                    "              WHEN mon='05' THEN 'MAY' WHEN mon='06' THEN 'JUN' " +
+                    "              WHEN mon='07' THEN 'JUL' WHEN mon='08' THEN 'AUG' " +
+                    "              WHEN mon='09' THEN 'SEP' WHEN mon='10' THEN 'OCT' " +
+                    "              WHEN mon='11' THEN 'NOV' WHEN mon='12' THEN 'DEC' " +
+                    "              ELSE mon END || '-' || yyyy AS month, " +
+                    "         SUM(pawn_total_bill)   AS pawn_total_bill, " +
+                    "         SUM(pawn_amount)       AS pawn_amount, " +
+                    "         SUM(gold_total_bill)   AS gold_total_bill, " +
+                    "         SUM(silver_total_bill) AS silver_total_bill, " +
+                    "         SUM(gold_amount)       AS gold_amount, " +
+                    "         SUM(silver_amount)     AS silver_amount, " +
+                    "         SUM(redeem_total_bills) AS redeem_total_bills, " +
+                    "         SUM(redeem_amt)         AS redeem_amt, " +
+                    "         SUM(interest)           AS tot_profit, " +
+                    "         SUM(SUM(pawn_total_bill) - SUM(redeem_total_bills)) " +
+                    "           OVER (ORDER BY yyyy ASC, mon ASC) AS total_stock_bills, " +
+                    "         SUM(SUM(pawn_amount)     - SUM(redeem_amt)) " +
+                    "           OVER (ORDER BY yyyy ASC, mon ASC) AS total_stock_amount " +
+                    "    FROM ( " +
+                    // ── 1. pawn (openings, NOT CANCELED) ───────────────────
+                    "      SELECT " +
+                    "        substring(payload->>'opening_date' from 6 for 2) AS mon, " +
+                    "        substring(payload->>'opening_date' from 1 for 4) AS yyyy, " +
+                    "        count(*)                                                          AS pawn_total_bill, " +
+                    "        sum(CASE WHEN payload->>'amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
+                    "                 THEN (payload->>'amount')::numeric ELSE 0 END)          AS pawn_amount, " +
+                    "        count(*) FILTER (WHERE upper(payload->>'jewel_material_type')='GOLD')   AS gold_total_bill, " +
+                    "        count(*) FILTER (WHERE upper(payload->>'jewel_material_type')='SILVER') AS silver_total_bill, " +
+                    "        sum(CASE WHEN upper(payload->>'jewel_material_type')='GOLD' " +
+                    "                   AND payload->>'amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
+                    "                 THEN (payload->>'amount')::numeric ELSE 0 END)          AS gold_amount, " +
+                    "        sum(CASE WHEN upper(payload->>'jewel_material_type')='SILVER' " +
+                    "                   AND payload->>'amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
+                    "                 THEN (payload->>'amount')::numeric ELSE 0 END)          AS silver_amount, " +
+                    "        0 AS redeem_total_bills, 0 AS redeem_amt, 0 AS interest " +
+                    "      FROM projections " +
+                    "      WHERE table_name='company_billing' AND NOT deleted " +
+                    "        AND payload->>'opening_date' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' " +
+                    "        AND upper(COALESCE(payload->>'status','')) NOT IN ('CANCELED','CANCELLED') " +
+                            companyPredicate +
+                    "      GROUP BY 1,2 " +
+                    "      UNION ALL " +
+                    // ── 2. redeem (closings in CLOSED / DELIVERED / REBILLED-*) ─
+                    "      SELECT " +
+                    "        substring(payload->>'closing_date' from 6 for 2) AS mon, " +
+                    "        substring(payload->>'closing_date' from 1 for 4) AS yyyy, " +
+                    "        0, 0, 0, 0, 0, 0, " +
+                    "        count(*)                                                          AS redeem_total_bills, " +
+                    "        sum(CASE WHEN payload->>'amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
+                    "                 THEN (payload->>'amount')::numeric ELSE 0 END)          AS redeem_amt, " +
+                    "        0 AS interest " +
+                    "      FROM projections " +
+                    "      WHERE table_name='company_billing' AND NOT deleted " +
+                    "        AND payload->>'closing_date' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' " +
+                    "        AND upper(COALESCE(payload->>'status','')) IN " +
+                    "            ('CLOSED','DELIVERED','REBILLED','REBILLED-ADDED','REBILLED-REMOVED','REBILLED-MULTIPLE') " +
+                            companyPredicate +
+                    "      GROUP BY 1,2 " +
+                    "      UNION ALL " +
+                    // ── 3. interest (todays_pf_amount per todays_date) ─────
+                    "      SELECT " +
+                    "        substring(payload->>'todays_date' from 6 for 2) AS mon, " +
+                    "        substring(payload->>'todays_date' from 1 for 4) AS yyyy, " +
+                    "        0, 0, 0, 0, 0, 0, 0, 0, " +
+                    "        sum(CASE WHEN payload->>'todays_pf_amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
+                    "                 THEN (payload->>'todays_pf_amount')::numeric ELSE 0 END) AS interest " +
+                    "      FROM projections " +
+                    "      WHERE table_name='company_todays_account_available_amount' AND NOT deleted " +
+                    "        AND payload->>'todays_date' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' " +
+                            companyPredicate +
+                    "      GROUP BY 1,2 " +
+                    "    ) chi " +
+                    "    GROUP BY chi.mon, chi.yyyy " +
+                    "  ) child " +
+                    "  ORDER BY yyyy DESC, mon DESC " +
+                    "  LIMIT ?";
+
+                List<Map<String,Object>> months = j.queryForList(sql, args.toArray());
                 return Map.of("total", months.size(), "months", months);
             });
         } catch (Exception e) {
