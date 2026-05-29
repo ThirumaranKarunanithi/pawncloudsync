@@ -398,6 +398,165 @@ public class DataController {
         }
     }
 
+    /**
+     * Operations breakdown for the Today's Account screen — counts + sums
+     * across every operation that affects cash for (companyId, date).
+     *
+     * Debit  = money OUT of the shop (bill opening pays the customer,
+     *          repledge closing repays the financier, expenses).
+     * Credit = money IN to the shop  (bill closing collects from the
+     *          customer, repledge opening receives from financier,
+     *          incomes).
+     *
+     * Returns: { operations: [ {name, count, debit, credit}, ... ],
+     *            totalDebit, totalCredit }
+     */
+    @GetMapping("/todays-account-ops")
+    public Map<String,Object> todaysAccountOps(
+            @RequestParam(name="companyId", required=false) String companyId,
+            @RequestParam(name="date")     String date) {
+        if (date == null || date.isBlank())
+            throw new IllegalArgumentException("date is required (yyyy-MM-dd)");
+        final String compFilter = (companyId == null || companyId.isBlank()
+                                   || "ALL".equalsIgnoreCase(companyId))
+                ? null : companyId;
+        return t.inTenant(j -> {
+            java.util.List<Map<String,Object>> ops = new java.util.ArrayList<>();
+            double totalDebit  = 0;
+            double totalCredit = 0;
+
+            // 1+2. Bill openings (debit) split by material — NOT CANCELED.
+            for (String mat : new String[]{"GOLD","SILVER"}) {
+                Map<String,Object> r = billAgg(j, "opening_date", date, compFilter, mat,
+                        "AND upper(COALESCE(payload->>'status','')) NOT IN ('CANCELED','CANCELLED')");
+                long cnt = ((Number) r.get("cnt")).longValue();
+                double amt = ((Number) r.get("amt")).doubleValue();
+                if (cnt > 0 || amt != 0) {
+                    ops.add(opRow("Bill Opening - " + cap(mat), cnt, amt, 0));
+                    totalDebit += amt;
+                }
+            }
+            // 3+4. Bill closings (credit) — CLOSED/DELIVERED/REBILLED-*.
+            String closedStatus =
+                "AND upper(COALESCE(payload->>'status','')) IN " +
+                "('CLOSED','DELIVERED','REBILLED','REBILLED-ADDED','REBILLED-REMOVED','REBILLED-MULTIPLE')";
+            for (String mat : new String[]{"GOLD","SILVER"}) {
+                Map<String,Object> r = billAgg(j, "closing_date", date, compFilter, mat, closedStatus);
+                long cnt = ((Number) r.get("cnt")).longValue();
+                double amt = ((Number) r.get("amt")).doubleValue();
+                if (cnt > 0 || amt != 0) {
+                    ops.add(opRow("Bill Closing - " + cap(mat), cnt, 0, amt));
+                    totalCredit += amt;
+                }
+            }
+            // 5. Repledge opening (credit — financier gave us money).
+            Map<String,Object> rOpen = repledgeAgg(j, "opening_date", date, compFilter);
+            long rOpenCnt = ((Number) rOpen.get("cnt")).longValue();
+            double rOpenAmt = ((Number) rOpen.get("amt")).doubleValue();
+            if (rOpenCnt > 0 || rOpenAmt != 0) {
+                ops.add(opRow("Repledge Opening", rOpenCnt, 0, rOpenAmt));
+                totalCredit += rOpenAmt;
+            }
+            // 6. Repledge closing (debit — we repaid the financier).
+            Map<String,Object> rClose = repledgeAgg(j, "closing_date", date, compFilter);
+            long rCloseCnt = ((Number) rClose.get("cnt")).longValue();
+            double rCloseAmt = ((Number) rClose.get("amt")).doubleValue();
+            if (rCloseCnt > 0 || rCloseAmt != 0) {
+                ops.add(opRow("Repledge Closing", rCloseCnt, rCloseAmt, 0));
+                totalDebit += rCloseAmt;
+            }
+            // 7. Advance (debit — paid to customer).
+            Map<String,Object> adv = advanceAgg(j, date, compFilter);
+            long advCnt = ((Number) adv.get("cnt")).longValue();
+            double advAmt = ((Number) adv.get("amt")).doubleValue();
+            if (advCnt > 0 || advAmt != 0) {
+                ops.add(opRow("Advance Paid", advCnt, advAmt, 0));
+                totalDebit += advAmt;
+            }
+            return Map.of(
+                "date", date,
+                "operations",  ops,
+                "totalDebit",  totalDebit,
+                "totalCredit", totalCredit
+            );
+        });
+    }
+
+    private Map<String,Object> billAgg(org.springframework.jdbc.core.JdbcTemplate j,
+                                        String dateField, String date,
+                                        String companyId, String material,
+                                        String extraWhere) {
+        StringBuilder sql = new StringBuilder(
+            "SELECT count(*) AS cnt, " +
+            "       COALESCE(sum(CASE WHEN payload->>'amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
+            "                         THEN (payload->>'amount')::numeric ELSE 0 END), 0) AS amt " +
+            "  FROM projections " +
+            " WHERE table_name = 'company_billing' AND NOT deleted " +
+            "   AND COALESCE(payload->>'" + dateField + "','') LIKE ? " +
+            "   AND upper(COALESCE(payload->>'jewel_material_type','')) = ? ");
+        java.util.List<Object> args = new java.util.ArrayList<>();
+        args.add(date + "%");
+        args.add(material);
+        if (companyId != null) {
+            sql.append(" AND payload->>'company_id' = ? ");
+            args.add(companyId);
+        }
+        if (extraWhere != null && !extraWhere.isBlank())
+            sql.append(" ").append(extraWhere).append(" ");
+        return j.queryForMap(sql.toString(), args.toArray());
+    }
+
+    private Map<String,Object> repledgeAgg(org.springframework.jdbc.core.JdbcTemplate j,
+                                            String dateField, String date,
+                                            String companyId) {
+        StringBuilder sql = new StringBuilder(
+            "SELECT count(*) AS cnt, " +
+            "       COALESCE(sum(CASE WHEN payload->>'amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
+            "                         THEN (payload->>'amount')::numeric ELSE 0 END), 0) AS amt " +
+            "  FROM projections " +
+            " WHERE table_name = 'repledge_billing' AND NOT deleted " +
+            "   AND COALESCE(payload->>'" + dateField + "','') LIKE ? ");
+        java.util.List<Object> args = new java.util.ArrayList<>();
+        args.add(date + "%");
+        if (companyId != null) {
+            sql.append(" AND payload->>'company_id' = ? ");
+            args.add(companyId);
+        }
+        return j.queryForMap(sql.toString(), args.toArray());
+    }
+
+    private Map<String,Object> advanceAgg(org.springframework.jdbc.core.JdbcTemplate j,
+                                           String date, String companyId) {
+        StringBuilder sql = new StringBuilder(
+            "SELECT count(*) AS cnt, " +
+            "       COALESCE(sum(CASE WHEN payload->>'paid_amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
+            "                         THEN (payload->>'paid_amount')::numeric ELSE 0 END), 0) AS amt " +
+            "  FROM projections " +
+            " WHERE table_name = 'company_advance_amount' AND NOT deleted " +
+            "   AND COALESCE(payload->>'advance_date','') LIKE ? ");
+        java.util.List<Object> args = new java.util.ArrayList<>();
+        args.add(date + "%");
+        if (companyId != null) {
+            sql.append(" AND payload->>'company_id' = ? ");
+            args.add(companyId);
+        }
+        return j.queryForMap(sql.toString(), args.toArray());
+    }
+
+    private static Map<String,Object> opRow(String name, long count, double debit, double credit) {
+        Map<String,Object> r = new java.util.LinkedHashMap<>();
+        r.put("name",   name);
+        r.put("count",  count);
+        r.put("debit",  debit);
+        r.put("credit", credit);
+        return r;
+    }
+
+    private static String cap(String s) {
+        if (s == null || s.isEmpty()) return s;
+        return s.charAt(0) + s.substring(1).toLowerCase();
+    }
+
     @GetMapping("/notifications")
     public List<Map<String,Object>> notifications(@RequestParam(defaultValue="50") int limit) {
         int cap = Math.min(Math.max(limit, 1), 200);
