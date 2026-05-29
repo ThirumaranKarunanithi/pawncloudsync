@@ -60,7 +60,9 @@ public class DataController {
                                           @RequestParam(name="dateTo",    required=false) String dateTo,
                                           @RequestParam(name="customerName", required=false) String customerName,
                                           @RequestParam(name="amountFrom", required=false) Double amountFrom,
-                                          @RequestParam(name="amountTo",   required=false) Double amountTo) {
+                                          @RequestParam(name="amountTo",   required=false) Double amountTo,
+                                          @RequestParam(name="refMark",    required=false) String refMark,
+                                          @RequestParam(name="todaysDate", required=false) String todaysDate) {
         if (!table.matches("[a-z_]+")) throw new IllegalArgumentException("bad table");
         int cap = Math.min(Math.max(limit, 1), 500);
         String orderField = null;
@@ -77,7 +79,8 @@ public class DataController {
 
         WhereBuild wb = buildWhere(table, q, companyId, material, status,
                                    statuses, repledged,
-                                   dateFrom, dateTo, customerName, amountFrom, amountTo);
+                                   dateFrom, dateTo, customerName, amountFrom, amountTo,
+                                   refMark, todaysDate);
         wb.args.add(cap);
 
         return t.inTenant(j -> {
@@ -140,7 +143,8 @@ public class DataController {
                                    Double amountFrom, Double amountTo) {
         return buildWhere(table, q, companyId, material, status,
                           /*statuses*/ null, /*repledged*/ null,
-                          dateFrom, dateTo, customerName, amountFrom, amountTo);
+                          dateFrom, dateTo, customerName, amountFrom, amountTo,
+                          /*refMark*/ null, /*todaysDate*/ null);
     }
 
     private WhereBuild buildWhere(String table, String q, String companyId,
@@ -149,6 +153,19 @@ public class DataController {
                                    String dateFrom, String dateTo,
                                    String customerName,
                                    Double amountFrom, Double amountTo) {
+        return buildWhere(table, q, companyId, material, status,
+                          statuses, repledged,
+                          dateFrom, dateTo, customerName, amountFrom, amountTo,
+                          /*refMark*/ null, /*todaysDate*/ null);
+    }
+
+    private WhereBuild buildWhere(String table, String q, String companyId,
+                                   String material, String status,
+                                   String statuses, String repledged,
+                                   String dateFrom, String dateTo,
+                                   String customerName,
+                                   Double amountFrom, Double amountTo,
+                                   String refMark, String todaysDate) {
         List<Object> args = new java.util.ArrayList<>();
         args.add(table);
         StringBuilder w = new StringBuilder(" WHERE table_name = ? AND NOT deleted ");
@@ -209,6 +226,18 @@ public class DataController {
             w.append(" AND CASE WHEN payload->>'amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
                      "          THEN (payload->>'amount')::numeric ELSE 0 END <= ? ");
             args.add(amountTo);
+        }
+        // ref_mark / todays_date are JSONB-keyed (not whole-payload ILIKE) —
+        // robust against either jsonb compact-text or json-with-whitespace
+        // storage, which the q-substring trick was not.
+        if (refMark != null && !refMark.isBlank()) {
+            w.append(" AND upper(COALESCE(payload->>'ref_mark','')) = ? ");
+            args.add(refMark.toUpperCase());
+        }
+        if (todaysDate != null && !todaysDate.isBlank()) {
+            // Tolerate timestamps stored alongside dates by left-anchoring.
+            w.append(" AND COALESCE(payload->>'todays_date','') LIKE ? ");
+            args.add(todaysDate + "%");
         }
         return new WhereBuild(w.toString(), args);
     }
