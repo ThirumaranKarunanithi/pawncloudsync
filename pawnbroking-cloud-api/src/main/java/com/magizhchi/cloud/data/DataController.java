@@ -442,13 +442,14 @@ public class DataController {
                 double doc = num(openR, "doc").doubleValue();
                 long   rb  = num(openR, "rb").longValue();
                 long   nb  = num(openR, "nb").longValue();
-                // Desktop convention: opening = debit principal; advance
-                // interest collected at opening goes to credit (small).
+                // Desktop convention: opening Debit = principal lent;
+                // opening Credit = interest + document_charge collected
+                // up-front as fees (matches desktop: 2180+70 = 2250).
                 double rowDebit  = amt;
-                double rowCredit = intr;
+                double rowCredit = intr + doc;
                 ops.add(opRow(mat + " BILL OPENING", cnt, rowDebit, rowCredit,
-                        "Amt: " + n(amt) + ", Intr: " + n(intr) + ", Doc: " + n(doc)
-                        + "  (RB: " + rb + ", NB: " + nb + ")"));
+                        "( Amt: " + b(amt) + ", Intr: " + b(intr) + ", Doc: " + b(doc) + " )"
+                        + "  ( RB: " + rb + ", NB: " + nb + " )"));
                 totalDebit  += rowDebit;
                 totalCredit += rowCredit;
 
@@ -473,9 +474,9 @@ public class DataController {
                 // Desktop closing credit = principal + interest + fine - less.
                 double closingCredit = cAmt + cIntr + cFine - cLess;
                 ops.add(opRow(mat + " BILL CLOSING", cCnt, 0, closingCredit,
-                        "Amt: " + n(cAmt) + ", Intr: " + n(cIntr)
+                        "( Amt: " + b(cAmt) + ", Intr: " + b(cIntr)
                         + ", Fine: " + n(cFine) + ", Less: " + n(cLess)
-                        + ", Adv Amt: " + n(cAdv)));
+                        + ", Adv Amt: " + n(cAdv) + " )"));
                 totalCredit += closingCredit;
             }
 
@@ -490,7 +491,7 @@ public class DataController {
             double roInt = num(rOpen, "intr").doubleValue();
             double roDoc = num(rOpen, "doc").doubleValue();
             ops.add(opRow("REPLEDGE BILL OPENING", roCnt, 0, roAmt,
-                    "Amt: " + n(roAmt) + ", Intr: " + n(roInt) + ", Doc: " + n(roDoc)));
+                    "( Amt: " + b(roAmt) + ", Intr: " + b(roInt) + ", Doc: " + b(roDoc) + " )"));
             totalCredit += roAmt;
 
             // ── Row 8 : REPLEDGE BILL CLOSING (debit — we paid financier)
@@ -501,7 +502,7 @@ public class DataController {
             // Desktop closing debit = principal + interest paid to financier.
             double rcDebit = rcAmt + rcInt;
             ops.add(opRow("REPLEDGE BILL CLOSING", rcCnt, rcDebit, 0,
-                    "Amt: " + n(rcAmt) + ", Intr: " + n(rcInt)));
+                    "( Amt: " + b(rcAmt) + ", Intr: " + b(rcInt) + " )"));
             totalDebit += rcDebit;
 
             // ── Rows 9-10 : EXPENSES (debit) / INCOMES (credit) ──────────
@@ -511,13 +512,13 @@ public class DataController {
             Map<String,Object> exp = expenseIncomeAgg(j, date, compFilter, "EXPENSE");
             long   eCnt = num(exp, "cnt").longValue();
             double eAmt = num(exp, "amt").doubleValue();
-            ops.add(opRow("EXPENSES", eCnt, eAmt, 0, ""));
+            ops.add(opRow("EXPENSES", eCnt, eAmt, 0, "0"));
             totalDebit += eAmt;
 
             Map<String,Object> inc = expenseIncomeAgg(j, date, compFilter, "INCOME");
             long   iCnt = num(inc, "cnt").longValue();
             double iAmt = num(inc, "amt").doubleValue();
-            ops.add(opRow("INCOMES", iCnt, 0, iAmt, ""));
+            ops.add(opRow("INCOMES", iCnt, 0, iAmt, "0"));
             totalCredit += iAmt;
 
             // ── Profit bar : Gold Pf, Silver Pf, Total Pf ────────────────
@@ -563,11 +564,13 @@ public class DataController {
     private Map<String,Object> billOpeningAgg(org.springframework.jdbc.core.JdbcTemplate j,
                                                String date, String companyId,
                                                String material, String statusClause) {
+        // Column names confirmed against the user's desktop schema:
+        //   amount, interest, document_charge, repledge_bill_id, etc.
         StringBuilder sql = new StringBuilder(
             "SELECT count(*)                                            AS cnt, " +
             "       COALESCE(sum(numF(payload->>'amount')),          0) AS amt, " +
-            "       COALESCE(sum(numF(payload->>'interest_amount')), 0) AS intr, " +
-            "       COALESCE(sum(numF(payload->>'document_amount')), 0) AS doc, " +
+            "       COALESCE(sum(numF(payload->>'interest')),        0) AS intr, " +
+            "       COALESCE(sum(numF(payload->>'document_charge')), 0) AS doc, " +
             "       count(*) FILTER (WHERE COALESCE(payload->>'repledge_bill_id','') <> '') AS rb, " +
             "       count(*) FILTER (WHERE COALESCE(payload->>'repledge_bill_id','') =  '') AS nb " +
             "  FROM projections " +
@@ -586,12 +589,15 @@ public class DataController {
     private Map<String,Object> billClosingAgg(org.springframework.jdbc.core.JdbcTemplate j,
                                                String date, String companyId,
                                                String material, String statusClause) {
+        // Column names per the user's desktop schema:
+        //   amount, interest, fine_charge_amount, discount_amount,
+        //   total_advance_amount_paid.
         StringBuilder sql = new StringBuilder(
             "SELECT count(*)                                                       AS cnt, " +
             "       COALESCE(sum(numF(payload->>'amount')),                     0) AS amt, " +
-            "       COALESCE(sum(numF(payload->>'interest_amount')),            0) AS intr, " +
-            "       COALESCE(sum(numF(payload->>'fine_amount')),                0) AS fine, " +
-            "       COALESCE(sum(numF(payload->>'less_amount')),                0) AS less, " +
+            "       COALESCE(sum(numF(payload->>'interest')),                   0) AS intr, " +
+            "       COALESCE(sum(numF(payload->>'fine_charge_amount')),         0) AS fine, " +
+            "       COALESCE(sum(numF(payload->>'discount_amount')),            0) AS less, " +
             "       COALESCE(sum(numF(payload->>'total_advance_amount_paid')),  0) AS adv " +
             "  FROM projections " +
             " WHERE table_name = 'company_billing' AND NOT deleted " +
@@ -633,11 +639,13 @@ public class DataController {
     private Map<String,Object> repledgeAggRich(org.springframework.jdbc.core.JdbcTemplate j,
                                                 String dateField, String date,
                                                 String companyId) {
+        // Column names per the user's desktop schema:
+        //   amount, interest, document_charge.
         StringBuilder sql = new StringBuilder(
             "SELECT count(*)                                            AS cnt, " +
             "       COALESCE(sum(numF(payload->>'amount')),          0) AS amt, " +
-            "       COALESCE(sum(numF(payload->>'interest_amount')), 0) AS intr, " +
-            "       COALESCE(sum(numF(payload->>'document_amount')), 0) AS doc " +
+            "       COALESCE(sum(numF(payload->>'interest')),        0) AS intr, " +
+            "       COALESCE(sum(numF(payload->>'document_charge')), 0) AS doc " +
             "  FROM projections " +
             " WHERE table_name = 'repledge_billing' AND NOT deleted " +
             "   AND COALESCE(payload->>'" + dateField + "','') LIKE ? ");
@@ -745,6 +753,12 @@ public class DataController {
         if (v == Math.floor(v) && !Double.isInfinite(v))
             return Long.toString((long) v);
         return String.valueOf(v);
+    }
+
+    /** Blank-when-zero: matches the desktop's "( Amt: , Intr: , Doc: )"
+     *  rendering for opening/repledge rows where the column has no data. */
+    private static String b(double v) {
+        return v == 0 ? "" : n(v);
     }
 
     /** Null-safe numeric extractor for JDBC map results. */
