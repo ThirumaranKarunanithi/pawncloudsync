@@ -436,17 +436,19 @@ public class DataController {
 
             for (String mat : new String[]{"GOLD","SILVER"}) {
                 Map<String,Object> openR = billOpeningAgg(j, date, compFilter, mat, notCanceled);
-                long   cnt = num(openR, "cnt").longValue();
-                double amt = num(openR, "amt").doubleValue();
-                double intr= num(openR, "intr").doubleValue();
-                double doc = num(openR, "doc").doubleValue();
-                long   rb  = num(openR, "rb").longValue();
-                long   nb  = num(openR, "nb").longValue();
-                // Desktop convention: opening Debit = principal lent;
-                // opening Credit = interest + document_charge collected
-                // up-front as fees (matches desktop: 2180+70 = 2250).
+                long   cnt   = num(openR, "cnt").longValue();
+                double amt   = num(openR, "amt").doubleValue();
+                double taken = num(openR, "taken").doubleValue();
+                double doc   = num(openR, "doc").doubleValue();
+                long   rb    = num(openR, "rb").longValue();
+                long   nb    = num(openR, "nb").longValue();
+                // Opening Debit  = sum(amount)            (principal lent).
+                // Opening Credit = sum(open_taken_amount) (cash received).
+                // Combo Intr     = taken − doc            (derived from the
+                //                                          same cash flow).
                 double rowDebit  = amt;
-                double rowCredit = intr + doc;
+                double rowCredit = taken;
+                double intr      = taken - doc;
                 ops.add(opRow(mat + " BILL OPENING", cnt, rowDebit, rowCredit,
                         "( Amt: " + b(amt) + ", Intr: " + b(intr) + ", Doc: " + b(doc) + " )"
                         + "  ( RB: " + rb + ", NB: " + nb + " )"));
@@ -465,14 +467,18 @@ public class DataController {
 
                 // ── Rows 3, 6 : GOLD/SILVER BILL CLOSING (credit) ────────
                 Map<String,Object> closeR = billClosingAgg(j, date, compFilter, mat, closedStatus);
-                long   cCnt  = num(closeR, "cnt").longValue();
-                double cAmt  = num(closeR, "amt").doubleValue();
-                double cIntr = num(closeR, "intr").doubleValue();
-                double cFine = num(closeR, "fine").doubleValue();
-                double cLess = num(closeR, "less").doubleValue();
-                double cAdv  = num(closeR, "adv").doubleValue();
-                // Desktop closing credit = principal + interest + fine - less.
-                double closingCredit = cAmt + cIntr + cFine - cLess;
+                long   cCnt   = num(closeR, "cnt").longValue();
+                double cAmt   = num(closeR, "amt").doubleValue();
+                double cTaken = num(closeR, "taken").doubleValue();
+                double cIntr  = num(closeR, "intr").doubleValue();
+                double cFine  = num(closeR, "fine").doubleValue();
+                double cLess  = num(closeR, "less").doubleValue();
+                double cAdv   = num(closeR, "adv").doubleValue();
+                // Closing Credit = sum(close_taken_amount) — the actual cash
+                // received. If close_taken_amount is missing (older rows),
+                // fall back to the desktop's algebraic formula.
+                double closingCredit = cTaken != 0 ? cTaken
+                                                   : (cAmt + cIntr + cFine - cLess);
                 ops.add(opRow(mat + " BILL CLOSING", cCnt, 0, closingCredit,
                         "( Amt: " + b(cAmt) + ", Intr: " + b(cIntr)
                         + ", Fine: " + n(cFine) + ", Less: " + n(cLess)
@@ -564,13 +570,18 @@ public class DataController {
     private Map<String,Object> billOpeningAgg(org.springframework.jdbc.core.JdbcTemplate j,
                                                String date, String companyId,
                                                String material, String statusClause) {
-        // Column names confirmed against the user's desktop schema:
-        //   amount, interest, document_charge, repledge_bill_id, etc.
+        // Confirmed desktop schema:
+        //   amount             — principal lent (Debit)
+        //   open_taken_amount  — cash received from customer at opening
+        //                        (Intr + Doc charge collected upfront)
+        //   document_charge    — the Doc portion of open_taken_amount
+        //   `interest` column  — interest RATE per-month (not rupees); we
+        //                        derive the rupee Intr as (open_taken − doc).
         StringBuilder sql = new StringBuilder(
-            "SELECT count(*)                                            AS cnt, " +
-            "       COALESCE(sum(numF(payload->>'amount')),          0) AS amt, " +
-            "       COALESCE(sum(numF(payload->>'interest')),        0) AS intr, " +
-            "       COALESCE(sum(numF(payload->>'document_charge')), 0) AS doc, " +
+            "SELECT count(*)                                                  AS cnt, " +
+            "       COALESCE(sum(numF(payload->>'amount')),                0) AS amt, " +
+            "       COALESCE(sum(numF(payload->>'open_taken_amount')),     0) AS taken, " +
+            "       COALESCE(sum(numF(payload->>'document_charge')),       0) AS doc, " +
             "       count(*) FILTER (WHERE COALESCE(payload->>'repledge_bill_id','') <> '') AS rb, " +
             "       count(*) FILTER (WHERE COALESCE(payload->>'repledge_bill_id','') =  '') AS nb " +
             "  FROM projections " +
@@ -589,13 +600,20 @@ public class DataController {
     private Map<String,Object> billClosingAgg(org.springframework.jdbc.core.JdbcTemplate j,
                                                String date, String companyId,
                                                String material, String statusClause) {
-        // Column names per the user's desktop schema:
-        //   amount, interest, fine_charge_amount, discount_amount,
-        //   total_advance_amount_paid.
+        // Confirmed desktop schema:
+        //   amount                     — principal returned to shop
+        //   close_taken_amount         — total cash received at closing
+        //                                (Amt + Intr + Fine - Less + Adv)
+        //   fine_interest_taken        — actual interest collected at closing
+        //   fine_charge_amount         — late fine
+        //   discount_amount            — discount given to customer ("Less")
+        //   total_advance_amount_paid  — running advance already paid
+        //   `interest` is a rate, NOT a rupee amount — never sum it for cash.
         StringBuilder sql = new StringBuilder(
             "SELECT count(*)                                                       AS cnt, " +
             "       COALESCE(sum(numF(payload->>'amount')),                     0) AS amt, " +
-            "       COALESCE(sum(numF(payload->>'interest')),                   0) AS intr, " +
+            "       COALESCE(sum(numF(payload->>'close_taken_amount')),         0) AS taken, " +
+            "       COALESCE(sum(numF(payload->>'fine_interest_taken')),        0) AS intr, " +
             "       COALESCE(sum(numF(payload->>'fine_charge_amount')),         0) AS fine, " +
             "       COALESCE(sum(numF(payload->>'discount_amount')),            0) AS less, " +
             "       COALESCE(sum(numF(payload->>'total_advance_amount_paid')),  0) AS adv " +
@@ -659,27 +677,33 @@ public class DataController {
     private Map<String,Object> expenseIncomeAgg(org.springframework.jdbc.core.JdbcTemplate j,
                                                  String date, String companyId,
                                                  String kind) {
-        // Confirmed against the user's desktop schema:
+        // Desktop schema (confirmed):
         //   EXPENSES → company_other_debit  (debitted_date, debitted_amount)
         //   INCOMES  → company_other_credit (credited_date, credited_amount)
-        // (Note the desktop's "debitted/credited" double-t spelling.)
+        // The sync pipeline left duplicates on these tables; DISTINCT ON id
+        // collapses each row to one even if multiple projections exist.
         boolean isExpense = "EXPENSE".equalsIgnoreCase(kind);
         String table     = isExpense ? "company_other_debit"   : "company_other_credit";
         String dateCol   = isExpense ? "debitted_date"         : "credited_date";
         String amountCol = isExpense ? "debitted_amount"       : "credited_amount";
 
         StringBuilder sql = new StringBuilder(
-            "SELECT count(*)                                    AS cnt, " +
+            "SELECT count(*)                                            AS cnt, " +
             "       COALESCE(sum(numF(payload->>'" + amountCol + "')),0) AS amt " +
-            "  FROM projections " +
-            " WHERE table_name = '" + table + "' AND NOT deleted " +
-            "   AND COALESCE(payload->>'" + dateCol + "','') LIKE ? ");
+            "  FROM ( " +
+            "    SELECT DISTINCT ON (payload->>'id') payload " +
+            "      FROM projections " +
+            "     WHERE table_name = '" + table + "' AND NOT deleted " +
+            "       AND COALESCE(payload->>'" + dateCol + "','') LIKE ? ");
         java.util.List<Object> args = new java.util.ArrayList<>();
         args.add(date + "%");
         if (companyId != null) {
             sql.append(" AND payload->>'company_id' = ? ");
             args.add(companyId);
         }
+        sql.append(
+            "     ORDER BY payload->>'id', last_updated_at DESC " +
+            "  ) sub ");
         try {
             return queryRowOrZero(j, sql.toString(), args.toArray(), "cnt","amt");
         } catch (Exception ignored) {
@@ -691,16 +715,28 @@ public class DataController {
 
     private Map<String,Object> profitAgg(org.springframework.jdbc.core.JdbcTemplate j,
                                           String date, String companyId) {
+        // The sync pipeline left duplicate projection rows for older days
+        // (composite-PK residue from the V2-era trigger). DISTINCT ON keeps
+        // the newest projection per (company_id, todays_date) so each day's
+        // Pf is counted once instead of N times.
         StringBuilder sql = new StringBuilder(
-            "SELECT COALESCE(sum(numF(payload->>'gold_pf_amount')),0)    AS gold, " +
-            "       COALESCE(sum(numF(payload->>'silver_pf_amount')),0)  AS silver, " +
-            "       COALESCE(sum(numF(payload->>'todays_pf_amount')),0)  AS total " +
-            "  FROM projections " +
-            " WHERE table_name = 'company_todays_account_available_amount' AND NOT deleted " +
-            "   AND COALESCE(payload->>'todays_date','') LIKE ? ");
+            "SELECT COALESCE(sum(numF(payload->>'gold_pf_amount')),0)   AS gold, " +
+            "       COALESCE(sum(numF(payload->>'silver_pf_amount')),0) AS silver, " +
+            "       COALESCE(sum(numF(payload->>'todays_pf_amount')),0) AS total " +
+            "  FROM ( " +
+            "    SELECT DISTINCT ON (payload->>'company_id', payload->>'todays_date') " +
+            "           payload " +
+            "      FROM projections " +
+            "     WHERE table_name = 'company_todays_account_available_amount' " +
+            "       AND NOT deleted " +
+            "       AND COALESCE(payload->>'todays_date','') LIKE ? ");
         java.util.List<Object> args = new java.util.ArrayList<>();
         args.add(date + "%");
         if (companyId != null) { sql.append(" AND payload->>'company_id' = ? "); args.add(companyId); }
+        sql.append(
+            "     ORDER BY payload->>'company_id', payload->>'todays_date', " +
+            "              last_updated_at DESC " +
+            "  ) sub ");
         try {
             return queryRowOrZero(j, sql.toString(), args.toArray(),
                     "gold","silver","total");
