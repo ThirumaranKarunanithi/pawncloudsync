@@ -659,21 +659,27 @@ public class DataController {
     private Map<String,Object> expenseIncomeAgg(org.springframework.jdbc.core.JdbcTemplate j,
                                                  String date, String companyId,
                                                  String kind) {
-        // Common schema for these is company_expense_income with a `type`
-        // column distinguishing EXPENSE / INCOME, and `entry_date` for the
-        // date. If the table doesn't exist on this tenant the helper
-        // returns zeros without raising.
+        // Confirmed against the user's desktop schema:
+        //   EXPENSES → company_other_debit  (debitted_date, debitted_amount)
+        //   INCOMES  → company_other_credit (credited_date, credited_amount)
+        // (Note the desktop's "debitted/credited" double-t spelling.)
+        boolean isExpense = "EXPENSE".equalsIgnoreCase(kind);
+        String table     = isExpense ? "company_other_debit"   : "company_other_credit";
+        String dateCol   = isExpense ? "debitted_date"         : "credited_date";
+        String amountCol = isExpense ? "debitted_amount"       : "credited_amount";
+
         StringBuilder sql = new StringBuilder(
-            "SELECT count(*)                                  AS cnt, " +
-            "       COALESCE(sum(numF(payload->>'amount')),0) AS amt " +
+            "SELECT count(*)                                    AS cnt, " +
+            "       COALESCE(sum(numF(payload->>'" + amountCol + "')),0) AS amt " +
             "  FROM projections " +
-            " WHERE table_name = 'company_expense_income' AND NOT deleted " +
-            "   AND upper(COALESCE(payload->>'type','')) = ? " +
-            "   AND COALESCE(payload->>'entry_date','') LIKE ? ");
+            " WHERE table_name = '" + table + "' AND NOT deleted " +
+            "   AND COALESCE(payload->>'" + dateCol + "','') LIKE ? ");
         java.util.List<Object> args = new java.util.ArrayList<>();
-        args.add(kind);
         args.add(date + "%");
-        if (companyId != null) { sql.append(" AND payload->>'company_id' = ? "); args.add(companyId); }
+        if (companyId != null) {
+            sql.append(" AND payload->>'company_id' = ? ");
+            args.add(companyId);
+        }
         try {
             return queryRowOrZero(j, sql.toString(), args.toArray(), "cnt","amt");
         } catch (Exception ignored) {
