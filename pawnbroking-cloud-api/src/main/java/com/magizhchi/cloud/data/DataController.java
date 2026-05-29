@@ -467,18 +467,16 @@ public class DataController {
 
                 // ── Rows 3, 6 : GOLD/SILVER BILL CLOSING (credit) ────────
                 Map<String,Object> closeR = billClosingAgg(j, date, compFilter, mat, closedStatus);
-                long   cCnt   = num(closeR, "cnt").longValue();
-                double cAmt   = num(closeR, "amt").doubleValue();
-                double cTaken = num(closeR, "taken").doubleValue();
-                double cIntr  = num(closeR, "intr").doubleValue();
-                double cFine  = num(closeR, "fine").doubleValue();
-                double cLess  = num(closeR, "less").doubleValue();
-                double cAdv   = num(closeR, "adv").doubleValue();
-                // Closing Credit = sum(close_taken_amount) — the actual cash
-                // received. If close_taken_amount is missing (older rows),
-                // fall back to the desktop's algebraic formula.
-                double closingCredit = cTaken != 0 ? cTaken
-                                                   : (cAmt + cIntr + cFine - cLess);
+                long   cCnt  = num(closeR, "cnt").longValue();
+                double cAmt  = num(closeR, "amt").doubleValue();
+                double cIntr = num(closeR, "intr").doubleValue();   // close_taken_amount
+                double cFine = num(closeR, "fine").doubleValue();   // total_other_charges
+                double cLess = num(closeR, "less").doubleValue();   // discount_amount
+                double cAdv  = num(closeR, "adv").doubleValue();
+                // Desktop formula: amt + intr + fine − less + adv. Matches
+                // GOLD (65000+1200+0−0+0 = 66200) and SILVER (5200+3448+
+                // 333−1+0 = 8980).
+                double closingCredit = cAmt + cIntr + cFine - cLess + cAdv;
                 ops.add(opRow(mat + " BILL CLOSING", cCnt, 0, closingCredit,
                         "( Amt: " + b(cAmt) + ", Intr: " + b(cIntr)
                         + ", Fine: " + n(cFine) + ", Less: " + n(cLess)
@@ -600,21 +598,23 @@ public class DataController {
     private Map<String,Object> billClosingAgg(org.springframework.jdbc.core.JdbcTemplate j,
                                                String date, String companyId,
                                                String material, String statusClause) {
-        // Confirmed desktop schema:
-        //   amount                     — principal returned to shop
-        //   close_taken_amount         — total cash received at closing
-        //                                (Amt + Intr + Fine - Less + Adv)
-        //   fine_interest_taken        — actual interest collected at closing
-        //   fine_charge_amount         — late fine
-        //   discount_amount            — discount given to customer ("Less")
-        //   total_advance_amount_paid  — running advance already paid
-        //   `interest` is a rate, NOT a rupee amount — never sum it for cash.
+        // Confirmed desktop schema (closing row):
+        //   amount                     — principal returned by customer
+        //   close_taken_amount         — INTEREST portion collected
+        //                                (NOT the grand total; just intr)
+        //   total_other_charges        — late fine / notice / etc. ("Fine")
+        //   discount_amount            — discount given     ("Less")
+        //   total_advance_amount_paid  — advance already paid ("Adv")
+        //
+        // Desktop credit formula:
+        //   credit = amount + close_taken_amount + total_other_charges
+        //          - discount_amount + total_advance_amount_paid
+        // The `interest` column is a per-month RATE — never used as rupees.
         StringBuilder sql = new StringBuilder(
             "SELECT count(*)                                                       AS cnt, " +
             "       COALESCE(sum(numF(payload->>'amount')),                     0) AS amt, " +
-            "       COALESCE(sum(numF(payload->>'close_taken_amount')),         0) AS taken, " +
-            "       COALESCE(sum(numF(payload->>'fine_interest_taken')),        0) AS intr, " +
-            "       COALESCE(sum(numF(payload->>'fine_charge_amount')),         0) AS fine, " +
+            "       COALESCE(sum(numF(payload->>'close_taken_amount')),         0) AS intr, " +
+            "       COALESCE(sum(numF(payload->>'total_other_charges')),        0) AS fine, " +
             "       COALESCE(sum(numF(payload->>'discount_amount')),            0) AS less, " +
             "       COALESCE(sum(numF(payload->>'total_advance_amount_paid')),  0) AS adv " +
             "  FROM projections " +
