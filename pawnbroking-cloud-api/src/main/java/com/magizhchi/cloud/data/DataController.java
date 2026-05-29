@@ -50,12 +50,17 @@ public class DataController {
     public List<Map<String,Object>> list(@PathVariable String table,
                                           @RequestParam(defaultValue="100") int limit,
                                           @RequestParam(required=false) String q,
-                                          @RequestParam(name="order_by", required=false) String orderBy) {
+                                          @RequestParam(name="order_by", required=false) String orderBy,
+                                          @RequestParam(name="companyId", required=false) String companyId,
+                                          @RequestParam(name="material",  required=false) String material,
+                                          @RequestParam(name="status",    required=false) String status,
+                                          @RequestParam(name="dateFrom",  required=false) String dateFrom,
+                                          @RequestParam(name="dateTo",    required=false) String dateTo,
+                                          @RequestParam(name="customerName", required=false) String customerName,
+                                          @RequestParam(name="amountFrom", required=false) Double amountFrom,
+                                          @RequestParam(name="amountTo",   required=false) Double amountTo) {
         if (!table.matches("[a-z_]+")) throw new IllegalArgumentException("bad table");
         int cap = Math.min(Math.max(limit, 1), 500);
-        // ORDER BY only allowed against a payload JSONB field. Caller passes
-        // "field" (ASC) or "field:desc"; field name is whitelisted to a-z_
-        // to keep SQL safe.
         String orderField = null;
         boolean orderDesc = false;
         if (orderBy != null && !orderBy.isBlank()) {
@@ -67,25 +72,106 @@ public class DataController {
         }
         final String of = orderField;
         final boolean odesc = orderDesc;
+
+        WhereBuild wb = buildWhere(table, q, companyId, material, status,
+                                   dateFrom, dateTo, customerName, amountFrom, amountTo);
+        wb.args.add(cap);
+
         return t.inTenant(j -> {
             String order = of != null
                 ? "(payload->>'" + of + "') " + (odesc ? "DESC" : "ASC") + " NULLS LAST"
                 : "last_updated_at DESC";
-            List<Map<String,Object>> rows;
-            if (q == null || q.isBlank()) {
-                rows = j.queryForList(
-                    "SELECT row_pk, payload, last_updated_at FROM projections " +
-                    "WHERE table_name = ? AND NOT deleted " +
-                    "ORDER BY " + order + " LIMIT ?", table, cap);
-            } else {
-                rows = j.queryForList(
-                    "SELECT row_pk, payload, last_updated_at FROM projections " +
-                    "WHERE table_name = ? AND NOT deleted AND payload::text ILIKE ? " +
-                    "ORDER BY " + order + " LIMIT ?",
-                    table, "%" + q + "%", cap);
-            }
+            String sql = "SELECT row_pk, payload, last_updated_at FROM projections" +
+                         wb.where + " ORDER BY " + order + " LIMIT ?";
+            List<Map<String,Object>> rows = j.queryForList(sql, wb.args.toArray());
             return rehydrate(rows);
         });
+    }
+
+    /**
+     * Aggregates the same filter set as {@link #list} without a LIMIT — so
+     * the mobile stock screen can show the <i>true</i> total bill count and
+     * sum across all matching rows, not just the top 500 displayed.
+     */
+    @GetMapping("/{table}/summary")
+    public Map<String,Object> summary(@PathVariable String table,
+                                       @RequestParam(required=false) String q,
+                                       @RequestParam(name="companyId", required=false) String companyId,
+                                       @RequestParam(name="material",  required=false) String material,
+                                       @RequestParam(name="status",    required=false) String status,
+                                       @RequestParam(name="dateFrom",  required=false) String dateFrom,
+                                       @RequestParam(name="dateTo",    required=false) String dateTo,
+                                       @RequestParam(name="customerName", required=false) String customerName,
+                                       @RequestParam(name="amountFrom", required=false) Double amountFrom,
+                                       @RequestParam(name="amountTo",   required=false) Double amountTo) {
+        if (!table.matches("[a-z_]+")) throw new IllegalArgumentException("bad table");
+        WhereBuild wb = buildWhere(table, q, companyId, material, status,
+                                   dateFrom, dateTo, customerName, amountFrom, amountTo);
+        return t.inTenant(j -> {
+            String sql =
+                "SELECT count(*) AS total, " +
+                "       COALESCE(sum(CASE WHEN payload->>'amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
+                "                         THEN (payload->>'amount')::numeric ELSE 0 END), 0) AS \"totalAmount\", " +
+                "       COALESCE(sum(CASE WHEN payload->>'interest' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
+                "                         THEN (payload->>'interest')::numeric ELSE 0 END), 0) AS \"totalInterest\" " +
+                "  FROM projections " + wb.where;
+            return j.queryForMap(sql, wb.args.toArray());
+        });
+    }
+
+    // ── shared WHERE builder ─────────────────────────────────────────────────
+
+    private static final class WhereBuild {
+        final String where;
+        final List<Object> args;
+        WhereBuild(String w, List<Object> a) { this.where = w; this.args = a; }
+    }
+
+    private WhereBuild buildWhere(String table, String q, String companyId,
+                                   String material, String status,
+                                   String dateFrom, String dateTo,
+                                   String customerName,
+                                   Double amountFrom, Double amountTo) {
+        List<Object> args = new java.util.ArrayList<>();
+        args.add(table);
+        StringBuilder w = new StringBuilder(" WHERE table_name = ? AND NOT deleted ");
+
+        if (q != null && !q.isBlank()) {
+            w.append(" AND payload::text ILIKE ? ");
+            args.add("%" + q + "%");
+        }
+        if (companyId != null && !companyId.isBlank() && !"ALL".equalsIgnoreCase(companyId)) {
+            w.append(" AND payload->>'company_id' = ? "); args.add(companyId);
+        }
+        if (material != null && !material.isBlank() && !"ALL".equalsIgnoreCase(material)) {
+            w.append(" AND upper(payload->>'jewel_material_type') = ? ");
+            args.add(material.toUpperCase());
+        }
+        if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status)) {
+            w.append(" AND upper(COALESCE(payload->>'status','')) = ? ");
+            args.add(status.toUpperCase());
+        }
+        if (dateFrom != null && !dateFrom.isBlank()) {
+            w.append(" AND payload->>'opening_date' >= ? "); args.add(dateFrom);
+        }
+        if (dateTo != null && !dateTo.isBlank()) {
+            w.append(" AND payload->>'opening_date' <= ? "); args.add(dateTo);
+        }
+        if (customerName != null && !customerName.isBlank()) {
+            w.append(" AND payload->>'customer_name' ILIKE ? ");
+            args.add("%" + customerName + "%");
+        }
+        if (amountFrom != null) {
+            w.append(" AND CASE WHEN payload->>'amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
+                     "          THEN (payload->>'amount')::numeric ELSE 0 END >= ? ");
+            args.add(amountFrom);
+        }
+        if (amountTo != null) {
+            w.append(" AND CASE WHEN payload->>'amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
+                     "          THEN (payload->>'amount')::numeric ELSE 0 END <= ? ");
+            args.add(amountTo);
+        }
+        return new WhereBuild(w.toString(), args);
     }
 
     @GetMapping("/{table}/{rowPk}")

@@ -558,13 +558,18 @@ public class ApiService {
                                    Callback<JSONObject> cb) {
         EXEC.execute(() -> {
             try {
-                // Ask the cloud to slice the top 500 by opening_date DESC so
-                // we get the most recent bills out of the full 39k, not an
-                // arbitrary 500 ordered by last_updated_at.
-                JSONArray rows = fetchTableSync(table, search, "opening_date:desc");
+                // 1. Fetch list (top 500 by opening_date DESC) and the FULL
+                //    aggregate summary in parallel. Server-side filters apply
+                //    to both so the summary line is the truth, not the cap.
+                JSONObject summary = fetchSummarySync(table, search, companyId,
+                        materialType, /*status*/ null,
+                        compDateFrom, compDateTo, customerName,
+                        amountFrom, amountTo);
+                JSONArray rows = fetchTableSync(table, search,
+                        "opening_date:desc", companyId, materialType,
+                        compDateFrom, compDateTo, customerName,
+                        amountFrom, amountTo);
                 JSONArray filtered = new JSONArray();
-                double totalAmount = 0d;
-                double totalInterest = 0d;
                 Double amtFrom = parseDoubleOrNull(amountFrom);
                 Double amtTo   = parseDoubleOrNull(amountTo);
                 String custLc  = customerName == null ? null : customerName.toLowerCase();
@@ -573,33 +578,24 @@ public class ApiService {
                     JSONObject row = rows.getJSONObject(i);
                     JSONObject payload = row.optJSONObject("payload");
                     JSONObject body = payload != null ? payload : row;
-                    // Multi-company tenant: only keep rows for the selected
-                    // company. "ALL" or shop_id-as-companyId (legacy intent
-                    // extra) disables the filter.
-                    if (companyId != null && !companyId.isEmpty()
-                        && !"ALL".equalsIgnoreCase(companyId)
-                        && !companyId.equalsIgnoreCase(AppConfig.SHOP_ID)
-                        && !companyId.equalsIgnoreCase(body.optString("company_id", ""))) continue;
-                    if (materialType != null && !materialType.isEmpty()
-                        && !"ALL".equalsIgnoreCase(materialType)
-                        && !materialType.equalsIgnoreCase(body.optString("jewel_material_type",
-                            body.optString("material_type", "")))) continue;
-                    String openingDate = body.optString("opening_date", "");
-                    if (compDateFrom != null && !compDateFrom.isEmpty()
-                        && (openingDate.isEmpty() || openingDate.compareTo(compDateFrom) < 0)) continue;
-                    if (compDateTo != null && !compDateTo.isEmpty()
-                        && (openingDate.isEmpty() || openingDate.compareTo(compDateTo) > 0)) continue;
+                    // Repledge fields (repledge_opening_date / repledge_name)
+                    // can't be expressed server-side cheaply yet — keep their
+                    // narrow client-side checks. companyId/material/opening_date/
+                    // customerName/amount are now all server-side, so removed.
                     String replDate = body.optString("repledge_opening_date",
                                       body.optString("opening_date", ""));
                     if (repledgeDateFrom != null && !repledgeDateFrom.isEmpty()
                         && (replDate.isEmpty() || replDate.compareTo(repledgeDateFrom) < 0)) continue;
                     if (repledgeDateTo != null && !repledgeDateTo.isEmpty()
                         && (replDate.isEmpty() || replDate.compareTo(repledgeDateTo) > 0)) continue;
-                    if (custLc != null && !custLc.isEmpty()
-                        && !body.optString("customer_name", "").toLowerCase().contains(custLc)) continue;
                     if (replLc != null && !replLc.isEmpty()
                         && !body.optString("repledge_name", "").toLowerCase().contains(replLc)) continue;
+                    // (companyId, material, date, customer, amount filters
+                    //  already enforced server-side — no need to re-check.)
                     double amt = body.optDouble("amount", 0);
+                    // dummy ref so the var stays in scope for the rest of the
+                    // loop without changing the structure below; amtFrom/amtTo
+                    // are now passed to the server, so this is a no-op fallback.
                     if (amtFrom != null && amt < amtFrom) continue;
                     if (amtTo   != null && amt > amtTo  ) continue;
                     // org.json's optString returns the literal "null" for
@@ -619,27 +615,41 @@ public class ApiService {
                         if (!alt.isEmpty()) body.put("repledge_bill_id", alt);
                     }
                     filtered.put(body);
-                    totalAmount   += amt;
-                    totalInterest += body.optDouble("interest", 0);
                 }
                 // Sort newest-first by opening_date. The cloud's
                 // last_updated_at DESC order is meaningless because the
                 // one-time replay stamped every row with the same instant.
                 java.util.List<JSONObject> sortable = new java.util.ArrayList<>();
                 for (int i = 0; i < filtered.length(); i++) sortable.add(filtered.getJSONObject(i));
-                sortable.sort((a, b) -> b.optString("opening_date", "")
-                                         .compareTo(a.optString("opening_date", "")));
+                // Primary: opening_date DESC; tie-breaker: bill_number DESC
+                // so same-day bills show newest-issued first.
+                sortable.sort((a, b) -> {
+                    int byDate = b.optString("opening_date", "")
+                                  .compareTo(a.optString("opening_date", ""));
+                    if (byDate != 0) return byDate;
+                    String an = a.optString("bill_number", "");
+                    String bn = b.optString("bill_number", "");
+                    // Same length → lexicographic == numeric. Different
+                    // length → longer string is the larger number.
+                    if (an.length() != bn.length())
+                        return Integer.compare(bn.length(), an.length());
+                    return bn.compareTo(an);
+                });
                 int from = Math.max(page * size, 0);
                 int to   = Math.min(from + size, sortable.size());
                 JSONArray slice = new JSONArray();
                 for (int i = from; i < to; i++) slice.put(sortable.get(i));
                 JSONObject out = new JSONObject();
-                // StockDetailsActivity reads these specific keys — match its
-                // contract exactly or the screen renders "0 bills ₹0.00".
+                // Summary numbers come from the server-side /summary call
+                // (counts EVERY matching row, not just the 500 displayed).
+                // If summary fetch failed, fall back to the slice we have.
+                long  trueTotal     = summary.optLong  ("total",         sortable.size());
+                double trueAmount   = summary.optDouble("totalAmount",   0);
+                double trueInterest = summary.optDouble("totalInterest", 0);
                 out.put("bills",         slice);
-                out.put("total",         sortable.size());
-                out.put("totalAmount",   totalAmount);
-                out.put("totalInterest", totalInterest);
+                out.put("total",         trueTotal);
+                out.put("totalAmount",   trueAmount);
+                out.put("totalInterest", trueInterest);
                 cb.onSuccess(out);
             } catch (Exception e) { cb.onError(e.getMessage()); }
         });
@@ -731,25 +741,82 @@ public class ApiService {
     // ── Internals ─────────────────────────────────────────────────────────────
 
     private static JSONArray fetchTableSync(String table, String query) throws Exception {
-        return fetchTableSync(table, query, null);
+        return fetchTableSync(table, query, null, null, null);
+    }
+
+    private static JSONArray fetchTableSync(String table, String query, String orderBy) throws Exception {
+        return fetchTableSync(table, query, orderBy, null, null);
     }
 
     /**
-     * @param orderBy optional `field` or `field:desc` (e.g. "opening_date:desc")
-     *                — pushed to the cloud so the top-N slice is the right
-     *                rows. Without it, the cloud orders by last_updated_at
-     *                which the one-time replay made meaningless.
+     * @param orderBy   optional `field` / `field:desc` — pushed to cloud for
+     *                  proper top-N slicing.
+     * @param companyId optional payload->>'company_id' = ? filter (server-side)
+     * @param material  optional payload->>'jewel_material_type' = ? filter
      */
-    private static JSONArray fetchTableSync(String table, String query, String orderBy) throws Exception {
+    private static JSONArray fetchTableSync(String table, String query,
+                                            String orderBy, String companyId,
+                                            String material) throws Exception {
+        return fetchTableSync(table, query, orderBy, companyId, material,
+                              null, null, null, null, null);
+    }
+
+    /** Full filter set — list endpoint. */
+    private static JSONArray fetchTableSync(String table, String query,
+                                            String orderBy, String companyId,
+                                            String material,
+                                            String dateFrom, String dateTo,
+                                            String customerName,
+                                            String amountFrom, String amountTo) throws Exception {
         HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/" + table).newBuilder()
             .addQueryParameter("limit", "500");
-        if (query  != null && !query.isEmpty())   b.addQueryParameter("q",        query);
-        if (orderBy != null && !orderBy.isEmpty()) b.addQueryParameter("order_by", orderBy);
+        appendCommonFilters(b, query, orderBy, companyId, material,
+                            dateFrom, dateTo, customerName, amountFrom, amountTo);
         try (Response res = CLIENT.newCall(authed(b.build()).get().build()).execute()) {
             String raw = res.body() != null ? res.body().string() : "[]";
             checkStatus(res, raw);
             return new JSONArray(raw);
         }
+    }
+
+    /** Aggregate {count, totalAmount, totalInterest} across the full set. */
+    private static JSONObject fetchSummarySync(String table, String query,
+                                                String companyId, String material, String status,
+                                                String dateFrom, String dateTo,
+                                                String customerName,
+                                                String amountFrom, String amountTo) throws Exception {
+        HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/" + table + "/summary").newBuilder();
+        appendCommonFilters(b, query, /*orderBy*/ null, companyId, material,
+                            dateFrom, dateTo, customerName, amountFrom, amountTo);
+        if (status != null && !status.isEmpty() && !"ALL".equalsIgnoreCase(status))
+            b.addQueryParameter("status", status);
+        try (Response res = CLIENT.newCall(authed(b.build()).get().build()).execute()) {
+            String raw = res.body() != null ? res.body().string() : "{}";
+            checkStatus(res, raw);
+            return new JSONObject(raw);
+        }
+    }
+
+    private static void appendCommonFilters(HttpUrl.Builder b, String query, String orderBy,
+                                             String companyId, String material,
+                                             String dateFrom, String dateTo,
+                                             String customerName,
+                                             String amountFrom, String amountTo) {
+        if (query     != null && !query.isEmpty())     b.addQueryParameter("q",        query);
+        if (orderBy   != null && !orderBy.isEmpty())   b.addQueryParameter("order_by", orderBy);
+        if (companyId != null && !companyId.isEmpty()
+                && !"ALL".equalsIgnoreCase(companyId)
+                && !companyId.equalsIgnoreCase(AppConfig.SHOP_ID))
+            b.addQueryParameter("companyId", companyId);
+        if (material != null && !material.isEmpty()
+                && !"ALL".equalsIgnoreCase(material))
+            b.addQueryParameter("material", material);
+        if (dateFrom != null && !dateFrom.isEmpty()) b.addQueryParameter("dateFrom", dateFrom);
+        if (dateTo   != null && !dateTo.isEmpty())   b.addQueryParameter("dateTo",   dateTo);
+        if (customerName != null && !customerName.isEmpty())
+            b.addQueryParameter("customerName", customerName);
+        if (amountFrom != null && !amountFrom.isEmpty()) b.addQueryParameter("amountFrom", amountFrom);
+        if (amountTo   != null && !amountTo.isEmpty())   b.addQueryParameter("amountTo",   amountTo);
     }
 
     private static JSONArray filterByDate(JSONArray rows, String dateField, String date)
