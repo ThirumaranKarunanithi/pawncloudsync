@@ -32,7 +32,7 @@ public class StockDetailsActivity extends AppCompatActivity {
 
     // ── View mode ──────────────────────────────────────────────────────────────
     private enum ViewMode { COMPANY_ALONE, REPLEDGE_ALONE, ALL_DETAILS }
-    private ViewMode currentMode = ViewMode.COMPANY_ALONE;
+    private ViewMode currentMode = ViewMode.ALL_DETAILS;
 
     // ── Filter type constants ──────────────────────────────────────────────────
     private static final String FILTER_COMP_DATE     = "COMPANY OPENED DATE";
@@ -581,11 +581,10 @@ public class StockDetailsActivity extends AppCompatActivity {
         adapter.notifyDataSetChanged();
     }
 
-    private String shortFmt(double v) {
-        if (v >= 100_000) return String.format("%.1fL", v / 100_000);
-        if (v >= 1_000)   return String.format("%.1fK", v / 1_000);
-        return fmt.format(v);
-    }
+    /** Full Indian-format number (1,62,90,000.00) on every screen — no
+     *  more K / L abbreviations. The user wants exact figures so they can
+     *  cross-check the desktop ledger without doing mental math. */
+    private String shortFmt(double v) { return fmt.format(v); }
 
     private int dp(int v) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v,

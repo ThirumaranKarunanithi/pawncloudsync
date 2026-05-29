@@ -25,6 +25,7 @@ import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
+import com.github.mikephil.charting.formatter.ValueFormatter;
 import com.pawnbroking.app.models.Company;
 import com.pawnbroking.app.services.ApiService;
 
@@ -41,6 +42,9 @@ public class HomeActivity extends AppCompatActivity {
     private TextView tvNoCompany;
     private View layoutContent;
     private LineChart chartBillCount, chartBillAmount;
+    private static final java.text.NumberFormat IN_FMT =
+            java.text.NumberFormat.getNumberInstance(new java.util.Locale("en", "IN"));
+    static { IN_FMT.setMaximumFractionDigits(0); }
 
     private List<Company> companies = new ArrayList<>();
     private Company selectedCompany;
@@ -229,6 +233,9 @@ public class HomeActivity extends AppCompatActivity {
         x.setGranularity(1f);
         x.setDrawGridLines(false);
         chart.getAxisLeft().setTextColor(0xFFFFFFFF);
+        chart.getAxisLeft().setValueFormatter(new ValueFormatter() {
+            @Override public String getFormattedValue(float v) { return IN_FMT.format(v); }
+        });
         chart.getAxisRight().setEnabled(false);
     }
 

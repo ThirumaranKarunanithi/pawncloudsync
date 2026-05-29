@@ -450,17 +450,81 @@ public class ApiService {
 
     // ── Today's Account ───────────────────────────────────────────────────────
 
+    /**
+     * Resolves the "last" account date — the {@code todays_date} value of
+     * the {@code company_todays_account} row marked {@code ref_mark='L'}
+     * for the given company. Used as the Today's Account screen's default
+     * date instead of the device's current date (most shops are running a
+     * day or more behind today's calendar).
+     */
+    public static void getLastAccountDate(String companyId, Callback<String> cb) {
+        EXEC.execute(() -> {
+            try {
+                // Use the JSON-substring trick to filter ref_mark server-side
+                // via the existing q parameter. Cheap, no schema changes.
+                JSONArray rows = fetchTableSync("company_todays_account",
+                        "\"ref_mark\":\"L\"", null, companyId, null);
+                String pick = null;
+                for (int i = 0; i < rows.length(); i++) {
+                    JSONObject body = unwrapPayload(rows.getJSONObject(i));
+                    if (!"L".equalsIgnoreCase(body.optString("ref_mark", ""))) continue;
+                    String d = body.optString("todays_date", "");
+                    if (d.length() >= 10) pick = d.substring(0, 10);
+                    break;
+                }
+                if (pick != null && !pick.isEmpty()) cb.onSuccess(pick);
+                else cb.onError("No L-marker row for " + companyId);
+            } catch (Exception e) { cb.onError(e.getMessage()); }
+        });
+    }
+
     public static void getTodaysAccount(String companyId, String date, Callback<JSONObject> cb) {
         EXEC.execute(() -> {
             try {
-                JSONArray openings = fetchTableSync(AppConfig.TBL_BILL_OPENING, null);
-                JSONArray closings = fetchTableSync(AppConfig.TBL_BILL_CLOSING, null);
-                JSONArray advances = fetchTableSync(AppConfig.TBL_ADVANCE,      null);
+                // Pull the company_todays_account row for (companyId, date).
+                // The JSON-substring trick on q narrows the server scan; we
+                // still verify both fields client-side because q is ILIKE.
+                String needle = "\"todays_date\":\"" + (date == null ? "" : date) + "\"";
+                JSONArray rows = fetchTableSync("company_todays_account",
+                        needle, null, companyId, null);
+                JSONObject acct = null;
+                for (int i = 0; i < rows.length(); i++) {
+                    JSONObject body = unwrapPayload(rows.getJSONObject(i));
+                    String rowDate = body.optString("todays_date", "");
+                    if (rowDate.length() >= 10) rowDate = rowDate.substring(0, 10);
+                    String rowCompany = body.optString("company_id", "");
+                    if (date != null && !date.isEmpty() && !date.equals(rowDate)) continue;
+                    if (companyId != null && !companyId.isEmpty()
+                            && !companyId.equalsIgnoreCase(rowCompany)) continue;
+                    acct = body;
+                    break;
+                }
+
                 JSONObject out = new JSONObject();
                 out.put("date", date == null ? "" : date);
-                out.put("openings", filterByDate(openings, "opening_date",  date));
-                out.put("closings", filterByDate(closings, "closing_date",  date));
-                out.put("advances", filterByDate(advances, "advance_date",  date));
+                if (acct != null) {
+                    sanitizeNulls(acct);
+                    String preDate = acct.optString("pre_date", "");
+                    if (preDate.length() >= 10) preDate = preDate.substring(0, 10);
+                    out.put("preDate",             preDate);
+                    out.put("preActualBalance",    acct.optDouble("pre_actual_amount",       0));
+                    out.put("preAvailableBalance", acct.optDouble("pre_available_amount",    0));
+                    out.put("preDeficit",          acct.optDouble("pre_deficit_amount",     0));
+                    out.put("preNote",             acct.optString("pre_note",                ""));
+                    out.put("actualBalance",       acct.optDouble("todays_actual_amount",   0));
+                    out.put("availableBalance",    acct.optDouble("todays_available_amount",0));
+                    out.put("deficit",             acct.optDouble("todays_deficit_amount",  0));
+                    out.put("todaysNote",          acct.optString("todays_note",             ""));
+                    // ref_mark='L' means day-end is locked/closed.
+                    out.put("accountStatus",
+                            "L".equalsIgnoreCase(acct.optString("ref_mark","")) ? "CLOSED" : "OPEN");
+                }
+                // Operations breakdown (debit/credit by op type) requires
+                // aggregating multiple source tables — return empty for now;
+                // activity falls back to 0 rows gracefully.
+                out.put("totalDebit",  0);
+                out.put("totalCredit", 0);
+                out.put("operations",  new JSONArray());
                 cb.onSuccess(out);
             } catch (Exception e) { cb.onError(e.getMessage()); }
         });
@@ -511,6 +575,7 @@ public class ApiService {
 
     // ── Stock ─────────────────────────────────────────────────────────────────
 
+    /** Company Alone: OPENED + LOCKED bills that are NOT placed in repledge. */
     public static void getStock(String companyId, String materialType, String search,
                                 String from, String to,
                                 String customerName, String amountFrom, String amountTo,
@@ -518,18 +583,24 @@ public class ApiService {
                                 Callback<JSONObject> cb) {
         fetchStock(AppConfig.TBL_STOCK, companyId, materialType, search, page, size,
                    from, to, customerName, amountFrom, amountTo,
-                   null, null, null, cb);
+                   null, null, null,
+                   /*statuses*/ "OPENED,LOCKED", /*repledged*/ "false", cb);
     }
 
+    /** Repledge Alone: LOCKED bills placed in repledge (fetched from the
+     *  separate repledge_billing table which carries the repledge-specific
+     *  display fields the adapter needs). */
     public static void getRepledgeStock(String companyId, String materialType, String search,
                                         String repledgeName,
                                         String repledgeDateFrom, String repledgeDateTo,
                                         int page, int size, Callback<JSONObject> cb) {
         fetchStock(AppConfig.TBL_REPLEDGE, companyId, materialType, search, page, size,
                    null, null, null, null, null,
-                   repledgeName, repledgeDateFrom, repledgeDateTo, cb);
+                   repledgeName, repledgeDateFrom, repledgeDateTo,
+                   /*statuses*/ "LOCKED", /*repledged*/ null, cb);
     }
 
+    /** All Details: every OPENED + LOCKED bill regardless of repledge status. */
     public static void getAllStock(String companyId, String materialType, String search,
                                    String compDateFrom, String compDateTo,
                                    String customerName, String amountFrom, String amountTo,
@@ -539,7 +610,8 @@ public class ApiService {
                                    Callback<JSONObject> cb) {
         fetchStock(AppConfig.TBL_STOCK, companyId, materialType, search, page, size,
                    compDateFrom, compDateTo, customerName, amountFrom, amountTo,
-                   repledgeName, repledgeDateFrom, repledgeDateTo, cb);
+                   repledgeName, repledgeDateFrom, repledgeDateTo,
+                   /*statuses*/ "OPENED,LOCKED", /*repledged*/ null, cb);
     }
 
     /**
@@ -555,18 +627,17 @@ public class ApiService {
                                    String customerName, String amountFrom, String amountTo,
                                    String repledgeName,
                                    String repledgeDateFrom, String repledgeDateTo,
+                                   String statuses, String repledged,
                                    Callback<JSONObject> cb) {
         EXEC.execute(() -> {
             try {
-                // 1. Fetch list (top 500 by opening_date DESC) and the FULL
-                //    aggregate summary in parallel. Server-side filters apply
-                //    to both so the summary line is the truth, not the cap.
                 JSONObject summary = fetchSummarySync(table, search, companyId,
-                        materialType, /*status*/ null,
+                        materialType, /*status*/ null, statuses, repledged,
                         compDateFrom, compDateTo, customerName,
                         amountFrom, amountTo);
                 JSONArray rows = fetchTableSync(table, search,
                         "opening_date:desc", companyId, materialType,
+                        statuses, repledged,
                         compDateFrom, compDateTo, customerName,
                         amountFrom, amountTo);
                 JSONArray filtered = new JSONArray();
@@ -758,19 +829,21 @@ public class ApiService {
                                             String orderBy, String companyId,
                                             String material) throws Exception {
         return fetchTableSync(table, query, orderBy, companyId, material,
-                              null, null, null, null, null);
+                              null, null, null, null, null, null, null);
     }
 
     /** Full filter set — list endpoint. */
     private static JSONArray fetchTableSync(String table, String query,
                                             String orderBy, String companyId,
                                             String material,
+                                            String statuses, String repledged,
                                             String dateFrom, String dateTo,
                                             String customerName,
                                             String amountFrom, String amountTo) throws Exception {
         HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/" + table).newBuilder()
             .addQueryParameter("limit", "500");
         appendCommonFilters(b, query, orderBy, companyId, material,
+                            statuses, repledged,
                             dateFrom, dateTo, customerName, amountFrom, amountTo);
         try (Response res = CLIENT.newCall(authed(b.build()).get().build()).execute()) {
             String raw = res.body() != null ? res.body().string() : "[]";
@@ -782,11 +855,13 @@ public class ApiService {
     /** Aggregate {count, totalAmount, totalInterest} across the full set. */
     private static JSONObject fetchSummarySync(String table, String query,
                                                 String companyId, String material, String status,
+                                                String statuses, String repledged,
                                                 String dateFrom, String dateTo,
                                                 String customerName,
                                                 String amountFrom, String amountTo) throws Exception {
         HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/" + table + "/summary").newBuilder();
         appendCommonFilters(b, query, /*orderBy*/ null, companyId, material,
+                            statuses, repledged,
                             dateFrom, dateTo, customerName, amountFrom, amountTo);
         if (status != null && !status.isEmpty() && !"ALL".equalsIgnoreCase(status))
             b.addQueryParameter("status", status);
@@ -799,6 +874,7 @@ public class ApiService {
 
     private static void appendCommonFilters(HttpUrl.Builder b, String query, String orderBy,
                                              String companyId, String material,
+                                             String statuses, String repledged,
                                              String dateFrom, String dateTo,
                                              String customerName,
                                              String amountFrom, String amountTo) {
@@ -811,6 +887,11 @@ public class ApiService {
         if (material != null && !material.isEmpty()
                 && !"ALL".equalsIgnoreCase(material))
             b.addQueryParameter("material", material);
+        if (statuses != null && !statuses.isEmpty()
+                && !"ALL".equalsIgnoreCase(statuses))
+            b.addQueryParameter("statuses", statuses);
+        if (repledged != null && !repledged.isEmpty())
+            b.addQueryParameter("repledged", repledged);
         if (dateFrom != null && !dateFrom.isEmpty()) b.addQueryParameter("dateFrom", dateFrom);
         if (dateTo   != null && !dateTo.isEmpty())   b.addQueryParameter("dateTo",   dateTo);
         if (customerName != null && !customerName.isEmpty())

@@ -118,7 +118,30 @@ public class TodaysAccountActivity extends AppCompatActivity {
         // Date picker button
         findViewById(R.id.btnPickDate).setOnClickListener(v -> showDatePicker());
 
-        load();
+        // Most shops aren't running their books up to "today" — default to
+        // the last L-marker row in company_todays_account for this company.
+        // If lookup fails, fall back to today (the value we just initialised).
+        resolveDefaultDateThenLoad();
+    }
+
+    private void resolveDefaultDateThenLoad() {
+        ApiService.getLastAccountDate(companyId, new ApiService.Callback<String>() {
+            @Override public void onSuccess(String isoDate) {
+                runOnUiThread(() -> {
+                    try {
+                        Date d = sdf.parse(isoDate);
+                        if (d != null) {
+                            selectedDate = isoDate;
+                            tvSelectedDate.setText(displaySdf.format(d));
+                        }
+                    } catch (Exception ignored) {}
+                    load();
+                });
+            }
+            @Override public void onError(String msg) {
+                runOnUiThread(() -> load()); // fall back to today
+            }
+        });
     }
 
     private void showDatePicker() {

@@ -54,6 +54,8 @@ public class DataController {
                                           @RequestParam(name="companyId", required=false) String companyId,
                                           @RequestParam(name="material",  required=false) String material,
                                           @RequestParam(name="status",    required=false) String status,
+                                          @RequestParam(name="statuses",  required=false) String statuses,
+                                          @RequestParam(name="repledged", required=false) String repledged,
                                           @RequestParam(name="dateFrom",  required=false) String dateFrom,
                                           @RequestParam(name="dateTo",    required=false) String dateTo,
                                           @RequestParam(name="customerName", required=false) String customerName,
@@ -74,6 +76,7 @@ public class DataController {
         final boolean odesc = orderDesc;
 
         WhereBuild wb = buildWhere(table, q, companyId, material, status,
+                                   statuses, repledged,
                                    dateFrom, dateTo, customerName, amountFrom, amountTo);
         wb.args.add(cap);
 
@@ -99,6 +102,8 @@ public class DataController {
                                        @RequestParam(name="companyId", required=false) String companyId,
                                        @RequestParam(name="material",  required=false) String material,
                                        @RequestParam(name="status",    required=false) String status,
+                                       @RequestParam(name="statuses",  required=false) String statuses,
+                                       @RequestParam(name="repledged", required=false) String repledged,
                                        @RequestParam(name="dateFrom",  required=false) String dateFrom,
                                        @RequestParam(name="dateTo",    required=false) String dateTo,
                                        @RequestParam(name="customerName", required=false) String customerName,
@@ -106,6 +111,7 @@ public class DataController {
                                        @RequestParam(name="amountTo",   required=false) Double amountTo) {
         if (!table.matches("[a-z_]+")) throw new IllegalArgumentException("bad table");
         WhereBuild wb = buildWhere(table, q, companyId, material, status,
+                                   statuses, repledged,
                                    dateFrom, dateTo, customerName, amountFrom, amountTo);
         return t.inTenant(j -> {
             String sql =
@@ -132,6 +138,17 @@ public class DataController {
                                    String dateFrom, String dateTo,
                                    String customerName,
                                    Double amountFrom, Double amountTo) {
+        return buildWhere(table, q, companyId, material, status,
+                          /*statuses*/ null, /*repledged*/ null,
+                          dateFrom, dateTo, customerName, amountFrom, amountTo);
+    }
+
+    private WhereBuild buildWhere(String table, String q, String companyId,
+                                   String material, String status,
+                                   String statuses, String repledged,
+                                   String dateFrom, String dateTo,
+                                   String customerName,
+                                   Double amountFrom, Double amountTo) {
         List<Object> args = new java.util.ArrayList<>();
         args.add(table);
         StringBuilder w = new StringBuilder(" WHERE table_name = ? AND NOT deleted ");
@@ -147,9 +164,31 @@ public class DataController {
             w.append(" AND upper(payload->>'jewel_material_type') = ? ");
             args.add(material.toUpperCase());
         }
-        if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status)) {
+        // statuses (CSV) wins over single status if both given. Build IN (...)
+        // dynamically with parameterised placeholders.
+        if (statuses != null && !statuses.isBlank() && !"ALL".equalsIgnoreCase(statuses)) {
+            String[] parts = statuses.toUpperCase().split(",");
+            List<String> cleaned = new java.util.ArrayList<>();
+            for (String p : parts) { String t = p.trim(); if (!t.isEmpty()) cleaned.add(t); }
+            if (!cleaned.isEmpty()) {
+                w.append(" AND upper(COALESCE(payload->>'status','')) IN (");
+                for (int i = 0; i < cleaned.size(); i++) {
+                    if (i > 0) w.append(",");
+                    w.append("?");
+                    args.add(cleaned.get(i));
+                }
+                w.append(") ");
+            }
+        } else if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status)) {
             w.append(" AND upper(COALESCE(payload->>'status','')) = ? ");
             args.add(status.toUpperCase());
+        }
+        // repledged=true → only rows with a non-empty repledge_bill_id;
+        // repledged=false → only rows WITHOUT one. Anything else: no filter.
+        if ("true".equalsIgnoreCase(repledged)) {
+            w.append(" AND COALESCE(payload->>'repledge_bill_id','') <> '' ");
+        } else if ("false".equalsIgnoreCase(repledged)) {
+            w.append(" AND COALESCE(payload->>'repledge_bill_id','') = '' ");
         }
         if (dateFrom != null && !dateFrom.isBlank()) {
             w.append(" AND payload->>'opening_date' >= ? "); args.add(dateFrom);
