@@ -617,38 +617,17 @@ public class BillingActivity extends AppCompatActivity {
     /** Loads a single S3 image into an ImageView; tap opens full-screen viewer. */
     private void loadImg(String url, ImageView iv, String title) {
         if (url == null) {
-            android.util.Log.w("BillImg", "loadImg: null URL for " + title);
             iv.setImageResource(android.R.color.darker_gray);
             return;
         }
-        android.util.Log.d("BillImg", "loading " + url);
         Glide.with(this)
              .load(authedGlide(url))
-             // Skip the disk cache on the request itself — previous failures
-             // (404 before upload, transient 502) get cached otherwise and
-             // the screen keeps showing grey even after the image is
-             // available. Memory cache stays on so scrolling is still smooth.
-             .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.NONE)
-             .skipMemoryCache(false)
+             // Cache both the original bytes (DATA) and the decoded bitmap
+             // (RESOURCE) so re-opening a bill is instant. Glide auto-evicts
+             // on disk-cache size limit (200MB, see PawnGlideModule).
+             .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
              .placeholder(android.R.color.darker_gray)
              .error(android.R.color.darker_gray)
-             .listener(new com.bumptech.glide.request.RequestListener<android.graphics.drawable.Drawable>() {
-                 @Override public boolean onLoadFailed(@androidx.annotation.Nullable com.bumptech.glide.load.engine.GlideException e,
-                                                       Object model, com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> t,
-                                                       boolean isFirstResource) {
-                     final String r2 = summariseGlideError(e);
-                     android.util.Log.w("BillImg", "FAILED " + title + ": " + r2);
-                     iv.post(() -> Toast.makeText(BillingActivity.this,
-                             title + ": " + r2, Toast.LENGTH_LONG).show());
-                     return false;
-                 }
-                 @Override public boolean onResourceReady(android.graphics.drawable.Drawable r, Object model,
-                                                          com.bumptech.glide.request.target.Target<android.graphics.drawable.Drawable> t,
-                                                          com.bumptech.glide.load.DataSource ds, boolean isFirst) {
-                     android.util.Log.d("BillImg", "OK " + title + " (" + ds + ")");
-                     return false;
-                 }
-             })
              .into(iv);
 
         iv.setOnClickListener(v -> openImageFullScreen(url, title));

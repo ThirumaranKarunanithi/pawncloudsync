@@ -36,10 +36,30 @@ import okhttp3.Response;
  * an error since they live on the desktop side of the sync pipeline.
  */
 public class ApiService {
+    /**
+     * OkHttp client tuned for unstable mobile connections.
+     *  - retryOnConnectionFailure(true): default but worth pinning so it
+     *    survives an OS-level connection-pool refresh.
+     *  - ConnectionPool(0, 1, NANOS): effectively disables keep-alive reuse,
+     *    so the carrier/Wi-Fi handoff can't hand us a half-dead socket
+     *    that throws "Software caused connection abort" mid-request.
+     *  - Tighter read timeout (20 s) so a hung request gives up quickly
+     *    instead of staring at a spinner forever.
+     */
     private static final OkHttpClient CLIENT = new OkHttpClient.Builder()
-            .connectTimeout(java.time.Duration.ofSeconds(30))
+            .connectTimeout(java.time.Duration.ofSeconds(15))
+            .readTimeout   (java.time.Duration.ofSeconds(20))
+            .writeTimeout  (java.time.Duration.ofSeconds(20))
+            .retryOnConnectionFailure(true)
+            .connectionPool(new okhttp3.ConnectionPool(0, 1, java.util.concurrent.TimeUnit.NANOSECONDS))
+            .build();
+    /** Long-running uploads (none right now from mobile) and image downloads
+     *  use this beefier timeout. */
+    private static final OkHttpClient LONG_CLIENT = new OkHttpClient.Builder()
+            .connectTimeout(java.time.Duration.ofSeconds(20))
             .readTimeout   (java.time.Duration.ofSeconds(60))
             .writeTimeout  (java.time.Duration.ofSeconds(60))
+            .retryOnConnectionFailure(true)
             .build();
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
     private static final ExecutorService EXEC = Executors.newCachedThreadPool();
@@ -102,12 +122,12 @@ public class ApiService {
                     .url(AppConfig.BOX_SEND_OTP)
                     .post(RequestBody.create(body.toString(), JSON))
                     .build();
-                try (Response res = CLIENT.newCall(req).execute()) {
+                try (Response res = executeWithRetry(req, 2)) {
                     String raw = res.body() != null ? res.body().string() : "";
                     if (res.isSuccessful()) cb.onSuccess(null);
                     else cb.onError(extractError(raw, res.code(), "Could not send OTP"));
                 }
-            } catch (Exception e) { cb.onError(e.getMessage()); }
+            } catch (Exception e) { cb.onError(friendlyNetError(e)); }
         });
     }
 
@@ -123,7 +143,7 @@ public class ApiService {
                     .url(AppConfig.BOX_VERIFY)
                     .post(RequestBody.create(body.toString(), JSON))
                     .build();
-                try (Response res = CLIENT.newCall(req).execute()) {
+                try (Response res = executeWithRetry(req, 2)) {
                     String raw = res.body() != null ? res.body().string() : "";
                     if (!res.isSuccessful()) {
                         cb.onError(extractError(raw, res.code(), "OTP verification failed"));
@@ -139,8 +159,42 @@ public class ApiService {
                     ed.apply();
                     cb.onSuccess(user);
                 }
-            } catch (Exception e) { cb.onError(e.getMessage()); }
+            } catch (Exception e) { cb.onError(friendlyNetError(e)); }
         });
+    }
+
+    /** Execute with up to {@code attempts} tries on IOException (covers
+     *  SocketException "connection abort", "broken pipe", read timeouts). */
+    private static Response executeWithRetry(Request req, int attempts) throws java.io.IOException {
+        java.io.IOException last = null;
+        for (int i = 0; i < attempts; i++) {
+            try {
+                return CLIENT.newCall(req).execute();
+            } catch (java.io.IOException ioe) {
+                last = ioe;
+                android.util.Log.w("ApiService",
+                    "attempt " + (i+1) + " failed: " + ioe + " — retrying");
+                try { Thread.sleep(400L * (i + 1)); }
+                catch (InterruptedException ie) { Thread.currentThread().interrupt(); break; }
+            }
+        }
+        throw last == null ? new java.io.IOException("no attempts") : last;
+    }
+
+    /** Turn OkHttp/Socket exception jargon into a sentence a user can act on. */
+    private static String friendlyNetError(Exception e) {
+        String m = e == null || e.getMessage() == null ? "" : e.getMessage();
+        String lc = m.toLowerCase();
+        if (lc.contains("connection abort") || lc.contains("broken pipe")
+            || lc.contains("connection reset") || lc.contains("eof"))
+            return "Network dropped mid-request — please tap Send OTP again.";
+        if (lc.contains("timeout") || lc.contains("timed out"))
+            return "Server didn't respond in time — please try again.";
+        if (lc.contains("unknown host") || lc.contains("unable to resolve host"))
+            return "No internet connection — check Wi-Fi or mobile data.";
+        if (lc.contains("sslhandshake"))
+            return "Secure connection failed — check device date/time and retry.";
+        return m.isEmpty() ? "Network error — please try again." : m;
     }
 
     public static boolean isLoggedIn(Context ctx) {
