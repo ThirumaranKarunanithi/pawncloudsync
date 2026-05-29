@@ -399,17 +399,20 @@ public class DataController {
     }
 
     /**
-     * Operations breakdown for the Today's Account screen — counts + sums
-     * across every operation that affects cash for (companyId, date).
+     * Operations breakdown for the Today's Account screen — matches the
+     * desktop's 10-row fixed grid exactly. Always returns ALL 10 rows even
+     * when zero, so the layout stays stable. Each row carries a "combo"
+     * string with the per-field breakdown the desktop shows in its right
+     * column.
      *
-     * Debit  = money OUT of the shop (bill opening pays the customer,
-     *          repledge closing repays the financier, expenses).
-     * Credit = money IN to the shop  (bill closing collects from the
-     *          customer, repledge opening receives from financier,
+     * Debit  = money OUT of the shop (bill opening, repledge closing,
+     *          expenses, advance paid).
+     * Credit = money IN to the shop  (bill closing, repledge opening,
      *          incomes).
      *
-     * Returns: { operations: [ {name, count, debit, credit}, ... ],
-     *            totalDebit, totalCredit }
+     * Returns: { operations: [ {name, count, debit, credit, combo}, ... ],
+     *            totalDebit, totalCredit,
+     *            goldPf, silverPf, totalPf }
      */
     @GetMapping("/todays-account-ops")
     public Map<String,Object> todaysAccountOps(
@@ -425,136 +428,331 @@ public class DataController {
             double totalDebit  = 0;
             double totalCredit = 0;
 
-            // 1+2. Bill openings (debit) split by material — NOT CANCELED.
+            // ── Rows 1, 3 : GOLD/SILVER BILL OPENING (debit) ─────────────
+            String notCanceled = " AND upper(COALESCE(payload->>'status','')) " +
+                                 " NOT IN ('CANCELED','CANCELLED') ";
+            String closedStatus = " AND upper(COALESCE(payload->>'status','')) IN " +
+                "('CLOSED','DELIVERED','REBILLED','REBILLED-ADDED','REBILLED-REMOVED','REBILLED-MULTIPLE') ";
+
             for (String mat : new String[]{"GOLD","SILVER"}) {
-                Map<String,Object> r = billAgg(j, "opening_date", date, compFilter, mat,
-                        "AND upper(COALESCE(payload->>'status','')) NOT IN ('CANCELED','CANCELLED')");
-                long cnt = ((Number) r.get("cnt")).longValue();
-                double amt = ((Number) r.get("amt")).doubleValue();
-                if (cnt > 0 || amt != 0) {
-                    ops.add(opRow("Bill Opening - " + cap(mat), cnt, amt, 0));
-                    totalDebit += amt;
-                }
+                Map<String,Object> openR = billOpeningAgg(j, date, compFilter, mat, notCanceled);
+                long   cnt = num(openR, "cnt").longValue();
+                double amt = num(openR, "amt").doubleValue();
+                double intr= num(openR, "intr").doubleValue();
+                double doc = num(openR, "doc").doubleValue();
+                long   rb  = num(openR, "rb").longValue();
+                long   nb  = num(openR, "nb").longValue();
+                // Desktop convention: opening = debit principal; advance
+                // interest collected at opening goes to credit (small).
+                double rowDebit  = amt;
+                double rowCredit = intr;
+                ops.add(opRow(mat + " BILL OPENING", cnt, rowDebit, rowCredit,
+                        "Amt: " + n(amt) + ", Intr: " + n(intr) + ", Doc: " + n(doc)
+                        + "  (RB: " + rb + ", NB: " + nb + ")"));
+                totalDebit  += rowDebit;
+                totalCredit += rowCredit;
+
+                // ── Rows 2, 5 : GOLD/SILVER BILL ADVANCE AMOUNT (debit) ──
+                // company_advance_amount rows are joined to their parent bill
+                // by bill_number, which carries the material. We do the
+                // material-pivot inline as a sub-query to keep it one round-trip.
+                Map<String,Object> advR = advanceByMaterialAgg(j, date, compFilter, mat);
+                long   aCnt = num(advR, "cnt").longValue();
+                double aAmt = num(advR, "amt").doubleValue();
+                ops.add(opRow(mat + " BILL ADVANCE AMOUNT", aCnt, aAmt, 0, ""));
+                totalDebit += aAmt;
+
+                // ── Rows 3, 6 : GOLD/SILVER BILL CLOSING (credit) ────────
+                Map<String,Object> closeR = billClosingAgg(j, date, compFilter, mat, closedStatus);
+                long   cCnt  = num(closeR, "cnt").longValue();
+                double cAmt  = num(closeR, "amt").doubleValue();
+                double cIntr = num(closeR, "intr").doubleValue();
+                double cFine = num(closeR, "fine").doubleValue();
+                double cLess = num(closeR, "less").doubleValue();
+                double cAdv  = num(closeR, "adv").doubleValue();
+                // Desktop closing credit = principal + interest + fine - less.
+                double closingCredit = cAmt + cIntr + cFine - cLess;
+                ops.add(opRow(mat + " BILL CLOSING", cCnt, 0, closingCredit,
+                        "Amt: " + n(cAmt) + ", Intr: " + n(cIntr)
+                        + ", Fine: " + n(cFine) + ", Less: " + n(cLess)
+                        + ", Adv Amt: " + n(cAdv)));
+                totalCredit += closingCredit;
             }
-            // 3+4. Bill closings (credit) — CLOSED/DELIVERED/REBILLED-*.
-            String closedStatus =
-                "AND upper(COALESCE(payload->>'status','')) IN " +
-                "('CLOSED','DELIVERED','REBILLED','REBILLED-ADDED','REBILLED-REMOVED','REBILLED-MULTIPLE')";
-            for (String mat : new String[]{"GOLD","SILVER"}) {
-                Map<String,Object> r = billAgg(j, "closing_date", date, compFilter, mat, closedStatus);
-                long cnt = ((Number) r.get("cnt")).longValue();
-                double amt = ((Number) r.get("amt")).doubleValue();
-                if (cnt > 0 || amt != 0) {
-                    ops.add(opRow("Bill Closing - " + cap(mat), cnt, 0, amt));
-                    totalCredit += amt;
-                }
-            }
-            // 5. Repledge opening (credit — financier gave us money).
-            Map<String,Object> rOpen = repledgeAgg(j, "opening_date", date, compFilter);
-            long rOpenCnt = ((Number) rOpen.get("cnt")).longValue();
-            double rOpenAmt = ((Number) rOpen.get("amt")).doubleValue();
-            if (rOpenCnt > 0 || rOpenAmt != 0) {
-                ops.add(opRow("Repledge Opening", rOpenCnt, 0, rOpenAmt));
-                totalCredit += rOpenAmt;
-            }
-            // 6. Repledge closing (debit — we repaid the financier).
-            Map<String,Object> rClose = repledgeAgg(j, "closing_date", date, compFilter);
-            long rCloseCnt = ((Number) rClose.get("cnt")).longValue();
-            double rCloseAmt = ((Number) rClose.get("amt")).doubleValue();
-            if (rCloseCnt > 0 || rCloseAmt != 0) {
-                ops.add(opRow("Repledge Closing", rCloseCnt, rCloseAmt, 0));
-                totalDebit += rCloseAmt;
-            }
-            // 7. Advance (debit — paid to customer).
-            Map<String,Object> adv = advanceAgg(j, date, compFilter);
-            long advCnt = ((Number) adv.get("cnt")).longValue();
-            double advAmt = ((Number) adv.get("amt")).doubleValue();
-            if (advCnt > 0 || advAmt != 0) {
-                ops.add(opRow("Advance Paid", advCnt, advAmt, 0));
-                totalDebit += advAmt;
-            }
-            return Map.of(
-                "date", date,
-                "operations",  ops,
-                "totalDebit",  totalDebit,
-                "totalCredit", totalCredit
-            );
+
+            // Re-order so we get: GOLD OPENING, GOLD ADV, GOLD CLOSING,
+            // SILVER OPENING, SILVER ADV, SILVER CLOSING (desktop order).
+            ops = reorderForDesktop(ops);
+
+            // ── Row 7 : REPLEDGE BILL OPENING (credit — financier paid us)
+            Map<String,Object> rOpen = repledgeAggRich(j, "opening_date", date, compFilter);
+            long   roCnt = num(rOpen, "cnt").longValue();
+            double roAmt = num(rOpen, "amt").doubleValue();
+            double roInt = num(rOpen, "intr").doubleValue();
+            double roDoc = num(rOpen, "doc").doubleValue();
+            ops.add(opRow("REPLEDGE BILL OPENING", roCnt, 0, roAmt,
+                    "Amt: " + n(roAmt) + ", Intr: " + n(roInt) + ", Doc: " + n(roDoc)));
+            totalCredit += roAmt;
+
+            // ── Row 8 : REPLEDGE BILL CLOSING (debit — we paid financier)
+            Map<String,Object> rClose = repledgeAggRich(j, "closing_date", date, compFilter);
+            long   rcCnt = num(rClose, "cnt").longValue();
+            double rcAmt = num(rClose, "amt").doubleValue();
+            double rcInt = num(rClose, "intr").doubleValue();
+            // Desktop closing debit = principal + interest paid to financier.
+            double rcDebit = rcAmt + rcInt;
+            ops.add(opRow("REPLEDGE BILL CLOSING", rcCnt, rcDebit, 0,
+                    "Amt: " + n(rcAmt) + ", Intr: " + n(rcInt)));
+            totalDebit += rcDebit;
+
+            // ── Rows 9-10 : EXPENSES (debit) / INCOMES (credit) ──────────
+            // Expense/income rows live in company_expense_income (one table,
+            // type column splits the two). If the table or column doesn't
+            // exist on this tenant the helper safely returns zeros.
+            Map<String,Object> exp = expenseIncomeAgg(j, date, compFilter, "EXPENSE");
+            long   eCnt = num(exp, "cnt").longValue();
+            double eAmt = num(exp, "amt").doubleValue();
+            ops.add(opRow("EXPENSES", eCnt, eAmt, 0, ""));
+            totalDebit += eAmt;
+
+            Map<String,Object> inc = expenseIncomeAgg(j, date, compFilter, "INCOME");
+            long   iCnt = num(inc, "cnt").longValue();
+            double iAmt = num(inc, "amt").doubleValue();
+            ops.add(opRow("INCOMES", iCnt, 0, iAmt, ""));
+            totalCredit += iAmt;
+
+            // ── Profit bar : Gold Pf, Silver Pf, Total Pf ────────────────
+            // Authoritative source is company_todays_account_available_amount.
+            // We try todays_pf_amount for the total, gold_pf_amount /
+            // silver_pf_amount for the split. If the per-material columns
+            // don't exist we fall back to the bill-closing interest split.
+            Map<String,Object> pf = profitAgg(j, date, compFilter);
+            double goldPf   = num(pf, "gold").doubleValue();
+            double silverPf = num(pf, "silver").doubleValue();
+            double totalPf  = num(pf, "total").doubleValue();
+            if (totalPf == 0 && (goldPf != 0 || silverPf != 0))
+                totalPf = goldPf + silverPf;
+
+            Map<String,Object> out = new java.util.LinkedHashMap<>();
+            out.put("date",        date);
+            out.put("operations",  ops);
+            out.put("totalDebit",  totalDebit);
+            out.put("totalCredit", totalCredit);
+            out.put("goldPf",      goldPf);
+            out.put("silverPf",    silverPf);
+            out.put("totalPf",     totalPf);
+            return out;
         });
     }
 
-    private Map<String,Object> billAgg(org.springframework.jdbc.core.JdbcTemplate j,
-                                        String dateField, String date,
-                                        String companyId, String material,
-                                        String extraWhere) {
+    /** Re-order GOLD then SILVER (opening, advance, closing each). */
+    private static java.util.List<Map<String,Object>> reorderForDesktop(
+            java.util.List<Map<String,Object>> in) {
+        java.util.List<Map<String,Object>> out = new java.util.ArrayList<>(in.size());
+        for (String mat : new String[]{"GOLD","SILVER"}) {
+            for (String suffix : new String[]{" BILL OPENING", " BILL ADVANCE AMOUNT", " BILL CLOSING"}) {
+                String want = mat + suffix;
+                for (Map<String,Object> r : in)
+                    if (want.equals(r.get("name"))) { out.add(r); break; }
+            }
+        }
+        return out;
+    }
+
+    // ── per-row aggregation helpers ──────────────────────────────────────
+
+    private Map<String,Object> billOpeningAgg(org.springframework.jdbc.core.JdbcTemplate j,
+                                               String date, String companyId,
+                                               String material, String statusClause) {
         StringBuilder sql = new StringBuilder(
-            "SELECT count(*) AS cnt, " +
-            "       COALESCE(sum(CASE WHEN payload->>'amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
-            "                         THEN (payload->>'amount')::numeric ELSE 0 END), 0) AS amt " +
+            "SELECT count(*)                                            AS cnt, " +
+            "       COALESCE(sum(numF(payload->>'amount')),          0) AS amt, " +
+            "       COALESCE(sum(numF(payload->>'interest_amount')), 0) AS intr, " +
+            "       COALESCE(sum(numF(payload->>'document_amount')), 0) AS doc, " +
+            "       count(*) FILTER (WHERE COALESCE(payload->>'repledge_bill_id','') <> '') AS rb, " +
+            "       count(*) FILTER (WHERE COALESCE(payload->>'repledge_bill_id','') =  '') AS nb " +
             "  FROM projections " +
             " WHERE table_name = 'company_billing' AND NOT deleted " +
-            "   AND COALESCE(payload->>'" + dateField + "','') LIKE ? " +
+            "   AND COALESCE(payload->>'opening_date','') LIKE ? " +
             "   AND upper(COALESCE(payload->>'jewel_material_type','')) = ? ");
         java.util.List<Object> args = new java.util.ArrayList<>();
         args.add(date + "%");
         args.add(material);
-        if (companyId != null) {
-            sql.append(" AND payload->>'company_id' = ? ");
-            args.add(companyId);
-        }
-        if (extraWhere != null && !extraWhere.isBlank())
-            sql.append(" ").append(extraWhere).append(" ");
-        return j.queryForMap(sql.toString(), args.toArray());
+        if (companyId != null) { sql.append(" AND payload->>'company_id' = ? "); args.add(companyId); }
+        sql.append(statusClause);
+        return queryRowOrZero(j, sql.toString(), args.toArray(),
+                "cnt","amt","intr","doc","rb","nb");
     }
 
-    private Map<String,Object> repledgeAgg(org.springframework.jdbc.core.JdbcTemplate j,
-                                            String dateField, String date,
-                                            String companyId) {
+    private Map<String,Object> billClosingAgg(org.springframework.jdbc.core.JdbcTemplate j,
+                                               String date, String companyId,
+                                               String material, String statusClause) {
         StringBuilder sql = new StringBuilder(
-            "SELECT count(*) AS cnt, " +
-            "       COALESCE(sum(CASE WHEN payload->>'amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
-            "                         THEN (payload->>'amount')::numeric ELSE 0 END), 0) AS amt " +
+            "SELECT count(*)                                                       AS cnt, " +
+            "       COALESCE(sum(numF(payload->>'amount')),                     0) AS amt, " +
+            "       COALESCE(sum(numF(payload->>'interest_amount')),            0) AS intr, " +
+            "       COALESCE(sum(numF(payload->>'fine_amount')),                0) AS fine, " +
+            "       COALESCE(sum(numF(payload->>'less_amount')),                0) AS less, " +
+            "       COALESCE(sum(numF(payload->>'total_advance_amount_paid')),  0) AS adv " +
+            "  FROM projections " +
+            " WHERE table_name = 'company_billing' AND NOT deleted " +
+            "   AND COALESCE(payload->>'closing_date','') LIKE ? " +
+            "   AND upper(COALESCE(payload->>'jewel_material_type','')) = ? ");
+        java.util.List<Object> args = new java.util.ArrayList<>();
+        args.add(date + "%");
+        args.add(material);
+        if (companyId != null) { sql.append(" AND payload->>'company_id' = ? "); args.add(companyId); }
+        sql.append(statusClause);
+        return queryRowOrZero(j, sql.toString(), args.toArray(),
+                "cnt","amt","intr","fine","less","adv");
+    }
+
+    private Map<String,Object> advanceByMaterialAgg(org.springframework.jdbc.core.JdbcTemplate j,
+                                                     String date, String companyId,
+                                                     String material) {
+        // Advance rows carry bill_number; join to company_billing to filter
+        // by material. company_id stays on the advance itself.
+        StringBuilder sql = new StringBuilder(
+            "SELECT count(*)                                       AS cnt, " +
+            "       COALESCE(sum(numF(a.payload->>'paid_amount')),0) AS amt " +
+            "  FROM projections a " +
+            "  JOIN projections b " +
+            "    ON b.table_name = 'company_billing' AND NOT b.deleted " +
+            "   AND b.payload->>'bill_number' = a.payload->>'bill_number' " +
+            "   AND upper(COALESCE(b.payload->>'jewel_material_type','')) = ? " +
+            " WHERE a.table_name = 'company_advance_amount' AND NOT a.deleted " +
+            "   AND COALESCE(a.payload->>'advance_date','') LIKE ? ");
+        java.util.List<Object> args = new java.util.ArrayList<>();
+        args.add(material);
+        args.add(date + "%");
+        if (companyId != null) {
+            sql.append(" AND a.payload->>'company_id' = ? "); args.add(companyId);
+        }
+        return queryRowOrZero(j, sql.toString(), args.toArray(), "cnt","amt");
+    }
+
+    private Map<String,Object> repledgeAggRich(org.springframework.jdbc.core.JdbcTemplate j,
+                                                String dateField, String date,
+                                                String companyId) {
+        StringBuilder sql = new StringBuilder(
+            "SELECT count(*)                                            AS cnt, " +
+            "       COALESCE(sum(numF(payload->>'amount')),          0) AS amt, " +
+            "       COALESCE(sum(numF(payload->>'interest_amount')), 0) AS intr, " +
+            "       COALESCE(sum(numF(payload->>'document_amount')), 0) AS doc " +
             "  FROM projections " +
             " WHERE table_name = 'repledge_billing' AND NOT deleted " +
             "   AND COALESCE(payload->>'" + dateField + "','') LIKE ? ");
         java.util.List<Object> args = new java.util.ArrayList<>();
         args.add(date + "%");
-        if (companyId != null) {
-            sql.append(" AND payload->>'company_id' = ? ");
-            args.add(companyId);
-        }
-        return j.queryForMap(sql.toString(), args.toArray());
+        if (companyId != null) { sql.append(" AND payload->>'company_id' = ? "); args.add(companyId); }
+        return queryRowOrZero(j, sql.toString(), args.toArray(),
+                "cnt","amt","intr","doc");
     }
 
-    private Map<String,Object> advanceAgg(org.springframework.jdbc.core.JdbcTemplate j,
-                                           String date, String companyId) {
+    private Map<String,Object> expenseIncomeAgg(org.springframework.jdbc.core.JdbcTemplate j,
+                                                 String date, String companyId,
+                                                 String kind) {
+        // Common schema for these is company_expense_income with a `type`
+        // column distinguishing EXPENSE / INCOME, and `entry_date` for the
+        // date. If the table doesn't exist on this tenant the helper
+        // returns zeros without raising.
         StringBuilder sql = new StringBuilder(
-            "SELECT count(*) AS cnt, " +
-            "       COALESCE(sum(CASE WHEN payload->>'paid_amount' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
-            "                         THEN (payload->>'paid_amount')::numeric ELSE 0 END), 0) AS amt " +
+            "SELECT count(*)                                  AS cnt, " +
+            "       COALESCE(sum(numF(payload->>'amount')),0) AS amt " +
             "  FROM projections " +
-            " WHERE table_name = 'company_advance_amount' AND NOT deleted " +
-            "   AND COALESCE(payload->>'advance_date','') LIKE ? ");
+            " WHERE table_name = 'company_expense_income' AND NOT deleted " +
+            "   AND upper(COALESCE(payload->>'type','')) = ? " +
+            "   AND COALESCE(payload->>'entry_date','') LIKE ? ");
+        java.util.List<Object> args = new java.util.ArrayList<>();
+        args.add(kind);
+        args.add(date + "%");
+        if (companyId != null) { sql.append(" AND payload->>'company_id' = ? "); args.add(companyId); }
+        try {
+            return queryRowOrZero(j, sql.toString(), args.toArray(), "cnt","amt");
+        } catch (Exception ignored) {
+            Map<String,Object> zero = new java.util.HashMap<>();
+            zero.put("cnt", 0L); zero.put("amt", 0d);
+            return zero;
+        }
+    }
+
+    private Map<String,Object> profitAgg(org.springframework.jdbc.core.JdbcTemplate j,
+                                          String date, String companyId) {
+        StringBuilder sql = new StringBuilder(
+            "SELECT COALESCE(sum(numF(payload->>'gold_pf_amount')),0)    AS gold, " +
+            "       COALESCE(sum(numF(payload->>'silver_pf_amount')),0)  AS silver, " +
+            "       COALESCE(sum(numF(payload->>'todays_pf_amount')),0)  AS total " +
+            "  FROM projections " +
+            " WHERE table_name = 'company_todays_account_available_amount' AND NOT deleted " +
+            "   AND COALESCE(payload->>'todays_date','') LIKE ? ");
         java.util.List<Object> args = new java.util.ArrayList<>();
         args.add(date + "%");
-        if (companyId != null) {
-            sql.append(" AND payload->>'company_id' = ? ");
-            args.add(companyId);
+        if (companyId != null) { sql.append(" AND payload->>'company_id' = ? "); args.add(companyId); }
+        try {
+            return queryRowOrZero(j, sql.toString(), args.toArray(),
+                    "gold","silver","total");
+        } catch (Exception ignored) {
+            Map<String,Object> zero = new java.util.HashMap<>();
+            zero.put("gold", 0d); zero.put("silver", 0d); zero.put("total", 0d);
+            return zero;
         }
-        return j.queryForMap(sql.toString(), args.toArray());
     }
 
-    private static Map<String,Object> opRow(String name, long count, double debit, double credit) {
+    private static Map<String,Object> queryRowOrZero(
+            org.springframework.jdbc.core.JdbcTemplate j,
+            String sql, Object[] args, String... cols) {
+        try {
+            return j.queryForMap(numericGuard(sql), args);
+        } catch (Exception e) {
+            log.warn("op aggregation failed: {}", e.toString());
+            Map<String,Object> zero = new java.util.HashMap<>();
+            for (String c : cols) zero.put(c, 0);
+            return zero;
+        }
+    }
+
+    /** Rewrites "numF(payload->>'field')" to a robust numeric coercion that
+     *  treats non-numeric strings as 0. Keeps the SQL building above readable. */
+    private static String numericGuard(String sql) {
+        java.util.regex.Matcher m = java.util.regex.Pattern
+            .compile("numF\\((a\\.)?payload->>'([a-zA-Z0-9_]+)'\\)")
+            .matcher(sql);
+        StringBuffer out = new StringBuffer();
+        while (m.find()) {
+            String prefix = m.group(1) == null ? "" : m.group(1);  // "a." or ""
+            String field  = m.group(2);
+            String expr =
+                "(CASE WHEN " + prefix + "payload->>'" + field + "' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
+                "      THEN (" + prefix + "payload->>'" + field + "')::numeric ELSE 0 END)";
+            m.appendReplacement(out, java.util.regex.Matcher.quoteReplacement(expr));
+        }
+        m.appendTail(out);
+        return out.toString();
+    }
+
+    private static Map<String,Object> opRow(String name, long count,
+                                             double debit, double credit, String combo) {
         Map<String,Object> r = new java.util.LinkedHashMap<>();
         r.put("name",   name);
         r.put("count",  count);
         r.put("debit",  debit);
         r.put("credit", credit);
+        r.put("combo",  combo == null ? "" : combo);
         return r;
     }
 
-    private static String cap(String s) {
-        if (s == null || s.isEmpty()) return s;
-        return s.charAt(0) + s.substring(1).toLowerCase();
+    /** Compact-format number: 0 → "0", 12345 → "12345" (no decimals when whole). */
+    private static String n(double v) {
+        if (v == Math.floor(v) && !Double.isInfinite(v))
+            return Long.toString((long) v);
+        return String.valueOf(v);
+    }
+
+    /** Null-safe numeric extractor for JDBC map results. */
+    private static Number num(Map<String,Object> m, String key) {
+        Object o = m == null ? null : m.get(key);
+        if (o instanceof Number n) return n;
+        if (o == null) return 0;
+        try { return Double.parseDouble(o.toString()); } catch (Exception e) { return 0; }
     }
 
     @GetMapping("/notifications")
