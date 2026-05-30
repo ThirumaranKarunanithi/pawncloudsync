@@ -29,9 +29,26 @@ public class JwtService {
         Instant now = Instant.now();
         return Jwts.builder()
                 .subject(String.valueOf(userId))
-                .claims(Map.of("shop_id", shopId, "role", role))
+                .claims(Map.of("shop_id", shopId, "role", role, "kind", "access"))
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(accessTtl)))
+                .signWith(key)
+                .compact();
+    }
+
+    /**
+     * Short-lived "selector" token issued after OTP verification when the
+     * email has access to 2+ shops. Carries only the email (no shop_id) and
+     * is valid only at /v1/auth/my-shops + /v1/auth/select-shop. The app
+     * exchanges it for a normal access token once the user picks a shop.
+     */
+    public String mintSelector(String email) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject(email)
+                .claims(Map.of("kind", "selector"))
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plus(Duration.ofMinutes(10))))
                 .signWith(key)
                 .compact();
     }

@@ -58,15 +58,23 @@ public class BoxAuthController {
         this.box = new MagizhchiBoxClient(this.boxUrl);
     }
 
+    // shop_id is optional now (multi-shop support). When omitted we look up
+    // every shop the email has access to via public.user_shop_access.
     public record SendOtpRequest(String email, String shop_id) {}
     public record VerifyRequest (String email, String code, String shop_id) {}
+    public record SelectShopRequest(String shop_id) {}
 
     @PostMapping("/send-otp")
     public Map<String,Object> sendOtp(@RequestBody SendOtpRequest req) {
-        requireField(req.email(),   "email");
-        requireField(req.shop_id(), "shop_id");
+        requireField(req.email(), "email");
         String email = req.email().trim().toLowerCase();
-        requireAllowedEmail(req.shop_id(), email);
+        // Email must be in user_shop_access for AT LEAST one active shop.
+        // (No shop_id requirement — multi-shop emails work transparently.)
+        List<String> shops = lookupShopsForEmail(email);
+        if (shops.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "this email is not authorised for any shop");
+        }
 
         String body = "{\"identifier\":\"" + jsonEscape(email) + "\"}";
         JsonNode boxRes = callBox("/api/auth/login/send-otp", body);
@@ -75,33 +83,96 @@ public class BoxAuthController {
 
     @PostMapping("/verify")
     public Map<String,Object> verify(@RequestBody VerifyRequest req) {
-        requireField(req.email(),   "email");
-        requireField(req.code(),    "code");
-        requireField(req.shop_id(), "shop_id");
+        requireField(req.email(), "email");
+        requireField(req.code(),  "code");
         String email = req.email().trim().toLowerCase();
-        requireAllowedEmail(req.shop_id(), email);
+        List<String> shops = lookupShopsForEmail(email);
+        if (shops.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "this email is not authorised for any shop");
+        }
 
         String body = "{\"identifier\":\"" + jsonEscape(email) + "\","
                     + "\"code\":\""        + jsonEscape(req.code().trim()) + "\"}";
         JsonNode boxRes = callBox("/api/auth/login/verify", body);
 
-        // Capture the box's accessToken and (if we don't already have one)
-        // mint a long-lived mbk_ API token for this tenant. Used later by
-        // BillImageController to push/pull bill images on the user's behalf.
-        captureMagizhchiTokenIfMissing(req.shop_id(), boxRes);
+        // ── Single-shop user → mint full access token (legacy path) ──
+        if (shops.size() == 1) {
+            String shopId = shops.get(0);
+            captureMagizhchiTokenIfMissing(shopId, boxRes);
+            Long userId = upsertUser(shopId, email);
+            String token = jwt.mint(userId, shopId, "user");
+            return Map.of(
+                "access_token",  token,
+                "shop_id",       shopId,
+                "user_id",       userId,
+                "role",          "user",
+                "email",         email,
+                "display_name",  boxRes.path("displayName").asText(email),
+                "shops_count",   1
+            );
+        }
 
-        // Upsert user and mint OUR JWT (cloud-api's, not the box's). The
-        // shop_id claim drives tenant resolution on every subsequent call.
+        // ── Multi-shop user → return a short-lived selector token + the
+        //    list of shops. The app shows a picker and exchanges the
+        //    selector for a normal access_token via /select-shop.
+        // We still capture the box accessToken against whichever shop the
+        // user picks (deferred to /select-shop, not here).
+        String selector = jwt.mintSelector(email);
+        List<Map<String,Object>> shopRows = jdbc.queryForList(
+            "SELECT t.shop_id, COALESCE(t.display_name, t.shop_id) AS label " +
+            "  FROM public.tenants t " +
+            "  JOIN public.user_shop_access uas " +
+            "    ON uas.shop_id = t.shop_id AND uas.revoked_at IS NULL " +
+            " WHERE lower(uas.email) = ? AND t.active = TRUE " +
+            " ORDER BY t.shop_id",
+            email);
+        return Map.of(
+            "selector_token", selector,
+            "shops",          shopRows,
+            "email",          email,
+            "display_name",   boxRes.path("displayName").asText(email),
+            "shops_count",    shopRows.size()
+        );
+    }
+
+    /** Exchange a selector token + chosen shop_id for a full access token. */
+    @PostMapping("/select-shop")
+    public Map<String,Object> selectShop(@RequestHeader("Authorization") String auth,
+                                          @RequestBody SelectShopRequest req) {
+        requireField(req.shop_id(), "shop_id");
+        String email = requireSelectorToken(auth);
+        List<String> shops = lookupShopsForEmail(email);
+        if (!shops.contains(req.shop_id())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "this email is not authorised for that shop");
+        }
         Long userId = upsertUser(req.shop_id(), email);
         String token = jwt.mint(userId, req.shop_id(), "user");
         return Map.of(
-            "access_token",  token,
-            "shop_id",       req.shop_id(),
-            "user_id",       userId,
-            "role",          "user",
-            "email",         email,
-            "display_name",  boxRes.path("displayName").asText(email)
+            "access_token", token,
+            "shop_id",      req.shop_id(),
+            "user_id",      userId,
+            "role",         "user",
+            "email",        email
         );
+    }
+
+    /** Lists every shop the authenticated email can switch to. Works with
+     *  both a selector token AND a normal access token (so the in-app
+     *  Switch-Shop menu can call it without re-OTPing). */
+    @GetMapping("/my-shops")
+    public Map<String,Object> myShops(@RequestHeader("Authorization") String auth) {
+        String email = readEmailFromAnyToken(auth);
+        List<Map<String,Object>> shopRows = jdbc.queryForList(
+            "SELECT t.shop_id, COALESCE(t.display_name, t.shop_id) AS label " +
+            "  FROM public.tenants t " +
+            "  JOIN public.user_shop_access uas " +
+            "    ON uas.shop_id = t.shop_id AND uas.revoked_at IS NULL " +
+            " WHERE lower(uas.email) = ? AND t.active = TRUE " +
+            " ORDER BY t.shop_id",
+            email);
+        return Map.of("shops", shopRows, "email", email);
     }
 
     // ── internals ─────────────────────────────────────────────────────────────
@@ -180,26 +251,66 @@ public class BoxAuthController {
     }
 
     /**
-     * Ensures (a) the shop exists and is active, and (b) the email matches
-     * the designated primary_email for that shop. The Android app for shop
-     * X can only be signed into by the one email recorded in tenants.primary_email;
-     * any other address is rejected before the box is even contacted.
+     * Returns every active shop_id the given email has non-revoked access
+     * to. Drives the multi-shop flow: 1 shop → mint access token directly;
+     * 2+ shops → return selector + picker list.
      */
-    private void requireAllowedEmail(String shopId, String emailLower) {
-        List<String> rows = jdbc.queryForList(
-            "SELECT primary_email FROM public.tenants WHERE shop_id = ? AND active = TRUE",
-            String.class, shopId);
-        if (rows.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown shop_id");
+    private List<String> lookupShopsForEmail(String emailLower) {
+        return jdbc.queryForList(
+            "SELECT t.shop_id " +
+            "  FROM public.tenants t " +
+            "  JOIN public.user_shop_access uas " +
+            "    ON uas.shop_id = t.shop_id AND uas.revoked_at IS NULL " +
+            " WHERE lower(uas.email) = ? AND t.active = TRUE " +
+            " ORDER BY t.shop_id",
+            String.class, emailLower);
+    }
+
+    /**
+     * Parses the bearer token and requires it to be a selector token
+     * (kind=selector). Returns the email it was issued to.
+     */
+    private String requireSelectorToken(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer "))
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "missing bearer");
+        try {
+            io.jsonwebtoken.Claims c = jwt.parse(authHeader.substring(7).trim());
+            String kind = c.get("kind", String.class);
+            if (!"selector".equals(kind))
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "this endpoint requires a selector token (call /verify first)");
+            return c.getSubject();
+        } catch (ResponseStatusException ex) {
+            throw ex;
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "bad token");
         }
-        String allowed = rows.get(0);
-        if (allowed == null || allowed.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "this shop has no primary email configured — ask admin to set tenants.primary_email");
-        }
-        if (!allowed.trim().equalsIgnoreCase(emailLower)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "this email is not authorised for this shop");
+    }
+
+    /**
+     * Reads the email from either a selector token (subject = email) OR a
+     * normal access token (subject = user_id, then look up the email).
+     * Used by /my-shops so the in-app Switch-Shop menu works after login.
+     */
+    private String readEmailFromAnyToken(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer "))
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "missing bearer");
+        io.jsonwebtoken.Claims c;
+        try { c = jwt.parse(authHeader.substring(7).trim()); }
+        catch (Exception e) { throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "bad token"); }
+
+        if ("selector".equals(c.get("kind", String.class))) return c.getSubject();
+        // Access token: subject is user_id, look up username (= email for box-OTP users).
+        try {
+            long userId = Long.parseLong(c.getSubject());
+            List<String> emails = jdbc.queryForList(
+                "SELECT username FROM public.app_users WHERE user_id = ?",
+                String.class, userId);
+            if (emails.isEmpty())
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "unknown user");
+            return emails.get(0).toLowerCase();
+        } catch (NumberFormatException e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "bad token subject");
         }
     }
 
