@@ -136,19 +136,28 @@ public class BoxAuthController {
         );
     }
 
-    /** Exchange a selector token + chosen shop_id for a full access token. */
+    /**
+     * Exchange a token + chosen shop_id for a full access token. Accepts
+     * EITHER a selector token (issued by /verify when the email has 2+
+     * shops) OR a live access token (so the in-app Switch-Shop menu can
+     * call it without re-OTPing). The email→shop authorisation check
+     * applies in both cases.
+     */
     @PostMapping("/select-shop")
     public Map<String,Object> selectShop(@RequestHeader("Authorization") String auth,
                                           @RequestBody SelectShopRequest req) {
         requireField(req.shop_id(), "shop_id");
-        String email = requireSelectorToken(auth);
+        String email = readEmailFromAnyToken(auth);
         List<String> shops = lookupShopsForEmail(email);
         if (!shops.contains(req.shop_id())) {
+            log.warn("/select-shop denied: email='{}' has {} shops {} — not in list",
+                     email, shops.size(), shops);
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "this email is not authorised for that shop");
         }
         Long userId = upsertUser(req.shop_id(), email);
         String token = jwt.mint(userId, req.shop_id(), "user");
+        log.info("/select-shop: email='{}' switched to shop_id='{}'", email, req.shop_id());
         return Map.of(
             "access_token", token,
             "shop_id",      req.shop_id(),
@@ -273,27 +282,6 @@ public class BoxAuthController {
             " WHERE lower(uas.email) = ? AND t.active = TRUE " +
             " ORDER BY t.shop_id",
             String.class, emailLower);
-    }
-
-    /**
-     * Parses the bearer token and requires it to be a selector token
-     * (kind=selector). Returns the email it was issued to.
-     */
-    private String requireSelectorToken(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer "))
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "missing bearer");
-        try {
-            io.jsonwebtoken.Claims c = jwt.parse(authHeader.substring(7).trim());
-            String kind = c.get("kind", String.class);
-            if (!"selector".equals(kind))
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "this endpoint requires a selector token (call /verify first)");
-            return c.getSubject();
-        } catch (ResponseStatusException ex) {
-            throw ex;
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "bad token");
-        }
     }
 
     /**
