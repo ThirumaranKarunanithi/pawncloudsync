@@ -172,7 +172,16 @@ public class BoxAuthController {
             " WHERE lower(uas.email) = ? AND t.active = TRUE " +
             " ORDER BY t.shop_id",
             email);
-        return Map.of("shops", shopRows, "email", email);
+        // Diagnostic — surface what the endpoint computed so multi-shop
+        // mismatches are easy to triage from Railway logs OR the response
+        // payload itself (the picker just ignores the extra fields).
+        log.info("/my-shops resolved email='{}' → {} shops: {}",
+                 email, shopRows.size(), shopRows);
+        Map<String,Object> out = new java.util.LinkedHashMap<>();
+        out.put("shops", shopRows);
+        out.put("email", email);
+        out.put("resolved_count", shopRows.size());
+        return out;
     }
 
     // ── internals ─────────────────────────────────────────────────────────────
@@ -299,17 +308,26 @@ public class BoxAuthController {
         try { c = jwt.parse(authHeader.substring(7).trim()); }
         catch (Exception e) { throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "bad token"); }
 
-        if ("selector".equals(c.get("kind", String.class))) return c.getSubject();
+        if ("selector".equals(c.get("kind", String.class))) {
+            log.info("readEmailFromAnyToken: selector token → email='{}'", c.getSubject());
+            return c.getSubject();
+        }
         // Access token: subject is user_id, look up username (= email for box-OTP users).
         try {
             long userId = Long.parseLong(c.getSubject());
             List<String> emails = jdbc.queryForList(
                 "SELECT username FROM public.app_users WHERE user_id = ?",
                 String.class, userId);
-            if (emails.isEmpty())
+            if (emails.isEmpty()) {
+                log.warn("readEmailFromAnyToken: user_id={} has NO app_users row", userId);
                 throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "unknown user");
-            return emails.get(0).toLowerCase();
+            }
+            String email = emails.get(0).toLowerCase();
+            log.info("readEmailFromAnyToken: user_id={} → email='{}' (shop_id_in_jwt={})",
+                     userId, email, c.get("shop_id", String.class));
+            return email;
         } catch (NumberFormatException e) {
+            log.warn("readEmailFromAnyToken: subject not a user_id: '{}'", c.getSubject());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "bad token subject");
         }
     }
