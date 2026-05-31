@@ -112,6 +112,53 @@ public class MagizhchiBoxClient {
         return M.readTree(r.body()).path("id").asLong();
     }
 
+    /**
+     * Streaming variant for large files (backup DB dumps 100MB+). Instead of
+     * buffering the whole file in a byte[], it concatenates the multipart
+     * head + the file's InputStream + the tail via a SequenceInputStream and
+     * hands that to BodyPublishers.ofInputStream — so the JVM only holds a
+     * small transfer buffer, never the entire file. Returns the box file id.
+     */
+    public long uploadFileStreaming(String apiKey, long conversationId,
+                                    String filename, String contentType,
+                                    java.io.InputStream fileStream, String folderPath) throws Exception {
+        String boundary = "MagizhchiCloudBoundary" + Math.abs(RNG.nextLong());
+        if (contentType == null || contentType.isBlank()) contentType = "application/octet-stream";
+
+        StringBuilder head = new StringBuilder()
+                .append("--").append(boundary).append("\r\n")
+                .append("Content-Disposition: form-data; name=\"file\"; filename=\"")
+                .append(filename.replace("\"", "\\\"")).append("\"\r\n")
+                .append("Content-Type: ").append(contentType).append("\r\n\r\n");
+
+        StringBuilder tail = new StringBuilder().append("\r\n");
+        if (folderPath != null && !folderPath.isBlank()) {
+            String n = folderPath.replace('\\', '/').replaceAll("^/+", "").replaceAll("/+$", "");
+            if (!n.isEmpty()) n += "/";
+            tail.append("--").append(boundary).append("\r\n")
+                .append("Content-Disposition: form-data; name=\"folderPath\"\r\n\r\n")
+                .append(n).append("\r\n");
+        }
+        tail.append("--").append(boundary).append("--\r\n");
+
+        java.io.InputStream headS = new java.io.ByteArrayInputStream(head.toString().getBytes(StandardCharsets.UTF_8));
+        java.io.InputStream tailS = new java.io.ByteArrayInputStream(tail.toString().getBytes(StandardCharsets.UTF_8));
+        java.io.InputStream body  = new java.io.SequenceInputStream(
+                new java.io.SequenceInputStream(headS, fileStream), tailS);
+
+        HttpRequest req = HttpRequest.newBuilder(
+                        URI.create(baseUrl + "/api/files/send/" + conversationId))
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .header("X-Api-Key", apiKey)
+                .timeout(Duration.ofMinutes(30))   // big files need a long window
+                .POST(HttpRequest.BodyPublishers.ofInputStream(() -> body))
+                .build();
+        HttpResponse<String> r = http.send(req, HttpResponse.BodyHandlers.ofString());
+        if (r.statusCode() / 100 != 2)
+            throw new RuntimeException("box uploadFileStreaming " + r.statusCode() + ": " + r.body());
+        return M.readTree(r.body()).path("id").asLong();
+    }
+
     public byte[] downloadFile(String apiKey, long fileId) throws Exception {
         HttpRequest req = HttpRequest.newBuilder(URI.create(baseUrl + "/api/files/" + fileId + "/download-url"))
                 .header("X-Api-Key", apiKey)

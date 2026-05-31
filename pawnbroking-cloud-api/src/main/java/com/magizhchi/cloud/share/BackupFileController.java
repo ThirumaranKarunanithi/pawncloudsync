@@ -58,8 +58,13 @@ public class BackupFileController {
                 .replaceAll("^/+", "").replaceAll("/+$", "");
         try {
             String folder = "backups/" + companyId + "/" + (rel.isEmpty() ? "" : rel + "/");
-            long fileId = box.uploadFile(tt.apiKey, tt.conversationId,
-                    fileName, file.getContentType(), file.getBytes(), folder);
+            // Stream from Tomcat's on-disk temp file straight to the box —
+            // never load the (100MB+) backup into the cloud's heap.
+            long fileId;
+            try (java.io.InputStream in = file.getInputStream()) {
+                fileId = box.uploadFileStreaming(tt.apiKey, tt.conversationId,
+                        fileName, file.getContentType(), in, folder);
+            }
             tenantJdbc.inTenant(j -> {
                 j.update(
                     "INSERT INTO backup_files(company_id, relative_path, file_name, " +

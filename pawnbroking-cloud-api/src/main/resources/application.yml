@@ -1,8 +1,23 @@
 server:
   port: ${PORT:8080}
+  tomcat:
+    # Allow large multipart bodies (backup DB dumps). -1 = unlimited so
+    # Tomcat doesn't reject the body before Spring's multipart handler runs.
+    max-swallow-size: -1
+    max-http-form-post-size: -1
 
 spring:
   application: { name: pawnbroking-cloud-api }
+  servlet:
+    multipart:
+      # Bill/customer images are small, but backup DB dumps are 100MB+.
+      # Default (1MB/10MB) caused HTTP 413. Incoming multipart is written
+      # straight to disk (threshold 0) and the controller streams it to the
+      # box via getInputStream(), so the cloud never holds the whole file
+      # in RAM regardless of this ceiling.
+      max-file-size: ${MAX_UPLOAD_SIZE:1GB}
+      max-request-size: ${MAX_UPLOAD_SIZE:1GB}
+      file-size-threshold: 0
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/pawnbroking_cloud}
     username: ${DB_USER:postgres}
