@@ -399,6 +399,162 @@ public class DataController {
     }
 
     /**
+     * Full MIS report — one row per (month, jewel_type) with the complete
+     * 16-column desktop layout including the repledge legs. Mirrors the
+     * user's desktop MIS SQL exactly, adapted to the JSONB projection store:
+     *
+     *   pawn (openings)  + redeem (closings)            from company_billing
+     *   repledge opening + repledge redeem (closings)   from repledge_billing
+     *   running cumulative stock (bills+amount) for both bill and repledge
+     *
+     * Repledge columns are emitted only for GOLD rows (desktop convention).
+     * companyId optionally narrows to one company; omit for all in the shop.
+     */
+    @GetMapping("/mis-report")
+    public Map<String,Object> misReport(
+            @RequestParam(name="companyId", required=false) String companyId,
+            @RequestParam(defaultValue="240") int limit) {
+        int cap = Math.min(Math.max(limit, 1), 600);
+        final String companyFilter = (companyId == null || companyId.isBlank()
+                                      || "ALL".equalsIgnoreCase(companyId))
+                ? null : companyId;
+        try {
+            return t.inTenant(j -> {
+                String comp = companyFilter == null ? "" : " AND payload->>'company_id' = ? ";
+                // numeric-coercion helper for a billing/repledge field
+                java.util.function.Function<String,String> num = f ->
+                    "(CASE WHEN payload->>'" + f + "' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
+                    "THEN (payload->>'" + f + "')::numeric ELSE 0 END)";
+
+                String openMon  = "substring(payload->>'opening_date' from 6 for 2)";
+                String openYr   = "substring(payload->>'opening_date' from 1 for 4)";
+                String closeMon = "substring(payload->>'closing_date' from 6 for 2)";
+                String closeYr  = "substring(payload->>'closing_date' from 1 for 4)";
+                String redeemStatuses =
+                    "('CLOSED','DELIVERED','REBILLED','REBILLED-REMOVED','REBILLED-ADDED','REBILLED-MULTIPLE')";
+
+                StringBuilder leg = new StringBuilder();
+                // ── helper to emit a bill pawn/redeem leg for a material ──
+                // pawn leg
+                java.util.function.BiFunction<String,Boolean,String> billLeg = (mat, isPawn) -> {
+                    if (isPawn) {
+                        return
+                        "SELECT " + openMon + " mon, " + openYr + " yyyy, '" + mat + "' jwl_type, " +
+                        "  count(*) pawn_total_bill, sum(" + num.apply("amount") + ") pawn_amount, " +
+                        "  0 redeem_total_bills, 0 redeem_amt, " +
+                        "  sum(" + num.apply("open_taken_amount") + ") interest, " +
+                        "  0 repledge_total_bill, 0 repledge_amount, " +
+                        "  0 repledge_redeem_total_bills, 0 repledge_redeem_amt, 0 repledge_interest " +
+                        "FROM projections WHERE table_name='company_billing' AND NOT deleted " +
+                        "  AND payload->>'opening_date' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' " +
+                        "  AND upper(payload->>'jewel_material_type')='" + mat + "' " +
+                        "  AND upper(COALESCE(payload->>'status','')) NOT IN ('CANCELED','CANCELLED') " +
+                        comp + " GROUP BY 1,2,3 ";
+                    } else {
+                        return
+                        "SELECT " + closeMon + " mon, " + closeYr + " yyyy, '" + mat + "' jwl_type, " +
+                        "  0 pawn_total_bill, 0 pawn_amount, " +
+                        "  count(*) redeem_total_bills, sum(" + num.apply("amount") + ") redeem_amt, " +
+                        "  ((sum(" + num.apply("close_taken_amount") + ")+sum(" + num.apply("total_other_charges") +
+                        "  ))-sum(" + num.apply("discount_amount") + ")) interest, " +
+                        "  0 repledge_total_bill, 0 repledge_amount, " +
+                        "  0 repledge_redeem_total_bills, 0 repledge_redeem_amt, 0 repledge_interest " +
+                        "FROM projections WHERE table_name='company_billing' AND NOT deleted " +
+                        "  AND payload->>'closing_date' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' " +
+                        "  AND upper(payload->>'jewel_material_type')='" + mat + "' " +
+                        "  AND upper(COALESCE(payload->>'status','')) IN " + redeemStatuses +
+                        comp + " GROUP BY 1,2,3 ";
+                    }
+                };
+
+                String repledgeOpen =
+                    "SELECT " + openMon + " mon, " + openYr + " yyyy, 'GOLD' jwl_type, " +
+                    "  0 pawn_total_bill, 0 pawn_amount, 0 redeem_total_bills, 0 redeem_amt, 0 interest, " +
+                    "  count(*) repledge_total_bill, sum(" + num.apply("amount") + ") repledge_amount, " +
+                    "  0 repledge_redeem_total_bills, 0 repledge_redeem_amt, " +
+                    "  sum(" + num.apply("open_taken_amount") + ") repledge_interest " +
+                    "FROM projections WHERE table_name='repledge_billing' AND NOT deleted " +
+                    "  AND payload->>'opening_date' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' " +
+                    "  AND upper(COALESCE(payload->>'jewel_material_type',''))='GOLD' " +
+                    comp + " GROUP BY 1,2,3 ";
+
+                String repledgeClose =
+                    "SELECT " + closeMon + " mon, " + closeYr + " yyyy, 'GOLD' jwl_type, " +
+                    "  0 pawn_total_bill, 0 pawn_amount, 0 redeem_total_bills, 0 redeem_amt, 0 interest, " +
+                    "  0 repledge_total_bill, 0 repledge_amount, " +
+                    "  count(*) repledge_redeem_total_bills, sum(" + num.apply("amount") + ") repledge_redeem_amt, " +
+                    "  (sum(" + num.apply("given_amount") + ")-sum(" + num.apply("amount") + ")) repledge_interest " +
+                    "FROM projections WHERE table_name='repledge_billing' AND NOT deleted " +
+                    "  AND payload->>'closing_date' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' " +
+                    "  AND upper(COALESCE(payload->>'jewel_material_type',''))='GOLD' " +
+                    comp + " GROUP BY 1,2,3 ";
+
+                String unionAll =
+                    billLeg.apply("GOLD", true)   + " UNION ALL " +
+                    billLeg.apply("GOLD", false)  + " UNION ALL " +
+                    billLeg.apply("SILVER", true) + " UNION ALL " +
+                    billLeg.apply("SILVER", false)+ " UNION ALL " +
+                    repledgeOpen + " UNION ALL " + repledgeClose;
+
+                // arg order matches the 6 legs that carry the company predicate
+                List<Object> args = new java.util.ArrayList<>();
+                if (companyFilter != null) for (int i = 0; i < 6; i++) args.add(companyFilter);
+                args.add(cap);
+
+                String monthName =
+                    "CASE child.mon WHEN '01' THEN 'JAN' WHEN '02' THEN 'FEB' WHEN '03' THEN 'MAR' " +
+                    "WHEN '04' THEN 'APR' WHEN '05' THEN 'MAY' WHEN '06' THEN 'JUN' WHEN '07' THEN 'JUL' " +
+                    "WHEN '08' THEN 'AUG' WHEN '09' THEN 'SEP' WHEN '10' THEN 'OCT' WHEN '11' THEN 'NOV' " +
+                    "WHEN '12' THEN 'DEC' ELSE child.mon END || '-' || child.yyyy";
+
+                String sql =
+                    "SELECT " + monthName + " AS month, child.jwl_type AS \"jwlType\", " +
+                    "  pawn_total_bill AS \"pawnBills\", pawn_amount AS \"pawnAmount\", " +
+                    "  redeem_total_bills AS \"redeemBills\", redeem_amt AS \"redeemAmount\", " +
+                    "  interest AS \"interest\", " +
+                    "  (CASE WHEN child.jwl_type='GOLD' THEN total_repledge_bills ELSE 0 END) AS \"repledgeBills\", " +
+                    "  (CASE WHEN child.jwl_type='GOLD' THEN total_repledge_amount ELSE 0 END) AS \"repledgeAmount\", " +
+                    "  total_repledge_redeem_total_bills AS \"repledgeRedeemBills\", " +
+                    "  total_repledge_redeem_amt AS \"repledgeRedeemAmount\", " +
+                    "  (CASE WHEN child.jwl_type='GOLD' THEN total_repledge_interest ELSE 0 END) AS \"repledgeInterest\", " +
+                    "  (CASE WHEN child.jwl_type='GOLD' THEN total_repledge_stock_bills ELSE 0 END) AS \"repledgeStockBills\", " +
+                    "  (CASE WHEN child.jwl_type='GOLD' THEN total_repledge_stock_amount ELSE 0 END) AS \"repledgeStockAmount\", " +
+                    "  total_stock_bills AS \"stockBills\", total_stock_amount AS \"stockAmount\", " +
+                    "  child.yyyy AS yyyy, child.mon AS mon " +
+                    "FROM ( " +
+                    "  SELECT mon, yyyy, jwl_type, " +
+                    "    sum(pawn_total_bill) pawn_total_bill, sum(pawn_amount) pawn_amount, " +
+                    "    sum(redeem_total_bills) redeem_total_bills, sum(redeem_amt) redeem_amt, " +
+                    "    sum(interest) interest, " +
+                    "    sum(repledge_total_bill) total_repledge_bills, sum(repledge_amount) total_repledge_amount, " +
+                    "    sum(repledge_redeem_total_bills) total_repledge_redeem_total_bills, " +
+                    "    sum(repledge_redeem_amt) total_repledge_redeem_amt, " +
+                    "    sum(repledge_interest) total_repledge_interest, " +
+                    "    sum(sum(repledge_total_bill)-sum(repledge_redeem_total_bills)) " +
+                    "      OVER (ORDER BY yyyy ASC, mon, jwl_type) total_repledge_stock_bills, " +
+                    "    sum(sum(repledge_amount)-sum(repledge_redeem_amt)) " +
+                    "      OVER (ORDER BY yyyy ASC, mon, jwl_type) total_repledge_stock_amount, " +
+                    "    sum(sum(pawn_total_bill)-sum(redeem_total_bills)) " +
+                    "      OVER (ORDER BY yyyy ASC, mon, jwl_type) total_stock_bills, " +
+                    "    sum(sum(pawn_amount)-sum(redeem_amt)) " +
+                    "      OVER (ORDER BY yyyy ASC, mon, jwl_type) total_stock_amount " +
+                    "  FROM ( " + unionAll + " ) chi " +
+                    "  GROUP BY chi.mon, chi.yyyy, chi.jwl_type " +
+                    ") child " +
+                    "ORDER BY child.yyyy DESC, child.mon DESC, child.jwl_type " +
+                    "LIMIT ?";
+
+                List<Map<String,Object>> rows = j.queryForList(sql, args.toArray());
+                return Map.of("total", rows.size(), "rows", rows);
+            });
+        } catch (Exception e) {
+            log.error("misReport failed: {}", e.toString(), e);
+            return Map.of("total", 0, "rows", List.of(),
+                          "error", String.valueOf(e.getMessage()));
+        }
+    }
+
+    /**
      * Operations breakdown for the Today's Account screen — matches the
      * desktop's 10-row fixed grid exactly. Always returns ALL 10 rows even
      * when zero, so the layout stays stable. Each row carries a "combo"
