@@ -39,10 +39,11 @@ logging:
 pawnbroking:
   jwt:
     secret: ${JWT_SECRET:change-me-please-32-bytes-minimum-secret-key-here}
-    # 90 days — owner shouldn't have to re-OTP every hour. Refresh token is
-    # not yet consumed by the mobile app, so this is the effective session.
-    access-ttl-minutes: 129600
-    refresh-ttl-days: 90
+    # 6 months (180 days) — the shop owner should almost never have to log
+    # in again. The mobile app just uses the token until it 401s, so this
+    # JWT TTL is the effective session length.
+    access-ttl-minutes: 259200
+    refresh-ttl-days: 180
   # comma-separated list of tenant schemas to provision on startup
   tenants: ${TENANTS:alwarpuram,annanagar,mylocal}
   fcm:

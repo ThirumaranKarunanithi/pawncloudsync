@@ -46,6 +46,8 @@ public class BoxAuthController {
     private final String boxUrl;
     private final HttpClient http;
     private final MagizhchiBoxClient box;
+    private final org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder pwd
+            = new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
 
     public BoxAuthController(JdbcTemplate jdbc, JwtService jwt,
                              @Value("${pawnbroking.box.url}") String boxUrl) {
@@ -53,7 +55,7 @@ public class BoxAuthController {
         this.jwt = jwt;
         this.boxUrl = boxUrl.replaceAll("/+$", "");
         this.http = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
+                .connectTimeout(Duration.ofSeconds(15))
                 .build();
         this.box = new MagizhchiBoxClient(this.boxUrl);
     }
@@ -63,6 +65,8 @@ public class BoxAuthController {
     public record SendOtpRequest(String email, String shop_id) {}
     public record VerifyRequest (String email, String code, String shop_id) {}
     public record SelectShopRequest(String shop_id) {}
+    public record SetPasswordRequest(String email, String code, String password) {}
+    public record PasswordLoginRequest(String email, String password) {}
 
     @PostMapping("/send-otp")
     public Map<String,Object> sendOtp(@RequestBody SendOtpRequest req) {
@@ -95,11 +99,21 @@ public class BoxAuthController {
         String body = "{\"identifier\":\"" + jsonEscape(email) + "\","
                     + "\"code\":\""        + jsonEscape(req.code().trim()) + "\"}";
         JsonNode boxRes = callBox("/api/auth/login/verify", body);
+        String displayName = boxRes.path("displayName").asText(email);
+        return buildLoginResponse(email, shops, displayName, boxRes);
+    }
 
-        // ── Single-shop user → mint full access token (legacy path) ──
+    /**
+     * Shared login-response builder used by BOTH OTP verify and password
+     * login. Single-shop → full access token. Multi-shop → selector token
+     * + shops list for the picker. {@code boxRes} may be null (password
+     * path) — the box token is only captured when we have a box login.
+     */
+    private Map<String,Object> buildLoginResponse(String email, List<String> shops,
+                                                   String displayName, JsonNode boxRes) {
         if (shops.size() == 1) {
             String shopId = shops.get(0);
-            captureMagizhchiTokenIfMissing(shopId, boxRes);
+            if (boxRes != null) captureMagizhchiTokenIfMissing(shopId, boxRes);
             Long userId = upsertUser(shopId, email);
             String token = jwt.mint(userId, shopId, "user");
             return Map.of(
@@ -108,16 +122,10 @@ public class BoxAuthController {
                 "user_id",       userId,
                 "role",          "user",
                 "email",         email,
-                "display_name",  boxRes.path("displayName").asText(email),
+                "display_name",  displayName,
                 "shops_count",   1
             );
         }
-
-        // ── Multi-shop user → return a short-lived selector token + the
-        //    list of shops. The app shows a picker and exchanges the
-        //    selector for a normal access_token via /select-shop.
-        // We still capture the box accessToken against whichever shop the
-        // user picks (deferred to /select-shop, not here).
         String selector = jwt.mintSelector(email);
         List<Map<String,Object>> shopRows = jdbc.queryForList(
             "SELECT t.shop_id, COALESCE(t.display_name, t.shop_id) AS label " +
@@ -131,9 +139,66 @@ public class BoxAuthController {
             "selector_token", selector,
             "shops",          shopRows,
             "email",          email,
-            "display_name",   boxRes.path("displayName").asText(email),
+            "display_name",   displayName,
             "shops_count",    shopRows.size()
         );
+    }
+
+    /**
+     * Set (or change) the password for an email. Gated by a fresh OTP so
+     * only someone who controls the inbox can set it. After this, the user
+     * can sign in with {@link #passwordLogin} instead of waiting for OTP.
+     */
+    @PostMapping("/set-password")
+    public Map<String,Object> setPassword(@RequestBody SetPasswordRequest req) {
+        requireField(req.email(),    "email");
+        requireField(req.code(),     "code");
+        requireField(req.password(), "password");
+        if (req.password().length() < 4)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "password too short (min 4)");
+        String email = req.email().trim().toLowerCase();
+        List<String> shops = lookupShopsForEmail(email);
+        if (shops.isEmpty())
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "email not authorised for any shop");
+
+        // Verify the OTP with the box before allowing a password set.
+        String body = "{\"identifier\":\"" + jsonEscape(email) + "\","
+                    + "\"code\":\""        + jsonEscape(req.code().trim()) + "\"}";
+        callBox("/api/auth/login/verify", body);   // throws if OTP wrong
+
+        String hash = pwd.encode(req.password());
+        jdbc.update(
+            "INSERT INTO public.login_passwords(email, password_hash) VALUES (?,?) " +
+            "ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, updated_at = now()",
+            email, hash);
+        return Map.of("ok", true, "message", "Password set. You can now log in with it.");
+    }
+
+    /**
+     * Password login — no OTP, no box round-trip. Verifies the stored
+     * BCrypt hash and returns the same single/multi-shop response as OTP
+     * verify. Image features still work because the box token was captured
+     * during the earlier OTP login (password login doesn't re-capture it).
+     */
+    @PostMapping("/password-login")
+    public Map<String,Object> passwordLogin(@RequestBody PasswordLoginRequest req) {
+        requireField(req.email(),    "email");
+        requireField(req.password(), "password");
+        String email = req.email().trim().toLowerCase();
+        List<String> shops = lookupShopsForEmail(email);
+        if (shops.isEmpty())
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "email not authorised for any shop");
+
+        List<String> hashes = jdbc.queryForList(
+            "SELECT password_hash FROM public.login_passwords WHERE email = ?",
+            String.class, email);
+        if (hashes.isEmpty())
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                    "no password set — sign in with OTP first, then set a password");
+        if (!pwd.matches(req.password(), hashes.get(0)))
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "wrong password");
+
+        return buildLoginResponse(email, shops, email, /*boxRes*/ null);
     }
 
     /**
@@ -198,15 +263,26 @@ public class BoxAuthController {
     private JsonNode callBox(String path, String body) {
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(boxUrl + path))
-                .timeout(Duration.ofSeconds(15))
+                .timeout(Duration.ofSeconds(30))   // box OTP email can be slow
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
-        HttpResponse<String> res;
-        try {
-            res = http.send(req, HttpResponse.BodyHandlers.ofString());
-        } catch (Exception e) {
-            log.warn("box call failed: {}", e.toString());
+        HttpResponse<String> res = null;
+        // One retry on transient network/timeout — the box occasionally
+        // takes >15s to send the OTP email, which surfaced to users as
+        // "Server didn't respond in time".
+        Exception last = null;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                res = http.send(req, HttpResponse.BodyHandlers.ofString());
+                last = null;
+                break;
+            } catch (Exception e) {
+                last = e;
+                log.warn("box call attempt {} failed: {}", attempt + 1, e.toString());
+            }
+        }
+        if (last != null || res == null) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "magizhchi box unreachable");
         }
         if (res.statusCode() / 100 != 2) {
