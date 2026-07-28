@@ -705,6 +705,76 @@ public class DataController {
         });
     }
 
+    /**
+     * Drill-down rows behind the EXPENSES / INCOMES lines on Today's Account.
+     * Merges all eight debit tables (kind=EXPENSE) or six credit tables
+     * (kind=INCOME) into one list — {type, details, amount, user} — matching
+     * the desktop's getExpenseTableValue / getIncomeTableValue. Deduped by id
+     * per table, filtered by date (+ optional company), sorted by amount desc.
+     */
+    @GetMapping("/todays-account-ei-detail")
+    public Map<String,Object> todaysAccountEiDetail(
+            @RequestParam(name="companyId", required=false) String companyId,
+            @RequestParam(name="date")     String date,
+            @RequestParam(name="kind")     String kind) {
+        if (date == null || date.isBlank())
+            throw new IllegalArgumentException("date is required (yyyy-MM-dd)");
+        final String compFilter = (companyId == null || companyId.isBlank()
+                                   || "ALL".equalsIgnoreCase(companyId)) ? null : companyId;
+        final boolean isExpense = kind != null && kind.toUpperCase().startsWith("EXPENSE");
+        return t.inTenant(j -> {
+            String     dateCol = isExpense ? "debitted_date" : "credited_date";
+            String[][] tables  = isExpense ? EXPENSE_TABLES  : INCOME_TABLES;
+            java.util.List<Object> args = new java.util.ArrayList<>();
+            StringBuilder union = new StringBuilder();
+            for (String[] te : tables) {
+                if (union.length() > 0) union.append(" UNION ALL ");
+                union.append(
+                    "SELECT '" + te[2] + "' AS typ, " +
+                    "       COALESCE(" + te[3] + ",'') AS details, " +
+                    "       COALESCE(numF(payload->>'" + te[1] + "'),0) AS amount, " +
+                    "       COALESCE(payload->>'user_id','') AS usr " +
+                    "  FROM ( SELECT DISTINCT ON (payload->>'id') payload FROM projections " +
+                    "          WHERE table_name='" + te[0] + "' AND NOT deleted " +
+                    "            AND COALESCE(payload->>'" + dateCol + "','') LIKE ? ");
+                args.add(date + "%");
+                if (compFilter != null) {
+                    union.append(" AND payload->>'company_id' = ? ");
+                    args.add(compFilter);
+                }
+                union.append("          ORDER BY payload->>'id', last_updated_at DESC ) s");
+            }
+            String sql = "SELECT typ, details, amount, usr FROM ( " + union +
+                         " ) d ORDER BY amount DESC";
+            java.util.List<Map<String,Object>> raw;
+            try {
+                raw = j.queryForList(numericGuard(sql), args.toArray());
+            } catch (Exception ex) {
+                log.warn("ei-detail aggregation failed: {}", ex.toString());
+                raw = new java.util.ArrayList<>();
+            }
+            java.util.List<Map<String,Object>> rows = new java.util.ArrayList<>();
+            double total = 0;
+            for (Map<String,Object> r : raw) {
+                double amt = num(r, "amount").doubleValue();
+                Map<String,Object> o = new java.util.LinkedHashMap<>();
+                o.put("type",    String.valueOf(r.getOrDefault("typ", "")));
+                o.put("details", String.valueOf(r.getOrDefault("details", "")));
+                o.put("amount",  amt);
+                o.put("user",    String.valueOf(r.getOrDefault("usr", "")));
+                rows.add(o);
+                total += amt;
+            }
+            Map<String,Object> out = new java.util.LinkedHashMap<>();
+            out.put("kind",  isExpense ? "EXPENSES" : "INCOMES");
+            out.put("date",  date);
+            out.put("rows",  rows);
+            out.put("count", rows.size());
+            out.put("total", total);
+            return out;
+        });
+    }
+
     /** Re-order GOLD then SILVER (opening, advance, closing each). */
     private static java.util.List<Map<String,Object>> reorderForDesktop(
             java.util.List<Map<String,Object>> in) {
@@ -830,38 +900,87 @@ public class DataController {
                 "cnt","amt","intr","doc");
     }
 
+    /**
+     * Expense/income totals for Today's Account. The desktop
+     * (TodaysAccountDBOperation.getAllExpensesAccountValues /
+     * getAllIncomeAccountValues) sums EIGHT debit tables for EXPENSES and
+     * SIX credit tables for INCOMES — not just company_other_*. We UNION
+     * across all of them so the mobile figure matches the desktop exactly.
+     *
+     * Column notes (mirror desktop verbatim):
+     *   - every debit table uses  debitted_date / debitted_amount
+     *   - every credit table uses credited_date / credited_amount
+     *     EXCEPT employee_advance_amount_credit, whose amount column is
+     *     credit_amount (no "-ted"). Getting this wrong silently drops
+     *     that table's total.
+     * DISTINCT ON (id) per table collapses any duplicate projections.
+     */
+    // Columns: {table, amountCol, typeLabel, detailsSqlExpr}. The last two
+    // drive the /todays-account-ei-detail drill-down; typeLabel + detailsExpr
+    // mirror the desktop's getExpenseTableValue / getIncomeTableValue concats
+    // verbatim so the mobile list reads identically to the desktop.
+    static final String[][] EXPENSE_TABLES = {
+        {"employee_daily_allowance_debit", "debitted_amount", "EMPLOYEE DAILY ALLOWANCE",
+            "payload->>'employee_name'"},
+        {"employee_advance_amount_debit",  "debitted_amount", "EMPLOYEE ADVANCE AMOUNT",
+            "concat('Salary Advance Amount - ',payload->>'employee_name',' - ',payload->>'reason')"},
+        {"employee_salary_amount_debit",   "debitted_amount", "EMPLOYEE SALARY AMOUNT",
+            "concat(payload->>'employee_id',' - ',payload->>'employee_name')"},
+        {"employee_other_amount_debit",    "debitted_amount", "EMPLOYEE OTHER AMOUNT",
+            "concat(payload->>'employee_name',' - ',payload->>'debitted_reason')"},
+        {"company_bill_debit",             "debitted_amount", "COMPANY Bill",
+            "concat(payload->>'jewel_material_type',' - ',payload->>'bill_number')"},
+        {"company_other_debit",            "debitted_amount", "COMPANY OTHER AMOUNT",
+            "concat(payload->>'expense_or_asset',' - ',payload->>'expense_type',' - ',payload->>'name',' - ',payload->>'reason')"},
+        {"repledge_bill_debit",            "debitted_amount", "REPLEDGE Bill",
+            "concat('CompBillNo: ',payload->>'bill_number',' - ',payload->>'repledge_name')"},
+        {"repledge_other_debit",           "debitted_amount", "REPLEDGE OTHER AMOUNT",
+            "concat(payload->>'repledge_name',' - ',payload->>'reason')"},
+    };
+    static final String[][] INCOME_TABLES = {
+        {"employee_advance_amount_credit", "credit_amount",   "EMPLOYEE ADVANCE AMOUNT",
+            "payload->>'employee_name'"},
+        {"employee_other_amount_credit",   "credited_amount", "EMPLOYEE OTHER AMOUNT",
+            "concat(payload->>'employee_name',' - ',payload->>'credited_reason')"},
+        {"company_bill_credit",            "credited_amount", "COMPANY BILL",
+            "concat(payload->>'jewel_material_type',' - ',payload->>'bill_number')"},
+        {"company_other_credit",           "credited_amount", "COMPANY OTHER",
+            "concat(payload->>'income_or_liability',' - ',payload->>'expense_type',' - ',payload->>'name',' - ',payload->>'reason')"},
+        {"repledge_bill_credit",           "credited_amount", "REPLEDGE BILL",
+            "concat(' CompBillNo: ',payload->>'bill_number',' - ',payload->>'repledge_name')"},
+        {"repledge_other_credit",          "credited_amount", "REPLEDGE OTHER",
+            "concat(payload->>'repledge_name',' - ',payload->>'reason')"},
+    };
+
     private Map<String,Object> expenseIncomeAgg(org.springframework.jdbc.core.JdbcTemplate j,
                                                  String date, String companyId,
                                                  String kind) {
-        // Desktop schema (confirmed):
-        //   EXPENSES → company_other_debit  (debitted_date, debitted_amount)
-        //   INCOMES  → company_other_credit (credited_date, credited_amount)
-        // The sync pipeline left duplicates on these tables; DISTINCT ON id
-        // collapses each row to one even if multiple projections exist.
         boolean isExpense = "EXPENSE".equalsIgnoreCase(kind);
-        String table     = isExpense ? "company_other_debit"   : "company_other_credit";
-        String dateCol   = isExpense ? "debitted_date"         : "credited_date";
-        String amountCol = isExpense ? "debitted_amount"       : "credited_amount";
+        String dateCol      = isExpense ? "debitted_date" : "credited_date";
+        String[][] tables   = isExpense ? EXPENSE_TABLES  : INCOME_TABLES;
 
-        StringBuilder sql = new StringBuilder(
-            "SELECT count(*)                                            AS cnt, " +
-            "       COALESCE(sum(numF(payload->>'" + amountCol + "')),0) AS amt " +
-            "  FROM ( " +
-            "    SELECT DISTINCT ON (payload->>'id') payload " +
-            "      FROM projections " +
-            "     WHERE table_name = '" + table + "' AND NOT deleted " +
-            "       AND COALESCE(payload->>'" + dateCol + "','') LIKE ? ");
         java.util.List<Object> args = new java.util.ArrayList<>();
-        args.add(date + "%");
-        if (companyId != null) {
-            sql.append(" AND payload->>'company_id' = ? ");
-            args.add(companyId);
+        StringBuilder union = new StringBuilder();
+        for (String[] te : tables) {
+            if (union.length() > 0) union.append(" UNION ALL ");
+            union.append(
+                "SELECT count(*) AS cnt, " +
+                "       COALESCE(sum(numF(payload->>'" + te[1] + "')),0) AS amt " +
+                "  FROM ( SELECT DISTINCT ON (payload->>'id') payload " +
+                "           FROM projections " +
+                "          WHERE table_name = '" + te[0] + "' AND NOT deleted " +
+                "            AND COALESCE(payload->>'" + dateCol + "','') LIKE ? ");
+            args.add(date + "%");
+            if (companyId != null) {
+                union.append(" AND payload->>'company_id' = ? ");
+                args.add(companyId);
+            }
+            union.append("          ORDER BY payload->>'id', last_updated_at DESC ) s");
         }
-        sql.append(
-            "     ORDER BY payload->>'id', last_updated_at DESC " +
-            "  ) sub ");
+        String sql = "SELECT COALESCE(sum(cnt),0) AS cnt, COALESCE(sum(amt),0) AS amt " +
+                     "  FROM ( " + union + " ) all_ei ";
         try {
-            return queryRowOrZero(j, sql.toString(), args.toArray(), "cnt","amt");
+            return queryRowOrZero(j, sql, args.toArray(), "cnt","amt");
         } catch (Exception ignored) {
             Map<String,Object> zero = new java.util.HashMap<>();
             zero.put("cnt", 0L); zero.put("amt", 0d);

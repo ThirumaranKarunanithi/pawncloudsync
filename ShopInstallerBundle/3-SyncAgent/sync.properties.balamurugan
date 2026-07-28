@@ -1,0 +1,34 @@
+# Balamurugan shop — deploy this as:
+#   C:\ProgramData\PawnBroking\sync.properties
+# (rename it to exactly "sync.properties" — drop the ".balamurugan" suffix)
+
+db.url=jdbc:postgresql://localhost:5432/pawnbroking
+db.user=postgres
+db.password=happykutty
+
+cloud.url=https://devpawn.magizhchi.academy
+cloud.api_key=mbk_0b9da3fabb164082935da0bef9f11214a6bb302789524f7db6c21f036a8e284e
+shop.id=balamurugan
+
+batch.size=200
+poll.interval.ms=5000
+health.port=17654
+
+# How often SchemaGuard checks/repairs the local DB schema (sync_outbox
+# table + triggers). After a DB restore wipes these, the agent will
+# re-install them within this interval — no manual psql work needed.
+schema.guard.interval.ms=30000
+
+# How often ImageWatcher scans the bill-image directories on disk and
+# uploads new files to the cloud. Defaults to 60s.
+image.scan.interval.ms=60000
+
+# Backup files (company.backup_file_path) modified within this many days
+# are mirrored to the box. Older daily dumps are skipped so the box isn't
+# flooded with 100MB+ historical backups. Set 0 to sync ALL backups.
+backup.retention.days=30
+
+# Optional override for the image root path. If blank (the default) the
+# watcher reads company_other_settings.camera_temp_file_name for each
+# company so multiple shops with different paths just work.
+#image.root=D:\\Pawnbroking\\pawnbrokingImages\\Test

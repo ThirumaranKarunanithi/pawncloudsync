@@ -61,6 +61,16 @@ public class ApiService {
             .writeTimeout  (java.time.Duration.ofSeconds(60))
             .retryOnConnectionFailure(true)
             .build();
+    /** Auth calls (OTP send/verify, password login). The box's OTP email
+     *  can take 20-30s, which was surfacing as "Server didn't respond in
+     *  time" on the 20s CLIENT. This client waits up to 45s. */
+    private static final OkHttpClient AUTH_CLIENT = new OkHttpClient.Builder()
+            .connectTimeout(java.time.Duration.ofSeconds(15))
+            .readTimeout   (java.time.Duration.ofSeconds(45))
+            .writeTimeout  (java.time.Duration.ofSeconds(45))
+            .retryOnConnectionFailure(true)
+            .connectionPool(new okhttp3.ConnectionPool(0, 1, java.util.concurrent.TimeUnit.NANOSECONDS))
+            .build();
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
     private static final ExecutorService EXEC = Executors.newCachedThreadPool();
     private static final String PREFS = "pawn_prefs";
@@ -111,34 +121,88 @@ public class ApiService {
 
     // ── Box-OTP login (passwordless) ─────────────────────────────────────────
 
-    /** Asks the cloud-api to send an OTP for {@code email} via Magizhchi Share. */
+    /**
+     * Asks the cloud-api to send an OTP for {@code email} via Magizhchi Share.
+     * No shop_id needed — the cloud accepts the email if it's in
+     * public.user_shop_access for at least one active shop.
+     */
     public static void requestOtp(String email, Callback<Void> cb) {
         EXEC.execute(() -> {
             try {
                 JSONObject body = new JSONObject();
-                body.put("email",   email);
-                body.put("shop_id", AppConfig.SHOP_ID);
+                body.put("email", email);
                 Request req = new Request.Builder()
                     .url(AppConfig.BOX_SEND_OTP)
                     .post(RequestBody.create(body.toString(), JSON))
                     .build();
                 try (Response res = executeWithRetry(req, 2)) {
                     String raw = res.body() != null ? res.body().string() : "";
-                    if (res.isSuccessful()) cb.onSuccess(null);
-                    else cb.onError(extractError(raw, res.code(), "Could not send OTP"));
+                    if (res.isSuccessful()) { cb.onSuccess(null); return; }
+                    if (res.code() == 429) {
+                        int wait = parseRetryAfterSec(res.header("Retry-After"));
+                        if (wait <= 0) wait = 60;
+                        cb.onError("RATE_LIMIT:" + wait);
+                        return;
+                    }
+                    cb.onError(extractError(raw, res.code(), "Could not send OTP"));
                 }
             } catch (Exception e) { cb.onError(friendlyNetError(e)); }
         });
     }
 
-    /** Verifies OTP with cloud-api, persists the minted JWT, returns the User. */
-    public static void verifyOtpAndLogin(Context ctx, String email, String code, Callback<User> cb) {
+    /** Reads Retry-After (seconds-form or HTTP-date); returns 0 if missing/bad. */
+    private static int parseRetryAfterSec(String header) {
+        if (header == null || header.isEmpty()) return 0;
+        try { return Integer.parseInt(header.trim()); } catch (Exception ignored) {}
+        try {
+            long when = java.util.Date.parse(header);   // HTTP-date form
+            long now  = System.currentTimeMillis();
+            return (int) Math.max(0, (when - now) / 1000);
+        } catch (Exception ignored) {}
+        return 0;
+    }
+
+    /**
+     * Result of OTP verification.
+     *  - SINGLE_SHOP: cloud minted a full access token → user is logged in
+     *    and can go to Home.
+     *  - MULTI_SHOP : cloud returned a selector token + list of shops →
+     *    LoginActivity launches the shop picker; ShopPickerActivity calls
+     *    {@link #selectShop} when the user taps a shop.
+     */
+    public static final class VerifyResult {
+        public enum Kind { SINGLE_SHOP, MULTI_SHOP }
+        public final Kind   kind;
+        public final User   user;            // populated for SINGLE_SHOP
+        public final String selectorToken;   // populated for MULTI_SHOP
+        public final JSONArray shops;        // populated for MULTI_SHOP
+        public final String email;
+        private VerifyResult(Kind k, User u, String sel, JSONArray sh, String em) {
+            this.kind = k; this.user = u; this.selectorToken = sel;
+            this.shops = sh; this.email = em;
+        }
+        static VerifyResult single(User u, String em) {
+            return new VerifyResult(Kind.SINGLE_SHOP, u, null, null, em);
+        }
+        static VerifyResult multi(String sel, JSONArray sh, String em) {
+            return new VerifyResult(Kind.MULTI_SHOP, null, sel, sh, em);
+        }
+    }
+
+    /**
+     * Verifies the OTP. Handles BOTH the single-shop (access token minted
+     * immediately) and multi-shop (selector token + shops list) cloud
+     * responses. On single-shop success, JWT is persisted to prefs and the
+     * user is fully logged in. On multi-shop, prefs are NOT touched — the
+     * caller must navigate to the picker and call {@link #selectShop}.
+     */
+    public static void verifyOtpAndLogin(Context ctx, String email, String code,
+                                          Callback<VerifyResult> cb) {
         EXEC.execute(() -> {
             try {
                 JSONObject body = new JSONObject();
-                body.put("email",   email);
-                body.put("code",    code);
-                body.put("shop_id", AppConfig.SHOP_ID);
+                body.put("email", email);
+                body.put("code",  code);
                 Request req = new Request.Builder()
                     .url(AppConfig.BOX_VERIFY)
                     .post(RequestBody.create(body.toString(), JSON))
@@ -150,17 +214,184 @@ public class ApiService {
                         return;
                     }
                     JSONObject data = new JSONObject(raw);
+
+                    // Multi-shop branch — cloud returns a selector + the list.
+                    if (data.has("selector_token") && data.has("shops")) {
+                        cb.onSuccess(VerifyResult.multi(
+                            data.optString("selector_token", ""),
+                            data.optJSONArray("shops"),
+                            email));
+                        return;
+                    }
+
+                    // Single-shop branch — full access token minted.
                     User user = User.fromLogin(data, email);
-                    SharedPreferences.Editor ed = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit();
-                    ed.putString("token",        user.token);
-                    ed.putString("userName",     user.userName);
-                    ed.putString("employeeName", user.employeeName);
-                    ed.putString("shopId",       AppConfig.SHOP_ID);
-                    ed.apply();
+                    persistSession(ctx, user, data.optString("shop_id", ""));
+                    cb.onSuccess(VerifyResult.single(user, email));
+                }
+            } catch (Exception e) { cb.onError(friendlyNetError(e)); }
+        });
+    }
+
+    /**
+     * Password login — same single/multi-shop result shape as OTP verify,
+     * but no OTP round-trip. Returns VerifyResult so LoginActivity can
+     * reuse the exact same navigation.
+     */
+    public static void passwordLogin(Context ctx, String email, String password,
+                                      Callback<VerifyResult> cb) {
+        EXEC.execute(() -> {
+            try {
+                JSONObject body = new JSONObject();
+                body.put("email", email);
+                body.put("password", password);
+                Request req = new Request.Builder()
+                    .url(AppConfig.BOX_PASSWORD_LOGIN)
+                    .post(RequestBody.create(body.toString(), JSON))
+                    .build();
+                try (Response res = executeWithRetry(req, 2)) {
+                    String raw = res.body() != null ? res.body().string() : "";
+                    if (!res.isSuccessful()) {
+                        cb.onError(extractError(raw, res.code(), "Login failed"));
+                        return;
+                    }
+                    JSONObject data = new JSONObject(raw);
+                    if (data.has("selector_token") && data.has("shops")) {
+                        cb.onSuccess(VerifyResult.multi(
+                            data.optString("selector_token", ""),
+                            data.optJSONArray("shops"), email));
+                        return;
+                    }
+                    User user = User.fromLogin(data, email);
+                    persistSession(ctx, user, data.optString("shop_id", ""));
+                    cb.onSuccess(VerifyResult.single(user, email));
+                }
+            } catch (Exception e) { cb.onError(friendlyNetError(e)); }
+        });
+    }
+
+    /**
+     * Sets/changes the password for an email. Requires a fresh OTP code
+     * (proves inbox ownership). After this the user can use passwordLogin.
+     */
+    public static void setPassword(String email, String otpCode, String newPassword,
+                                    Callback<String> cb) {
+        EXEC.execute(() -> {
+            try {
+                JSONObject body = new JSONObject();
+                body.put("email", email);
+                body.put("code", otpCode);
+                body.put("password", newPassword);
+                Request req = new Request.Builder()
+                    .url(AppConfig.BOX_SET_PASSWORD)
+                    .post(RequestBody.create(body.toString(), JSON))
+                    .build();
+                try (Response res = executeWithRetry(req, 2)) {
+                    String raw = res.body() != null ? res.body().string() : "";
+                    if (!res.isSuccessful()) {
+                        cb.onError(extractError(raw, res.code(), "Could not set password"));
+                        return;
+                    }
+                    cb.onSuccess(new JSONObject(raw).optString("message", "Password set."));
+                }
+            } catch (Exception e) { cb.onError(friendlyNetError(e)); }
+        });
+    }
+
+    /**
+     * Exchanges a token + chosen shop_id for a full access token. The
+     * "token" can be either a selector token (post-OTP first login) OR
+     * the live access token (Switch-Shop from Home). If null, falls back
+     * to whatever JWT is stored in prefs.
+     */
+    public static void selectShop(Context ctx, String selectorOrAccessToken, String shopId,
+                                   String email, Callback<User> cb) {
+        EXEC.execute(() -> {
+            try {
+                String bearer = (selectorOrAccessToken == null || selectorOrAccessToken.isEmpty())
+                        ? token(ctx) : selectorOrAccessToken;
+                if (bearer == null || bearer.isEmpty()) {
+                    cb.onError("No active session — please sign in again.");
+                    return;
+                }
+                JSONObject body = new JSONObject().put("shop_id", shopId);
+                Request req = new Request.Builder()
+                    .url(AppConfig.BOX_SELECT_SHOP)
+                    .header("Authorization", "Bearer " + bearer)
+                    .post(RequestBody.create(body.toString(), JSON))
+                    .build();
+                try (Response res = executeWithRetry(req, 2)) {
+                    String raw = res.body() != null ? res.body().string() : "";
+                    if (!res.isSuccessful()) {
+                        cb.onError(extractError(raw, res.code(), "Shop selection failed"));
+                        return;
+                    }
+                    JSONObject data = new JSONObject(raw);
+                    User user = User.fromLogin(data, email);
+                    persistSession(ctx, user, data.optString("shop_id", shopId));
                     cb.onSuccess(user);
                 }
             } catch (Exception e) { cb.onError(friendlyNetError(e)); }
         });
+    }
+
+    /**
+     * Lists every shop the currently-signed-in email can switch to. Used by
+     * the Home screen's "Switch Shop" menu. Works with the active access
+     * token (no re-OTP needed).
+     */
+    public static void getMyShops(Callback<JSONArray> cb) {
+        EXEC.execute(() -> {
+            try {
+                Request req = new Request.Builder()
+                    .url(AppConfig.BOX_MY_SHOPS)
+                    .header("Authorization", "Bearer " + token(resolveCtx()))
+                    .get()
+                    .build();
+                try (Response res = CLIENT.newCall(req).execute()) {
+                    String raw = res.body() != null ? res.body().string() : "{}";
+                    if (!res.isSuccessful()) {
+                        cb.onError(extractError(raw, res.code(), "Shop list failed"));
+                        return;
+                    }
+                    cb.onSuccess(new JSONObject(raw).optJSONArray("shops"));
+                }
+            } catch (Exception e) { cb.onError(friendlyNetError(e)); }
+        });
+    }
+
+    /** Persists JWT + shop_id + display fields to SharedPreferences. */
+    private static void persistSession(Context ctx, User user, String shopId) {
+        SharedPreferences.Editor ed = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit();
+        ed.putString("token",        user.token);
+        ed.putString("userName",     user.userName);
+        ed.putString("employeeName", user.employeeName);
+        // shop_id from cloud → used everywhere the app needs to identify the
+        // active tenant. Falls back to AppConfig.SHOP_ID for older builds.
+        ed.putString("shopId",       (shopId == null || shopId.isEmpty())
+                                          ? AppConfig.SHOP_ID : shopId);
+        ed.apply();
+    }
+
+    /** Returns the active shop_id (from JWT login) — replaces the
+     *  hardcoded AppConfig.SHOP_ID for runtime decisions. */
+    public static String getCurrentShopId(Context ctx) {
+        return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                  .getString("shopId", AppConfig.SHOP_ID);
+    }
+
+    /**
+     * The active shop_id for the logged-in session, resolved without a
+     * caller-supplied Context. THE single source of truth for "which tenant
+     * am I" at runtime — reads the shop_id the cloud returned at login
+     * (stored in prefs), NOT the build-time AppConfig.SHOP_ID. That's what
+     * makes this one APK universal: install once, and whoever signs in sees
+     * their own shop's records. Falls back to AppConfig.SHOP_ID only when
+     * there's no Application context yet (pre-login, before any data call).
+     */
+    private static String currentShop() {
+        Context c = resolveCtx();
+        return c == null ? AppConfig.SHOP_ID : getCurrentShopId(c);
     }
 
     /** Execute with up to {@code attempts} tries on IOException (covers
@@ -169,7 +400,9 @@ public class ApiService {
         java.io.IOException last = null;
         for (int i = 0; i < attempts; i++) {
             try {
-                return CLIENT.newCall(req).execute();
+                // AUTH_CLIENT: longer read timeout so a slow OTP email
+                // doesn't trip "Server didn't respond in time".
+                return AUTH_CLIENT.newCall(req).execute();
             } catch (java.io.IOException ioe) {
                 last = ioe;
                 android.util.Log.w("ApiService",
@@ -277,8 +510,11 @@ public class ApiService {
                 });
                 // Tenant has zero `company` rows → fall back to a synthesized
                 // entry so the spinner never goes empty + Home can still open.
+                // Uses the LOGGED-IN shop, not the build-time default, so the
+                // single universal APK shows the right shop after sign-in.
                 if (list.isEmpty()) {
-                    list.add(new Company(AppConfig.SHOP_ID, capitalize(AppConfig.SHOP_ID),
+                    String shop = currentShop();
+                    list.add(new Company(shop, capitalize(shop),
                                          "", null, null, null, "ACTIVE"));
                 }
                 cb.onSuccess(list);
@@ -308,7 +544,7 @@ public class ApiService {
                         if (body == null) body = row;
                         if (companyId != null && !companyId.isEmpty()
                             && !"ALL".equalsIgnoreCase(companyId)
-                            && !companyId.equalsIgnoreCase(AppConfig.SHOP_ID)
+                            && !companyId.equalsIgnoreCase(currentShop())
                             && !companyId.equalsIgnoreCase(body.optString("company_id", "")))
                             continue;
                         Bill bill = Bill.fromJson(row);
@@ -350,7 +586,7 @@ public class ApiService {
                     // the user is browsing CMP1.
                     if (companyId != null && !companyId.isEmpty()
                         && !"ALL".equalsIgnoreCase(companyId)
-                        && !companyId.equalsIgnoreCase(AppConfig.SHOP_ID)
+                        && !companyId.equalsIgnoreCase(currentShop())
                         && !companyId.equalsIgnoreCase(body.optString("company_id", "")))
                         continue;
                     match = body;
@@ -460,20 +696,53 @@ public class ApiService {
     public static void getLastAccountDate(String companyId, Callback<String> cb) {
         EXEC.execute(() -> {
             try {
-                // Use the JSON-substring trick to filter ref_mark server-side
-                // via the existing q parameter. Cheap, no schema changes.
-                JSONArray rows = fetchTableSync("company_todays_account",
-                        "\"ref_mark\":\"L\"", null, companyId, null);
-                String pick = null;
+                // Use the cloud's dedicated refMark filter (JSONB-keyed) — the
+                // previous q="ref_mark":"L" substring trick failed when the
+                // payload was stored as `json` with whitespace ("ref_mark":
+                // "L" instead of "ref_mark":"L"). We probe without companyId
+                // so the diagnostic can list mismatched company_ids if the
+                // sync stored a different spelling than the picker uses.
+                JSONArray rows = fetchTodaysAccountRows(/*companyId*/ null,
+                        /*todaysDate*/ null, /*refMark*/ "L", "todays_date:desc");
+
+                String best = null;
+                java.util.TreeMap<String,String> bestPerCompany = new java.util.TreeMap<>();
                 for (int i = 0; i < rows.length(); i++) {
                     JSONObject body = unwrapPayload(rows.getJSONObject(i));
                     if (!"L".equalsIgnoreCase(body.optString("ref_mark", ""))) continue;
                     String d = body.optString("todays_date", "");
-                    if (d.length() >= 10) pick = d.substring(0, 10);
-                    break;
+                    if (d.length() >= 10) d = d.substring(0, 10);
+                    if (d.isEmpty()) continue;
+                    String rowCompany = body.optString("company_id", "");
+                    if (rowCompany.isEmpty()) rowCompany = "(empty)";
+                    String prev = bestPerCompany.get(rowCompany);
+                    if (prev == null || d.compareTo(prev) > 0) bestPerCompany.put(rowCompany, d);
+
+                    boolean matches = companyId == null || companyId.isEmpty()
+                            || "ALL".equalsIgnoreCase(companyId)
+                            || companyId.equalsIgnoreCase(currentShop())
+                            || companyId.equalsIgnoreCase(body.optString("company_id", ""));
+                    if (!matches) continue;
+                    if (best == null || d.compareTo(best) > 0) best = d;
                 }
-                if (pick != null && !pick.isEmpty()) cb.onSuccess(pick);
-                else cb.onError("No L-marker row for " + companyId);
+
+                if (best != null) { cb.onSuccess(best); return; }
+
+                // No match for the requested company — tell the caller WHY.
+                if (bestPerCompany.isEmpty()) {
+                    cb.onError("Cloud has 0 L-marker rows in company_todays_account "
+                            + "(sync agent may not have pushed this table yet)");
+                } else {
+                    StringBuilder sb = new StringBuilder("No L row for ")
+                        .append(companyId).append(". Cloud has L rows for: ");
+                    int n = 0;
+                    for (java.util.Map.Entry<String,String> e : bestPerCompany.entrySet()) {
+                        if (n++ > 0) sb.append(", ");
+                        sb.append(e.getKey()).append("→").append(e.getValue());
+                        if (n >= 4) { sb.append(", …"); break; }
+                    }
+                    cb.onError(sb.toString());
+                }
             } catch (Exception e) { cb.onError(e.getMessage()); }
         });
     }
@@ -481,23 +750,42 @@ public class ApiService {
     public static void getTodaysAccount(String companyId, String date, Callback<JSONObject> cb) {
         EXEC.execute(() -> {
             try {
-                // Pull the company_todays_account row for (companyId, date).
-                // The JSON-substring trick on q narrows the server scan; we
-                // still verify both fields client-side because q is ILIKE.
-                String needle = "\"todays_date\":\"" + (date == null ? "" : date) + "\"";
-                JSONArray rows = fetchTableSync("company_todays_account",
-                        needle, null, companyId, null);
+                // Use the cloud's dedicated todaysDate filter (JSONB-keyed)
+                // instead of the brittle q-substring trick. companyId is
+                // dropped from the server filter so diagnostics can list
+                // mismatched IDs client-side if the lookup still fails.
+                JSONArray rows = fetchTodaysAccountRows(/*companyId*/ null,
+                        date, /*refMark*/ null, "todays_date:desc");
+                // Two-pass: collect all matching rows for (companyId, date),
+                // then prefer the one with ref_mark='L' (the canonical "locked"
+                // day-end) over interim "S" save snapshots.
                 JSONObject acct = null;
+                JSONObject anyMatch = null;
+                java.util.TreeSet<String> companiesSeenOnDate = new java.util.TreeSet<>();
                 for (int i = 0; i < rows.length(); i++) {
                     JSONObject body = unwrapPayload(rows.getJSONObject(i));
                     String rowDate = body.optString("todays_date", "");
                     if (rowDate.length() >= 10) rowDate = rowDate.substring(0, 10);
                     String rowCompany = body.optString("company_id", "");
                     if (date != null && !date.isEmpty() && !date.equals(rowDate)) continue;
+                    companiesSeenOnDate.add(rowCompany.isEmpty() ? "(empty)" : rowCompany);
                     if (companyId != null && !companyId.isEmpty()
+                            && !"ALL".equalsIgnoreCase(companyId)
+                            && !companyId.equalsIgnoreCase(currentShop())
                             && !companyId.equalsIgnoreCase(rowCompany)) continue;
-                    acct = body;
-                    break;
+                    if (anyMatch == null) anyMatch = body;
+                    if ("L".equalsIgnoreCase(body.optString("ref_mark", ""))) {
+                        acct = body;
+                        break;
+                    }
+                }
+                if (acct == null) acct = anyMatch;
+                // If still nothing, log what companies DID have rows on this
+                // date so the diagnostic chip can show the mismatch.
+                if (acct == null && !companiesSeenOnDate.isEmpty()) {
+                    android.util.Log.w("ApiService",
+                        "todays_account: no row for " + companyId + " on " + date
+                        + " — date has rows for companies: " + companiesSeenOnDate);
                 }
 
                 JSONObject out = new JSONObject();
@@ -530,25 +818,258 @@ public class ApiService {
         });
     }
 
+    /**
+     * Operations breakdown for the Today's Account screen — debit/credit by
+     * op type (bill openings/closings, repledge, advance). Cloud aggregates
+     * server-side so the mobile app only renders the table.
+     */
+    public static void getTodaysAccountOps(String companyId, String date,
+                                            Callback<JSONObject> cb) {
+        EXEC.execute(() -> {
+            try {
+                HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/todays-account-ops")
+                        .newBuilder()
+                        .addQueryParameter("date", date == null ? "" : date);
+                if (companyId != null && !companyId.isEmpty()
+                        && !"ALL".equalsIgnoreCase(companyId)
+                        && !companyId.equalsIgnoreCase(currentShop()))
+                    b.addQueryParameter("companyId", companyId);
+                try (Response res = CLIENT.newCall(authed(b.build()).get().build()).execute()) {
+                    String raw = res.body() != null ? res.body().string() : "{}";
+                    if (!res.isSuccessful()) {
+                        cb.onError(extractError(raw, res.code(), "Operations lookup failed"));
+                        return;
+                    }
+                    cb.onSuccess(new JSONObject(raw));
+                }
+            } catch (Exception e) { cb.onError(friendlyNetError(e)); }
+        });
+    }
+
+    /**
+     * Drill-down for an Operations row on Today's Account. Dispatches on
+     * the type (GOLD_OPENING, GOLD_CLOSING, SILVER_*, REPLEDGE_*, EXPENSES,
+     * INCOMES, *_ADVANCE), pulls the right table from cloud, filters by
+     * date + material client-side, and returns the activity's expected
+     * shape: {headers, rows, count}.
+     */
     public static void getTodaysAccountDetails(String companyId, String date, String type,
                                                Callback<JSONObject> cb) {
         EXEC.execute(() -> {
             try {
-                String table;
-                String dateField;
-                switch (type == null ? "" : type.toUpperCase()) {
-                    case "CLOSING": table = AppConfig.TBL_BILL_CLOSING; dateField = "closing_date"; break;
-                    case "ADVANCE": table = AppConfig.TBL_ADVANCE;      dateField = "advance_date"; break;
-                    default:        table = AppConfig.TBL_BILL_OPENING; dateField = "opening_date"; break;
+                String t = type == null ? "" : type.toUpperCase();
+                String material = t.startsWith("GOLD") ? "GOLD"
+                              : t.startsWith("SILVER") ? "SILVER" : null;
+                JSONObject out;
+                if (t.endsWith("_OPENING") && material != null) {
+                    out = buildBillOpeningDetail(companyId, date, material);
+                } else if (t.endsWith("_CLOSING") && material != null) {
+                    out = buildBillClosingDetail(companyId, date, material);
+                } else if (t.endsWith("_ADVANCE") && material != null) {
+                    out = buildAdvanceDetail(companyId, date, material);
+                } else if ("REPLEDGE_OPENING".equals(t)) {
+                    out = buildRepledgeDetail(companyId, date, "opening_date", "REPLEDGE OPENING");
+                } else if ("REPLEDGE_CLOSING".equals(t)) {
+                    out = buildRepledgeDetail(companyId, date, "closing_date", "REPLEDGE CLOSING");
+                } else if ("EXPENSES".equals(t)) {
+                    out = buildExpenseIncomeDetailMerged(companyId, date, "EXPENSE");
+                } else if ("INCOMES".equals(t)) {
+                    out = buildExpenseIncomeDetailMerged(companyId, date, "INCOME");
+                } else {
+                    out = new JSONObject().put("headers", new JSONArray())
+                                          .put("rows",    new JSONArray())
+                                          .put("count",   0);
                 }
-                JSONArray rows = filterByDate(fetchTableSync(table, null), dateField, date);
-                JSONObject out = new JSONObject();
-                out.put("date", date == null ? "" : date);
-                out.put("type", type == null ? "" : type);
-                out.put("items", rows);
                 cb.onSuccess(out);
-            } catch (Exception e) { cb.onError(e.getMessage()); }
+            } catch (Exception e) { cb.onError(friendlyNetError(e)); }
         });
+    }
+
+    // ── detail-table builders ────────────────────────────────────────────
+
+    private static JSONObject buildBillOpeningDetail(String companyId, String date, String material)
+            throws Exception {
+        JSONArray raw = fetchTableSync(AppConfig.TBL_BILL_OPENING, null,
+                "opening_date:desc", companyId, material,
+                /*statuses*/ null, /*repledged*/ null,
+                date, date, null, null, null);
+        JSONArray rows = new JSONArray();
+        int count = 0;
+        for (int i = 0; i < raw.length(); i++) {
+            JSONObject b = unwrapPayload(raw.getJSONObject(i));
+            if (!startsWith(b.optString("opening_date",""), date)) continue;
+            String status = b.optString("status","").toUpperCase();
+            if (status.equals("CANCELED") || status.equals("CANCELLED")) continue;
+            JSONArray r = new JSONArray();
+            r.put(idx(i+1));
+            r.put(b.optString("bill_number",""));
+            r.put(b.optString("customer_name",""));
+            r.put(money(b.optDouble("amount", 0)));
+            r.put(money(b.optDouble("document_charge", 0)));
+            r.put(money(b.optDouble("open_taken_amount", 0)));
+            rows.put(r);
+            count++;
+        }
+        return new JSONObject()
+                .put("headers", arr("#","Bill No","Customer","Amount","Doc","Taken"))
+                .put("rows",    rows)
+                .put("count",   count);
+    }
+
+    private static JSONObject buildBillClosingDetail(String companyId, String date, String material)
+            throws Exception {
+        JSONArray raw = fetchTableSync(AppConfig.TBL_BILL_CLOSING, null,
+                "closing_date:desc", companyId, material,
+                /*statuses*/ null, /*repledged*/ null,
+                null, null, null, null, null);
+        java.util.Set<String> closedSet = new java.util.HashSet<>(java.util.Arrays.asList(
+                "CLOSED","DELIVERED","REBILLED","REBILLED-ADDED","REBILLED-REMOVED","REBILLED-MULTIPLE"));
+        JSONArray rows = new JSONArray();
+        int count = 0;
+        for (int i = 0; i < raw.length(); i++) {
+            JSONObject b = unwrapPayload(raw.getJSONObject(i));
+            if (!startsWith(b.optString("closing_date",""), date)) continue;
+            String status = b.optString("status","").toUpperCase();
+            if (!closedSet.contains(status)) continue;
+            double amt  = b.optDouble("amount",                    0);
+            double intr = b.optDouble("close_taken_amount",        0);
+            double fine = b.optDouble("total_other_charges",       0);
+            double less = b.optDouble("discount_amount",           0);
+            double adv  = b.optDouble("total_advance_amount_paid", 0);
+            JSONArray r = new JSONArray();
+            r.put(idx(i+1));
+            r.put(b.optString("bill_number",""));
+            r.put(b.optString("customer_name",""));
+            r.put(money(amt));
+            r.put(money(intr));
+            r.put(money(fine));
+            r.put(money(less));
+            r.put(money(amt + intr + fine - less + adv));
+            rows.put(r);
+            count++;
+        }
+        return new JSONObject()
+                .put("headers", arr("#","Bill No","Customer","Amount","Intr","Fine","Less","Total"))
+                .put("rows",    rows)
+                .put("count",   count);
+    }
+
+    private static JSONObject buildAdvanceDetail(String companyId, String date, String material)
+            throws Exception {
+        // Advance rows carry bill_number. We pull all advances for the date
+        // then look up each bill's material client-side to filter.
+        JSONArray raw = fetchTableSync(AppConfig.TBL_ADVANCE, null);
+        JSONArray rows = new JSONArray();
+        int count = 0;
+        for (int i = 0; i < raw.length(); i++) {
+            JSONObject a = unwrapPayload(raw.getJSONObject(i));
+            if (!startsWith(a.optString("advance_date",""), date)) continue;
+            if (companyId != null && !companyId.isEmpty()
+                    && !"ALL".equalsIgnoreCase(companyId)
+                    && !companyId.equalsIgnoreCase(currentShop())
+                    && !companyId.equalsIgnoreCase(a.optString("company_id","")))
+                continue;
+            // Material is on the parent bill — skip filtering if absent.
+            // (For now we don't make a per-row bill lookup; if you need
+            // strict material filtering here we can add a bulk fetch.)
+            JSONArray r = new JSONArray();
+            r.put(idx(i+1));
+            r.put(a.optString("bill_number",""));
+            r.put(a.optString("advance_date","").substring(0, Math.min(10, a.optString("advance_date","").length())));
+            r.put(money(a.optDouble("paid_amount", 0)));
+            rows.put(r);
+            count++;
+        }
+        return new JSONObject()
+                .put("headers", arr("#","Bill No","Date","Amount"))
+                .put("rows",    rows)
+                .put("count",   count);
+    }
+
+    private static JSONObject buildRepledgeDetail(String companyId, String date,
+                                                   String dateField, String title) throws Exception {
+        JSONArray raw = fetchTableSync(AppConfig.TBL_REPLEDGE, null,
+                dateField + ":desc", companyId, null);
+        JSONArray rows = new JSONArray();
+        int count = 0;
+        for (int i = 0; i < raw.length(); i++) {
+            JSONObject b = unwrapPayload(raw.getJSONObject(i));
+            if (!startsWith(b.optString(dateField,""), date)) continue;
+            JSONArray r = new JSONArray();
+            r.put(idx(i+1));
+            r.put(b.optString("repledge_bill_number", b.optString("repledge_bill_id","")));
+            r.put(b.optString("repledge_name",""));
+            r.put(money(b.optDouble("amount", 0)));
+            r.put(money(b.optDouble("document_charge", 0)));
+            rows.put(r);
+            count++;
+        }
+        return new JSONObject()
+                .put("headers", arr("#","Repledge No","Financier","Amount","Doc"))
+                .put("rows",    rows)
+                .put("count",   count);
+    }
+
+    /**
+     * EXPENSES / INCOMES drill-down. The desktop's Today's Account sums EIGHT
+     * debit tables (expenses) and SIX credit tables (incomes) — not just
+     * company_other_*. Rather than fetch 8 tables from the phone, we hit the
+     * cloud's /todays-account-ei-detail which merges them server-side with the
+     * same type labels + descriptions the desktop uses. kind = EXPENSE|INCOME.
+     */
+    private static JSONObject buildExpenseIncomeDetailMerged(String companyId, String date,
+                                                             String kind) throws Exception {
+        HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/todays-account-ei-detail")
+                .newBuilder()
+                .addQueryParameter("date", date == null ? "" : date)
+                .addQueryParameter("kind", kind);
+        if (companyId != null && !companyId.isEmpty()
+                && !"ALL".equalsIgnoreCase(companyId)
+                && !companyId.equalsIgnoreCase(currentShop()))
+            b.addQueryParameter("companyId", companyId);
+
+        JSONArray rows = new JSONArray();
+        int count = 0;
+        try (Response res = CLIENT.newCall(authed(b.build()).get().build()).execute()) {
+            String raw = res.body() != null ? res.body().string() : "{}";
+            if (res.isSuccessful()) {
+                JSONArray src = new JSONObject(raw).optJSONArray("rows");
+                if (src != null) {
+                    for (int i = 0; i < src.length(); i++) {
+                        JSONObject o = src.getJSONObject(i);
+                        JSONArray r = new JSONArray();
+                        r.put(idx(count + 1));
+                        r.put(o.optString("type", ""));
+                        r.put(o.optString("details", ""));
+                        r.put(money(o.optDouble("amount", 0)));
+                        rows.put(r);
+                        count++;
+                    }
+                }
+            }
+        }
+        return new JSONObject()
+                .put("headers", arr("#","Type","Details","Amount"))
+                .put("rows",    rows)
+                .put("count",   count);
+    }
+
+    // ── small detail-builder helpers ────────────────────────────────────
+
+    private static JSONArray arr(String... values) {
+        JSONArray a = new JSONArray();
+        for (String v : values) a.put(v);
+        return a;
+    }
+    private static String idx(int n) { return Integer.toString(n); }
+    private static boolean startsWith(String s, String prefix) {
+        return s != null && prefix != null && s.startsWith(prefix);
+    }
+    private static String money(double v) {
+        java.text.NumberFormat f = java.text.NumberFormat.getNumberInstance(new java.util.Locale("en","IN"));
+        f.setMinimumFractionDigits(2);
+        f.setMaximumFractionDigits(2);
+        return f.format(v);
     }
 
     // ── Customers ─────────────────────────────────────────────────────────────
@@ -563,7 +1084,7 @@ public class ApiService {
                     sanitizeNulls(body);
                     if (companyId != null && !companyId.isEmpty()
                         && !"ALL".equalsIgnoreCase(companyId)
-                        && !companyId.equalsIgnoreCase(AppConfig.SHOP_ID)
+                        && !companyId.equalsIgnoreCase(currentShop())
                         && !companyId.equalsIgnoreCase(body.optString("company_id", "")))
                         continue;
                     flat.put(body);
@@ -587,9 +1108,11 @@ public class ApiService {
                    /*statuses*/ "OPENED,LOCKED", /*repledged*/ "false", cb);
     }
 
-    /** Repledge Alone: LOCKED bills placed in repledge (fetched from the
-     *  separate repledge_billing table which carries the repledge-specific
-     *  display fields the adapter needs). */
+    /** Repledge Alone: matches desktop StockDetailsDBOperation.getRepAloneAllDetailsValues —
+     *  RB.STATUS IN ('OPENED','GIVEN','SUSPENSE') filtered by company + material.
+     *  These are the bills the shop has *currently* placed in repledge with
+     *  another holder (i.e. still outstanding). LOCKED / DELIVERED rows are
+     *  excluded because they're no longer in active repledge. */
     public static void getRepledgeStock(String companyId, String materialType, String search,
                                         String repledgeName,
                                         String repledgeDateFrom, String repledgeDateTo,
@@ -597,7 +1120,7 @@ public class ApiService {
         fetchStock(AppConfig.TBL_REPLEDGE, companyId, materialType, search, page, size,
                    null, null, null, null, null,
                    repledgeName, repledgeDateFrom, repledgeDateTo,
-                   /*statuses*/ "LOCKED", /*repledged*/ null, cb);
+                   /*statuses*/ "OPENED,GIVEN,SUSPENSE", /*repledged*/ null, cb);
     }
 
     /** All Details: every OPENED + LOCKED bill regardless of repledge status. */
@@ -728,14 +1251,45 @@ public class ApiService {
 
     // ── Reports (no cloud equivalent yet) ────────────────────────────────────
 
+    /** Default = 6 months (used by Home charts). */
     public static void getMonthlyReport(String companyId, Callback<JSONObject> cb) {
+        getMonthlyReport(companyId, 6, cb);
+    }
+
+    /** Caller-controlled window — MIS Report passes 12 for a 1-year view. */
+    public static void getMonthlyReport(String companyId, int monthLimit, Callback<JSONObject> cb) {
         EXEC.execute(() -> {
             try {
                 HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/monthly-report").newBuilder()
-                    .addQueryParameter("limit", "6");
+                    .addQueryParameter("limit", Integer.toString(Math.max(1, monthLimit)));
                 if (companyId != null && !companyId.isEmpty()
                     && !"ALL".equalsIgnoreCase(companyId)
-                    && !companyId.equalsIgnoreCase(AppConfig.SHOP_ID))
+                    && !companyId.equalsIgnoreCase(currentShop()))
+                    b.addQueryParameter("companyId", companyId);
+                try (Response res = CLIENT.newCall(authed(b.build()).get().build()).execute()) {
+                    String raw = res.body() != null ? res.body().string() : "{}";
+                    checkStatus(res, raw);
+                    cb.onSuccess(new JSONObject(raw));
+                }
+            } catch (Exception e) { cb.onError(e.getMessage()); }
+        });
+    }
+
+    /**
+     * Full 16-column MIS report — one row per (month, jewel type) with the
+     * complete desktop layout including repledge legs. Returns
+     * { total, rows:[ {month, jwlType, pawnBills, pawnAmount, redeemBills,
+     *   redeemAmount, interest, repledgeBills, repledgeAmount,
+     *   repledgeRedeemBills, repledgeRedeemAmount, repledgeInterest,
+     *   repledgeStockBills, repledgeStockAmount, stockBills, stockAmount} ] }.
+     */
+    public static void getMisReport(String companyId, Callback<JSONObject> cb) {
+        EXEC.execute(() -> {
+            try {
+                HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/mis-report").newBuilder();
+                if (companyId != null && !companyId.isEmpty()
+                    && !"ALL".equalsIgnoreCase(companyId)
+                    && !companyId.equalsIgnoreCase(currentShop()))
                     b.addQueryParameter("companyId", companyId);
                 try (Response res = CLIENT.newCall(authed(b.build()).get().build()).execute()) {
                     String raw = res.body() != null ? res.body().string() : "{}";
@@ -811,6 +1365,36 @@ public class ApiService {
 
     // ── Internals ─────────────────────────────────────────────────────────────
 
+    /**
+     * Dedicated company_todays_account fetcher — uses the cloud's JSONB-keyed
+     * refMark / todaysDate params instead of the q-ILIKE substring trick that
+     * fails when the payload is stored as `json` (with whitespace) rather
+     * than canonical-compact `jsonb`. Any of the filter args can be null.
+     */
+    private static JSONArray fetchTodaysAccountRows(String companyId,
+                                                     String todaysDate,
+                                                     String refMark,
+                                                     String orderBy) throws Exception {
+        HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/company_todays_account")
+                .newBuilder()
+                .addQueryParameter("limit", "500");
+        if (orderBy != null && !orderBy.isEmpty())
+            b.addQueryParameter("order_by", orderBy);
+        if (companyId != null && !companyId.isEmpty()
+                && !"ALL".equalsIgnoreCase(companyId)
+                && !companyId.equalsIgnoreCase(currentShop()))
+            b.addQueryParameter("companyId", companyId);
+        if (refMark != null && !refMark.isEmpty())
+            b.addQueryParameter("refMark", refMark);
+        if (todaysDate != null && !todaysDate.isEmpty())
+            b.addQueryParameter("todaysDate", todaysDate);
+        try (Response res = CLIENT.newCall(authed(b.build()).get().build()).execute()) {
+            String raw = res.body() != null ? res.body().string() : "[]";
+            checkStatus(res, raw);
+            return new JSONArray(raw);
+        }
+    }
+
     private static JSONArray fetchTableSync(String table, String query) throws Exception {
         return fetchTableSync(table, query, null, null, null);
     }
@@ -882,7 +1466,7 @@ public class ApiService {
         if (orderBy   != null && !orderBy.isEmpty())   b.addQueryParameter("order_by", orderBy);
         if (companyId != null && !companyId.isEmpty()
                 && !"ALL".equalsIgnoreCase(companyId)
-                && !companyId.equalsIgnoreCase(AppConfig.SHOP_ID))
+                && !companyId.equalsIgnoreCase(currentShop()))
             b.addQueryParameter("companyId", companyId);
         if (material != null && !material.isEmpty()
                 && !"ALL".equalsIgnoreCase(material))

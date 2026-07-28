@@ -1,0 +1,191 @@
+═══════════════════════════════════════════════════════════════════════
+  BALAMURUGAN — COMPLETE INSTALLATION STEPS
+  Everything pre-filled for shop_id = balamurugan.
+═══════════════════════════════════════════════════════════════════════
+
+  Values for THIS shop (already filled into the scripts):
+     EMAIL   = bala251282@gmail.com      (mobile login)
+     PGPASS  = happykutty           (PostgreSQL password, set in Part 2)
+
+  The cloud API key (mbk_...) is generated in Part 1 — copy it when it
+  appears; you paste it in Part 4.
+
+  Three setup targets:
+     CLOUD   (Railway)   — you, remotely — Part 1
+     SHOP PC (Windows)   — Parts 2, 3, 4 (+ Part 5 only if migrating data)
+     PHONE   (Android)   — Part 6
+
+
+╔═════════════════════════════════════════════════════════════════════╗
+║  PART 1 — CLOUD PROVISIONING  (you, on Railway)                     ║
+╚═════════════════════════════════════════════════════════════════════╝
+
+  Use the ready-made script:
+     5-OneTimeSQL\balamurugan_cloud_provision.sql
+
+  1.1  Open Railway -> your cloud service -> Data -> Query.
+  1.2  Edit the EMAIL in the script (2 places) to the owner's gmail.
+  1.3  Run each numbered statement ONE AT A TIME (console splits on ';').
+       Statement 4 prints the API key -> COPY the mbk_... value now.
+  1.4  In Railway -> Variables -> TENANTS, append  ,balamurugan
+       Save -> it redeploys (~3 min). Deploy Logs should show
+       "Provisioning tenant schema 'balamurugan'".
+  1.5  Run the VERIFY query at the bottom of the script — you should see
+       tenant / email / access / api_key rows for balamurugan.
+
+
+╔═════════════════════════════════════════════════════════════════════╗
+║  PART 2 — SHOP PC PREREQUISITES                                     ║
+╚═════════════════════════════════════════════════════════════════════╝
+
+  2.1  Install Java 17:
+         https://adoptium.net  -> Temurin 17 -> Windows x64 .msi
+  2.2  Install PostgreSQL 16:
+         https://www.postgresql.org/download/windows/
+         • Port 5432 (default)
+         • PASSWORD -> set it to:  happykutty
+  2.3  Verify (Command Prompt):  java -version   -> shows 17.x
+       and pgAdmin connects with password  happykutty.
+
+
+╔═════════════════════════════════════════════════════════════════════╗
+║  PART 3 — DESKTOP APP                                               ║
+╚═════════════════════════════════════════════════════════════════════╝
+
+  3.1  Run  2-DesktopApp\PawnBrokingSetup.exe  -> enter PGPASS when asked.
+       It creates the database + the first company (CMP1).
+  3.2  Set up the shop in the desktop app:
+         • Company name (e.g. "Balamurugan Pawn Broking")
+         • Address / phone
+         • IMAGE folder (where bill/customer photos are saved)
+         • BACKUP folder (where daily DB backups are written)
+  3.3  If MIGRATING an existing Balamurugan shop:
+         • Restore their PostgreSQL backup now, AND
+         • COPY the image folder + backup folder from the old machine to
+           the same paths (a DB restore does NOT copy these files).
+       If BRAND NEW: nothing to restore — just start using it.
+
+
+╔═════════════════════════════════════════════════════════════════════╗
+║  PART 4 — SYNC AGENT                                                ║
+╚═════════════════════════════════════════════════════════════════════╝
+
+  4.1  Copy the whole  3-SyncAgent  folder to a permanent location,
+       e.g.  C:\Program Files\PawnbrokingSync\
+
+  4.2  Create the config at the FIXED path the agent reads (NOT the
+       install folder). ProgramData is hidden — type the path directly.
+       Admin Command Prompt:
+         mkdir "C:\ProgramData\PawnBroking"
+         notepad "C:\ProgramData\PawnBroking\sync.properties"
+
+       Paste this, filling ONLY the API key from Part 1.4 (the rest is
+       already correct for this shop):
+
+         db.url=jdbc:postgresql://localhost:5432/pawnbroking
+         db.user=postgres
+         db.password=happykutty
+
+         cloud.url=https://devpawn.magizhchi.academy
+         cloud.api_key=mbk_PASTE_THE_KEY_FROM_PART_1
+         shop.id=balamurugan
+
+         batch.size=200
+         poll.interval.ms=5000
+         health.port=17654
+         schema.guard.interval.ms=30000
+         image.scan.interval.ms=60000
+         backup.retention.days=30
+
+       Save, close.
+
+  4.3  Install + start the service (admin Command Prompt, from the
+       install folder):
+         cd "C:\Program Files\PawnbrokingSync"
+         pawnbroking-sync.exe install
+         pawnbroking-sync.exe start
+
+  4.4  Confirm healthy:
+         type pawnbroking-sync.err.log      (should be empty)
+         type pawnbroking-sync.out.log      (shows it connecting/polling)
+       Common errors:
+         "Cannot read config"      -> file not at C:\ProgramData\PawnBroking
+         "password authentication" -> wrong PGPASS
+         "tenant not configured"/401 -> Part 1 incomplete or wrong api_key
+
+
+╔═════════════════════════════════════════════════════════════════════╗
+║  PART 5 — BACKFILL EXISTING DATA  (ONLY if migrating; skip if new)  ║
+╚═════════════════════════════════════════════════════════════════════╝
+
+  Run only if you restored an existing Balamurugan database in 3.3.
+  A brand-new shop needs nothing here — new bills sync automatically.
+
+  5.1  pgAdmin (shop PC) -> open  5-OneTimeSQL\balamurugan_full_backfill.sql
+       -> Execute (F5). Watch the Messages tab for per-table counts.
+  5.2  Watch it drain (re-run this line until it hits 0):
+         SELECT count(*) FROM sync_outbox WHERE sent_at IS NULL;
+  5.3  Verify on the cloud (Railway) that counts match the desktop:
+         SELECT table_name, count(*) FROM balamurugan.projections
+          WHERE NOT deleted GROUP BY table_name ORDER BY 2 DESC;
+
+
+╔═════════════════════════════════════════════════════════════════════╗
+║  PART 6 — PHONE  (the universal app)                                ║
+╚═════════════════════════════════════════════════════════════════════╝
+
+  6.1  Install  4-MobileApp\Pawnbroking.apk  (allow "unknown sources").
+       Same APK as every other shop — no rebuild.
+
+  6.2  First login (this also mints the cloud's box token, which enables
+       image display):
+         • Open app -> enter  bala251282@gmail.com  -> tap "Send OTP".
+         • Open the email -> type the 6-digit code -> Verify.
+         • Lands on Home for Balamurugan (single shop) OR a shop picker
+           if this email also has other shops.
+
+  6.3  (Recommended) Set a password so future logins skip OTP:
+         • On the login screen tap "Use password instead".
+         • Tap "Set / change password" -> an OTP is emailed -> enter it +
+           choose a password -> Save.
+         • From then on: email + password -> instant login.
+       The session lasts 6 months either way.
+
+  6.4  Confirm on the phone:
+         • Stock Details -> in-stock bills show
+         • Today's Account -> defaults to last closed date
+         • MIS Report -> monthly figures + Bar/Line/Pie views
+         • Open a bill -> its images show (once images finish uploading)
+
+
+╔═════════════════════════════════════════════════════════════════════╗
+║  PART 7 — IMAGES & BACKUPS                                          ║
+╚═════════════════════════════════════════════════════════════════════╝
+
+  These upload automatically once (a) Part 6.2 minted the box token and
+  (b) the image/backup folders exist on the PC with files.
+
+  7.1  Watch progress (shop PC, pgAdmin):
+         SELECT material, count(*) FROM sync_image_uploads GROUP BY material;
+         SELECT count(*) FROM sync_backup_uploads;
+       A large shop's first image sync takes a few HOURS (throttled to
+       ~54/min). Leave the PC on.
+
+  7.2  If images aren't uploading, check the agent log for status=503
+       (box token missing -> do 6.2) or status=401 (wrong api_key).
+
+
+╔═════════════════════════════════════════════════════════════════════╗
+║  HANDOFF CHECKLIST — Balamurugan is done when:                      ║
+╚═════════════════════════════════════════════════════════════════════╝
+   [ ] Cloud: tenant + email + access + api_key created (Part 1 VERIFY)
+   [ ] balamurugan added to Railway TENANTS var; schema provisioned
+   [ ] Java 17 + PostgreSQL 16 installed (Part 2)
+   [ ] Desktop app running; (if migrating) DB + image + backup folders copied
+   [ ] Sync agent service running, err.log clean (Part 4)
+   [ ] (if migrating) backfill drained to 0 (Part 5)
+   [ ] Phone signs in, shows correct data (Part 6)
+   [ ] Password set for the owner (Part 6.3)
+   [ ] Images + backups uploading (Part 7) — may finish over a few hours
+   [ ] Owner given: bala251282@gmail.com, their app password,
+       PostgreSQL password (happykutty), support contact
