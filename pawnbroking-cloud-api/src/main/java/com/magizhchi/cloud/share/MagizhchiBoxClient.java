@@ -159,6 +159,33 @@ public class MagizhchiBoxClient {
         return M.readTree(r.body()).path("id").asLong();
     }
 
+    /**
+     * Streaming download — returns the blob as an InputStream instead of a
+     * byte[]. Backups are routinely 100MB+; buffering one in the cloud's heap
+     * risks an OOM on a small container, so the backup route pipes this
+     * straight to the client with a fixed-size copy buffer.
+     */
+    public java.io.InputStream downloadFileStream(String apiKey, long fileId) throws Exception {
+        HttpRequest req = HttpRequest.newBuilder(URI.create(baseUrl + "/api/files/" + fileId + "/download-url"))
+                .header("X-Api-Key", apiKey)
+                .timeout(Duration.ofSeconds(30))
+                .GET().build();
+        HttpResponse<String> r = http.send(req, HttpResponse.BodyHandlers.ofString());
+        if (r.statusCode() / 100 != 2)
+            throw new RuntimeException("box download-url " + r.statusCode() + ": " + r.body());
+        String url = M.readTree(r.body()).path("url").asText(null);
+        if (url == null || url.isBlank()) throw new RuntimeException("box download-url: no url field");
+
+        HttpResponse<java.io.InputStream> blob = http.send(
+                HttpRequest.newBuilder(URI.create(url))
+                        .timeout(Duration.ofMinutes(10))
+                        .GET().build(),
+                HttpResponse.BodyHandlers.ofInputStream());
+        if (blob.statusCode() / 100 != 2)
+            throw new RuntimeException("box presigned download " + blob.statusCode());
+        return blob.body();
+    }
+
     public byte[] downloadFile(String apiKey, long fileId) throws Exception {
         HttpRequest req = HttpRequest.newBuilder(URI.create(baseUrl + "/api/files/" + fileId + "/download-url"))
                 .header("X-Api-Key", apiKey)
