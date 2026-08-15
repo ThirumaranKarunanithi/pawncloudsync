@@ -21,7 +21,11 @@ import java.util.List;
 public class JwtFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(JwtFilter.class);
     private final JwtService jwt;
-    public JwtFilter(JwtService jwt) { this.jwt = jwt; }
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
+    public JwtFilter(JwtService jwt, org.springframework.jdbc.core.JdbcTemplate jdbc) {
+        this.jwt = jwt;
+        this.jdbc = jdbc;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
@@ -48,6 +52,10 @@ public class JwtFilter extends OncePerRequestFilter {
         try {
             c = jwt.parse(token);
         } catch (Exception e) {
+            // Not one of ours — it may be a Magizhchi ID token from another
+            // suite product (Meet's Pawn Shop rooms). That path resolves its
+            // own tenant and finishes the request.
+            if (jwt.suiteSsoEnabled() && trySuiteToken(token, req, res, chain)) return;
             log.warn("jwt validation failed: {}", e.toString());
             res.sendError(401, "invalid jwt");
             return;
@@ -70,5 +78,80 @@ public class JwtFilter extends OncePerRequestFilter {
             TenantContext.clear();
             SecurityContextHolder.clearContext();
         }
+    }
+
+    /**
+     * Magizhchi ID (suite SSO) path, used by Meet's Pawn Shop rooms.
+     *
+     * A suite token says WHO the caller is, never which shop — so the caller
+     * names the shop with the {@code X-Shop-Id} header and
+     * {@code public.user_shop_access} decides whether that email may read it.
+     * The token alone grants nothing: without a matching grant this returns
+     * 403, so a valid suite login can never reach another owner's shop.
+     *
+     * @return true when the request was handled here.
+     */
+    private boolean trySuiteToken(String token, HttpServletRequest req, HttpServletResponse res,
+                                  FilterChain chain) throws ServletException, IOException {
+        Claims c;
+        try {
+            c = jwt.parseSuite(token);
+        } catch (Exception e) {
+            return false;   // not a suite token either — caller reports 401
+        }
+
+        String email = firstNonBlank(c.get("email", String.class), c.getSubject());
+        if (email == null) {
+            res.sendError(401, "suite token carries no email");
+            return true;
+        }
+        email = email.trim().toLowerCase();
+
+        List<String> shops = jdbc.queryForList(
+            "SELECT t.shop_id FROM public.tenants t " +
+            "  JOIN public.user_shop_access uas " +
+            "    ON uas.shop_id = t.shop_id AND uas.revoked_at IS NULL " +
+            " WHERE lower(uas.email) = ? AND t.active = TRUE ORDER BY t.shop_id",
+            String.class, email);
+        if (shops.isEmpty()) {
+            res.sendError(403, "this Magizhchi account has no pawn shop access");
+            return true;
+        }
+
+        String wanted = firstNonBlank(req.getHeader("X-Shop-Id"), req.getParameter("shop_id"));
+        String shop;
+        if (wanted == null || wanted.isBlank()) {
+            // One shop is unambiguous; more than one needs the caller to say.
+            if (shops.size() > 1) {
+                res.sendError(400, "X-Shop-Id required — this account can read " + shops.size() + " shops");
+                return true;
+            }
+            shop = shops.get(0);
+        } else {
+            shop = wanted.trim();
+            boolean allowed = shops.stream().anyMatch(s -> s.equalsIgnoreCase(shop));
+            if (!allowed) {
+                log.warn("suite user {} denied shop {}", email, shop);
+                res.sendError(403, "no access to shop " + shop);
+                return true;
+            }
+        }
+
+        TenantContext.set(shop);
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(
+                "suite:" + email, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))));
+        try {
+            chain.doFilter(req, res);
+        } finally {
+            TenantContext.clear();
+            SecurityContextHolder.clearContext();
+        }
+        return true;
+    }
+
+    private static String firstNonBlank(String a, String b) {
+        if (a != null && !a.isBlank()) return a;
+        return (b != null && !b.isBlank()) ? b : null;
     }
 }

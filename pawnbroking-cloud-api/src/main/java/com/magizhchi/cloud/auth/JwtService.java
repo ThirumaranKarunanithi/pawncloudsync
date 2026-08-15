@@ -17,12 +17,31 @@ import java.util.Map;
 @Service
 public class JwtService {
     private final SecretKey key;
+    /** Magizhchi ID's shared suite secret; null when SSO isn't configured. */
+    private final SecretKey suiteKey;
     private final Duration accessTtl;
 
     public JwtService(@Value("${pawnbroking.jwt.secret}") String secret,
-                      @Value("${pawnbroking.jwt.access-ttl-minutes}") long minutes) {
+                      @Value("${pawnbroking.jwt.access-ttl-minutes}") long minutes,
+                      @Value("${pawnbroking.magizhchi.jwt.secret:}") String suiteSecret) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessTtl = Duration.ofMinutes(minutes);
+        // HS256 needs >= 32 bytes; a short or absent value means "not configured"
+        // rather than a startup failure, so shops keep working without SSO.
+        this.suiteKey = (suiteSecret == null || suiteSecret.trim().length() < 32) ? null
+                : Keys.hmacShaKeyFor(suiteSecret.trim().getBytes(StandardCharsets.UTF_8));
+    }
+
+    public boolean suiteSsoEnabled() { return suiteKey != null; }
+
+    /**
+     * Validates a Magizhchi ID (suite SSO) token. It proves WHO the caller is
+     * across the suite; it carries no shop_id, so the caller must say which
+     * shop it wants and {@code user_shop_access} decides whether they may.
+     */
+    public Claims parseSuite(String token) {
+        if (suiteKey == null) throw new IllegalStateException("magizhchi sso not configured");
+        return Jwts.parser().verifyWith(suiteKey).build().parseSignedClaims(token).getPayload();
     }
 
     public String mint(long userId, String shopId, String role) {

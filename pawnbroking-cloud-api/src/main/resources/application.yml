@@ -52,6 +52,17 @@ pawnbroking:
   # Magizhchi Share ("the box") — used for passwordless email-OTP login
   box:
     url: ${MAGIZHCHI_BOX_URL:https://box.magizhchi.software}
+  # Magizhchi ID single sign-on. Set MAGIZHCHI_JWT_SECRET to the suite's
+  # shared HS256 secret to let suite products (Meet's Pawn Shop rooms) call
+  # this API with a Magizhchi ID token instead of a pawn login. Left blank,
+  # the feature is simply off and only pawn-issued tokens are accepted.
+  magizhchi:
+    jwt:
+      secret: ${MAGIZHCHI_JWT_SECRET:}
+  # Browsers enforce CORS; the mobile app and sync agent do not. Only add
+  # origins that should be able to read shop data from a web page.
+  cors:
+    origins: ${CORS_ORIGINS:https://meet.magizhchi.software,https://meetback.magizhchi.software,http://localhost:5173}
 
 springdoc:
   swagger-ui:
