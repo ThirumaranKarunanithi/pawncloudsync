@@ -128,7 +128,12 @@ public class OutboxDrainer implements Runnable {
                     up.executeUpdate();
                 }
                 c.commit();
-                throw new RuntimeException("transient cloud failure status=" + r.status);
+                // Say WHY. status=-1 means the request never got an answer, and the
+                // reason is in r.body -- "request timed out" reads completely
+                // differently from "connection refused", and dropping it turned a
+                // one-line diagnosis into a long hunt.
+                throw new RuntimeException("transient cloud failure status=" + r.status
+                        + (r.body == null || r.body.isBlank() ? "" : " (" + r.body + ")"));
             }
         }
 

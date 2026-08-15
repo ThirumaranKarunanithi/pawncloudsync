@@ -1,0 +1,35 @@
+# =====================================================================
+#  Pawnbroking Sync Agent — per-shop configuration
+#  Location: C:\ProgramData\PawnBroking\sync.properties
+#  Written by PawnBrokingSyncSetup.exe. Do NOT edit unless you know
+#  what you're doing — bad values will keep the mobile app out of sync.
+# =====================================================================
+
+# --- Local PostgreSQL ---
+db.url=jdbc:postgresql://localhost:5432/pawnbroking
+db.user={{DB_USER}}
+db.password={{DB_PASSWORD}}
+
+# --- Cloud endpoint + per-shop identity ---
+cloud.url={{CLOUD_URL}}
+cloud.api_key={{CLOUD_API_KEY}}
+shop.id={{SHOP_ID}}
+
+# --- Tuning (defaults are safe; change only if instructed) ---
+# The cloud takes ~0.4s per event; 200 exceeds the agent's 30s request
+# timeout and every batch is aborted and retried forever.
+batch.size=25
+poll.interval.ms=5000
+health.port=17654
+schema.guard.interval.ms=30000
+image.scan.interval.ms=60000
+image.upload.interval.ms=1100
+
+# Backups: only sync files touched in the last N days (0 = all).
+backup.retention.days=30
+backup.gzip=true
+backup.gzip.min.bytes=5242880
+
+# Optional image root override. Leave commented so the agent reads
+# camera_temp_file_name per company from company_other_settings.
+#image.root=D:\\Pawnbroking\\pawnbrokingImages\\Test
