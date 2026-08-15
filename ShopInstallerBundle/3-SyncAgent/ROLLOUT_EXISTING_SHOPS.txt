@@ -1,0 +1,189 @@
+═══════════════════════════════════════════════════════════════════════
+  ROLLING THE BACKUP FIX OUT TO EXISTING SHOPS
+  annanagar · balamurugan · karumbalai · alwarpuram
+═══════════════════════════════════════════════════════════════════════
+
+WHY
+   Three things, all agent-side. Nothing on the cloud needs redeploying.
+
+   1. EVENTS STALL ONCE A SHOP FALLS BEHIND  <-- the important one
+      batch.size was 200. The cloud spends ~0.4s per event, so a
+      200-event batch needs ~80s against the agent's 30s request
+      timeout: every batch is aborted mid-flight, retried, aborted
+      again, backing off to four minutes while the queue never moves.
+      Measured: 25 events 10.4s, 100 events 38.2s, 200 events 77.4s.
+
+      A shop keeping up in real time never notices — batches are tiny.
+      It only bites when there IS a backlog (a migration, a few days
+      offline, a backfill), which is exactly when sync matters. One
+      machine sat on 3,720 events indefinitely and read, in the log,
+      like a dead agent. batch.size is now 25.
+
+   2. BIG BACKUPS FAILED WITH 502
+      500MB+ dumps were proxied whole through the cloud. The agent now
+      gzips first (500MB -> ~70MB), which fixes the 502 and cuts box
+      storage ~7x. It also re-uploads a backup REPLACED at the same
+      path (previously skipped forever).
+
+   3. REPLEDGE ROWS COLLAPSED ON THE CLOUD
+      row_pk was built from a hardcoded column list; repledge_billing
+      has no bill_number column, so every leg of a repledge covering
+      several pawn bills landed on one key and only the last survived.
+      Capture now reads the table's real primary key. If a shop shows
+      fewer repledge bills on the phone than on the desktop, it needs
+      the extra repair in 5-OneTimeSQL\fix_repledge_rowpk.sql.
+
+
+WHAT TO COPY TO EACH SHOP PC
+   From this folder:
+      pawnbroking-sync-agent.jar     <- the new build
+      update-agent.bat               <- does the swap for you
+      verify-backups.ps1             <- proves every file is uploaded
+      backup_health_check.sql        <- read-only diagnostics
+
+   Put them anywhere (Desktop is fine). update-agent.bat copies the jar
+   into the real install folder itself.
+
+
+───────────────────────────────────────────────────────────────────────
+STEP 1 — update the agent            (every shop)
+───────────────────────────────────────────────────────────────────────
+   Right-click update-agent.bat -> Run as administrator.
+
+   If the agent is NOT installed at C:\Program Files\PawnbrokingSync,
+   pass the real folder:
+        update-agent.bat "E:\mobile app\karumbalai\3-SyncAgent"
+
+   It stops the service, keeps a timestamped backup of the old jar,
+   installs the new one, and starts the service again. Confirm it ends
+   with status "Running".
+
+
+───────────────────────────────────────────────────────────────────────
+STEP 2 — let the missing backups catch up
+───────────────────────────────────────────────────────────────────────
+   Files that previously FAILED were never recorded as uploaded, so the
+   agent retries them by itself within a minute. Nothing to trigger.
+
+   !! IMPORTANT for annanagar (backups stopped weeks ago) !!
+   C:\ProgramData\PawnBroking\sync.properties has:
+
+        backup.retention.days=30
+
+   Anything older than that is skipped PERMANENTLY. If you want the
+   older dumps too, set it to 0 (no limit) BEFORE starting the service:
+
+        backup.retention.days=0
+
+   Then restart:  pawnbroking-sync.exe restart
+   Leave it at 30 if you only care about the last month (much less to
+   upload and much less box storage).
+
+
+───────────────────────────────────────────────────────────────────────
+STEP 2b — batch size            (every shop, 10 seconds)
+───────────────────────────────────────────────────────────────────────
+   update-agent.bat installs the new DEFAULT of 25, but a shop whose
+   sync.properties already says batch.size=200 keeps the old value —
+   the file wins over the default. Check and fix it:
+
+        findstr batch.size "C:\ProgramData\PawnBroking\sync.properties"
+
+   If it says 200, change it to 25 and restart:
+
+        batch.size=25
+        pawnbroking-sync.exe restart
+
+   Confirm it is actually shipping — this line should appear within a
+   minute, and "sent 25 events" is what a healthy batch looks like:
+
+        findstr /C:"sent " pawnbroking-sync.out.log
+
+   If instead you see repeated "transient cloud failure status=-1" with
+   a growing backoff, the batch is still too big for the timeout.
+
+
+───────────────────────────────────────────────────────────────────────
+STEP 3 — verify
+───────────────────────────────────────────────────────────────────────
+   Event queue drained (the number that matters — it should reach 0):
+
+        SELECT count(*) FROM sync_outbox WHERE sent_at IS NULL;
+
+   Nothing stuck in the dead-letter queue. Rows land here after a
+   permanent failure (a 401 from a wrong/revoked api_key, most often).
+   Fix the cause first, then put them back with:
+
+        SELECT count(*) FROM sync_outbox_dlq;
+        -- to retry them once the cause is fixed:
+        INSERT INTO sync_outbox SELECT * FROM sync_outbox_dlq;
+        DELETE FROM sync_outbox_dlq;
+
+   Backups:
+   powershell -ExecutionPolicy Bypass -File verify-backups.ps1
+
+   Lists files on disk vs uploaded, and names anything still pending.
+   Re-run until it prints:  ALL BACKUP FILES ARE UPLOADED.
+
+   For a wider check (images, event queue, staleness) run
+   backup_health_check.sql against the local "pawnbroking" database.
+
+
+───────────────────────────────────────────────────────────────────────
+STEP 4 — check the phone
+───────────────────────────────────────────────────────────────────────
+   Open the app -> 3-dot menu -> Backups. You should see the .backup.gz
+   files listed alongside the PDFs, newest first, with no
+   "No new backup for N days" warning.
+
+   Use the search box to jump to a date (e.g. "01082026" or "aug").
+
+
+───────────────────────────────────────────────────────────────────────
+PER-SHOP NOTES
+───────────────────────────────────────────────────────────────────────
+   alwarpuram   Already updated. Large sweep in progress (retention=0,
+                ~220 files). Leave the PC on until verify-backups.ps1
+                reports everything uploaded.
+
+   annanagar    Backups stopped ~22 June. After updating, ALSO check
+                that new .backup files are actually being created on
+                the PC. If the newest file on disk is still June, the
+                DESKTOP backup job is broken (old pg_dump bug) - install
+                the latest PawnBrokingSetup.exe and run a backup once.
+
+   balamurugan  Update the agent. Its box account was upgraded, so
+                storage is not a concern.
+
+   karumbalai   Update the agent. Image sync may still be running
+                (160k+ images) - that is unrelated and continues on its
+                own; the jar swap only pauses it for a few seconds.
+
+
+───────────────────────────────────────────────────────────────────────
+RESTORING FROM A BACKUP (they are now .gz)
+───────────────────────────────────────────────────────────────────────
+   Download the file from the phone or the box, then:
+        gunzip 01082026.backup.gz          (or extract with 7-Zip)
+        pg_restore -U postgres -d pawnbroking 01082026.backup
+
+   Files uploaded BEFORE this update are not compressed and restore as
+   they always did.
+
+
+───────────────────────────────────────────────────────────────────────
+IF SOMETHING GOES WRONG
+───────────────────────────────────────────────────────────────────────
+   The old jar is kept next to the new one as
+        pawnbroking-sync-agent.jar.<timestamp>.bak
+   To roll back: stop the service, copy that file over
+   pawnbroking-sync-agent.jar, start the service.
+
+   Error codes in pawnbroking-sync.err.log:
+        502  backup too big to proxy   -> the gzip build fixes this
+        507  box account is FULL       -> upgrade the plan or lower
+                                          backup.retention.days
+        503  no box token              -> OTP-login that shop once on
+                                          the phone using an email that
+                                          belongs to ONLY that shop
+        401  wrong cloud.api_key in sync.properties
