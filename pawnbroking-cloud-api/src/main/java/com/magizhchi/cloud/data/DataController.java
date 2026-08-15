@@ -618,8 +618,10 @@ public class DataController {
                 Map<String,Object> advR = advanceByMaterialAgg(j, date, compFilter, mat);
                 long   aCnt = num(advR, "cnt").longValue();
                 double aAmt = num(advR, "amt").doubleValue();
-                ops.add(opRow(mat + " BILL ADVANCE AMOUNT", aCnt, aAmt, 0, ""));
-                totalDebit += aAmt;
+                // An advance is cash the customer PAYS IN against their loan,
+                // so the desktop books it as a credit (Debits 0 / Credits N).
+                ops.add(opRow(mat + " BILL ADVANCE AMOUNT", aCnt, 0, aAmt, ""));
+                totalCredit += aAmt;
 
                 // ── Rows 3, 6 : GOLD/SILVER BILL CLOSING (credit) ────────
                 Map<String,Object> closeR = billClosingAgg(j, date, compFilter, mat, closedStatus);
@@ -859,18 +861,21 @@ public class DataController {
     private Map<String,Object> advanceByMaterialAgg(org.springframework.jdbc.core.JdbcTemplate j,
                                                      String date, String companyId,
                                                      String material) {
-        // Advance rows carry bill_number; join to company_billing to filter
-        // by material. company_id stays on the advance itself.
+        // company_advance_amount columns (desktop INSERT):
+        //   COMPANY_ID, JEWEL_MATERIAL_TYPE, BILL_NUMBER, PAID_DATE,
+        //   BILL_AMOUNT, PAID_AMOUNT, TOTAL_AMOUNT, USER_ID
+        // The material is ON the advance row, so there is no need to join
+        // company_billing to find it -- that join also risked dropping rows
+        // whose parent bill hadn't projected yet, or double-counting when a
+        // bill_number repeats across companies. The date column is paid_date;
+        // querying the non-existent advance_date silently returned 0 rows.
         StringBuilder sql = new StringBuilder(
-            "SELECT count(*)                                       AS cnt, " +
+            "SELECT count(*)                                         AS cnt, " +
             "       COALESCE(sum(numF(a.payload->>'paid_amount')),0) AS amt " +
             "  FROM projections a " +
-            "  JOIN projections b " +
-            "    ON b.table_name = 'company_billing' AND NOT b.deleted " +
-            "   AND b.payload->>'bill_number' = a.payload->>'bill_number' " +
-            "   AND upper(COALESCE(b.payload->>'jewel_material_type','')) = ? " +
             " WHERE a.table_name = 'company_advance_amount' AND NOT a.deleted " +
-            "   AND COALESCE(a.payload->>'advance_date','') LIKE ? ");
+            "   AND upper(COALESCE(a.payload->>'jewel_material_type','')) = ? " +
+            "   AND COALESCE(a.payload->>'paid_date','') LIKE ? ");
         java.util.List<Object> args = new java.util.ArrayList<>();
         args.add(material);
         args.add(date + "%");
