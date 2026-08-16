@@ -8,9 +8,13 @@
 --  and a Meet "Pawn Shop" room read from. Until this is done the shop
 --  works normally on its own PC and is simply invisible everywhere else.
 --
---  ONE THING TO FILL IN: the owner's gmail on line marked <-- EDIT.
---  That address is how the owner signs in on the phone, and it must be
---  an address they can actually receive mail at — the OTP goes there.
+--  Nothing to fill in. Three addresses may sign in:
+--     rajeshwariaiyanarpuram@gmail.com   the owner, this branch only
+--     tirukaruna@gmail.com               admin, every branch
+--     neelamanikandank@gmail.com         admin, every branch
+--
+--  The owner's inbox must be reachable — the sign-in code goes there, and
+--  that same first login is what mints the box token images need.
 -- =====================================================================
 
 
@@ -22,13 +26,13 @@ ON CONFLICT DO NOTHING;
 
 -- 2. The legacy primary_email column. user_shop_access below is what
 --    actually gates login; this keeps the tenant row complete.
-UPDATE public.tenants SET primary_email = 'OWNER_EMAIL_HERE@gmail.com'   -- <-- EDIT
+UPDATE public.tenants SET primary_email = 'rajeshwariaiyanarpuram@gmail.com'
 WHERE shop_id = 'aiyanarpuram';
 
 
 -- 3a. OWNER — the address that signs in on the phone.
 INSERT INTO public.user_shop_access (email, shop_id, role)
-VALUES ('OWNER_EMAIL_HERE@gmail.com', 'aiyanarpuram', 'OWNER')            -- <-- EDIT
+VALUES ('rajeshwariaiyanarpuram@gmail.com', 'aiyanarpuram', 'OWNER')         
 ON CONFLICT (email, shop_id) DO NOTHING;
 
 
