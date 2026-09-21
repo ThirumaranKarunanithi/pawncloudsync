@@ -125,7 +125,8 @@
         <table>
           <thead><tr>
             <th>Shop</th><th>Sending</th>
-            <th class="num">Rows</th><th class="num hide">Photos</th><th class="num hide">Backups</th>
+            <th class="num">Bills</th><th class="num hide">Customers</th>
+            <th class="num hide">Photos</th><th class="num hide">Backups</th>
             <th class="num">Database</th><th class="num">Share</th><th class="num">Total</th>
             <th class="num">Cost</th><th>Sign-ins</th><th></th>
           </tr></thead>
@@ -403,7 +404,14 @@ function drawShops(shops) {
           ${s.photo_key ? '' : ' <span class="pill warn" title="Nobody has signed in on the phone for this shop yet, so photos and backups are refused">no photo key</span>'}
           ${s.readable === false ? ' <span class="pill bad">schema unreadable</span>' : ''}</td>
       <td>${sendingPill(s)}</td>
-      <td class="num">${Number(s.rows || 0).toLocaleString()}</td>
+      <td class="num">${Number(s.bills || 0).toLocaleString()}
+          <div class="muted" title="Every row the app keeps: bills, customers, repledges, advances, day accounts and the ledgers">
+            ${Number(s.rows || 0).toLocaleString()} rows${
+              Number(s.keyless_rows || 0) > 0
+                ? ` <span class="pill warn" title="Rows the cloud had to invent a key for, because the shop PC's table has no primary key. They pile up instead of replacing each other. The shop PC setup fixes this.">${
+                    Number(s.keyless_rows).toLocaleString()} unkeyed</span>`
+                : ''}</div></td>
+      <td class="num hide">${Number(s.customers || 0).toLocaleString()}</td>
       <td class="num hide">${Number(s.photos || 0).toLocaleString()}</td>
       <td class="num hide">${Number(s.backups || 0).toLocaleString()}</td>
       <td class="num">${bytes(s.db_bytes)}</td>

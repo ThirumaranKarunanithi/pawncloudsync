@@ -586,6 +586,7 @@ public class AdminController {
             m.put("photos", 0L); m.put("photo_bytes", 0L);
             m.put("backups", 0L); m.put("backup_bytes", 0L);
             m.put("box_bytes", 0L); m.put("rows", 0L);
+            m.put("bills", 0L); m.put("customers", 0L); m.put("keyless_rows", 0L);
             m.put("last_event_at", null); m.put("hours_since_sync", null);
             return m;
         }
@@ -596,10 +597,26 @@ public class AdminController {
                 "       (SELECT count(*) FROM " + s + ".backup_files) AS backups, " +
                 "       (SELECT COALESCE(sum(file_size_bytes),0) FROM " + s + ".backup_files) AS backup_bytes, " +
                 "       (SELECT count(*) FROM " + s + ".projections WHERE NOT deleted) AS rows, " +
+                // What a person means by "how big is this shop": its bills.
+                // The row count above is every table the app keeps — bills,
+                // customers, repledges, advances, day accounts and fourteen
+                // ledgers — and is not a count of anything recognisable.
+                "       (SELECT count(*) FROM " + s + ".projections " +
+                "         WHERE table_name = 'company_billing' AND NOT deleted) AS bills, " +
+                "       (SELECT count(*) FROM " + s + ".projections " +
+                "         WHERE table_name = 'customer_details' AND NOT deleted) AS customers, " +
+                // Rows the cloud had to invent a key for: one per event rather
+                // than one per thing, so they pile up. This is the duplication
+                // the shop-PC setup now fixes by giving those tables keys.
+                "       (SELECT count(*) FROM " + s + ".projections " +
+                "         WHERE row_pk LIKE 'evt:%' AND NOT deleted) AS keyless_rows, " +
                 "       (SELECT max(received_at) FROM " + s + ".events) AS last_event_at");
             long photoBytes = num(r.get("photo_bytes"));
             long backupBytes = num(r.get("backup_bytes"));
             m.put("readable", true);
+            m.put("bills", num(r.get("bills")));
+            m.put("customers", num(r.get("customers")));
+            m.put("keyless_rows", num(r.get("keyless_rows")));
             m.put("photos", num(r.get("photos")));
             m.put("photo_bytes", photoBytes);
             m.put("backups", num(r.get("backups")));
@@ -616,6 +633,7 @@ public class AdminController {
             m.put("photos", 0L); m.put("photo_bytes", 0L);
             m.put("backups", 0L); m.put("backup_bytes", 0L);
             m.put("box_bytes", 0L); m.put("rows", 0L);
+            m.put("bills", 0L); m.put("customers", 0L); m.put("keyless_rows", 0L);
             m.put("last_event_at", null); m.put("hours_since_sync", null);
         }
         return m;
