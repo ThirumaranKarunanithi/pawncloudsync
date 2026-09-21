@@ -43,7 +43,37 @@ public class SecurityConfig {
         cfg.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource src = new UrlBasedCorsConfigurationSource();
         src.registerCorsConfiguration("/**", cfg);
-        return src;
+
+        // A page this API serves itself (/admin.html) calls this API. Browsers
+        // put an Origin header on those POSTs too, and Spring stopped treating
+        // same-origin as exempt, so without this the API refuses its own page
+        // with "Invalid CORS request" unless someone remembers to put its own
+        // address in CORS_ORIGINS.
+        //
+        // Same-origin is judged by Host, not by the request URL: behind
+        // Railway's proxy the URL Tomcat sees is an internal one. A page on
+        // another site cannot fake this — the browser sets both headers, so its
+        // Origin is its own and never matches this Host, and the allowlist above
+        // still decides. Callers that are not browsers send no Origin at all.
+        return request -> {
+            String origin = request.getHeader("Origin");
+            String host = request.getHeader("Host");
+            if (origin != null && host != null && host.equalsIgnoreCase(hostOf(origin))) {
+                CorsConfiguration self = new CorsConfiguration();
+                self.setAllowedOrigins(List.of(origin));
+                self.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+                self.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Shop-Id"));
+                self.setMaxAge(3600L);
+                return self;
+            }
+            return src.getCorsConfiguration(request);
+        };
+    }
+
+    /** "https://devpawn.magizhchi.academy" -> "devpawn.magizhchi.academy" (port kept when given). */
+    private static String hostOf(String origin) {
+        int scheme = origin.indexOf("://");
+        return scheme < 0 ? origin : origin.substring(scheme + 3);
     }
 
     @Bean
