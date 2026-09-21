@@ -19,10 +19,14 @@
 --     dead; VACUUM then lets Postgres REUSE that room for new rows. The
 --     volume usage bar will NOT fall. It stops the growth - it does not
 --     undo it.
---     The only things that shrink the file are VACUUM FULL (which needs
---     as much free space as the table is big - impossible at 91%) and a
---     dump/restore. So: RESIZE THE VOLUME FIRST, then prune, then
---     reclaim with P4 once there is room to work in.
+--     The only things that shrink the file are VACUUM FULL and a
+--     dump/restore. VACUUM FULL writes a fresh copy of what is LEFT, so
+--     the free space it needs is the size of the REMAINDER, not of the
+--     whole table: measured on a 78 MB table with 80% of its rows
+--     deleted, it needed room for 16 MB and left a 16 MB table.
+--     That makes an emptied notifications table cheap to reclaim even on
+--     a full volume, and an events table that keeps two thirds of its
+--     rows expensive. Resize before reclaiming those.
 -- =====================================================================
 
 

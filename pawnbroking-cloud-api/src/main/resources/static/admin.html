@@ -190,8 +190,9 @@
       </div>
       <p class="muted" style="font-size:12px;margin:10px 0 0">
         Deleting frees room inside the database; it does not shrink the file on disk. The volume bar only
-        falls after a <code>VACUUM FULL</code>, which needs as much free space as the table is big — so
-        resize first, prune second, reclaim last.
+        falls after a <code>VACUUM FULL</code> on the table, run by hand when nothing is syncing. That
+        writes a fresh copy of what is LEFT, so the free space it needs is the size of the remainder, not
+        of the whole table — which is why the tables you have just emptied are the cheap ones to reclaim.
       </p>
       <div id="hkRuns" style="margin-top:12px"></div>
       <details style="margin-top:10px"><summary>Where the space is</summary>
