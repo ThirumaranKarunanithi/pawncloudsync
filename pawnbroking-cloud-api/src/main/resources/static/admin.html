@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pawn Cloud Admin</title>
+<style>
+  :root{
+    --ink:#2a1a1d; --muted:#7a6a6d; --line:#e4d9db; --bg:#faf7f7; --card:#ffffff;
+    --royal:#7b1d2e; --royal-soft:#f4ecee; --gold:#a8812a; --ok:#1f7a4d; --warn:#b26a00; --bad:#a11d2b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "Segoe UI",system-ui,Arial,sans-serif}
+  header{background:var(--royal);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  header h1{font-size:17px;margin:0;font-weight:600;letter-spacing:.2px}
+  header .who{margin-left:auto;font-size:13px;opacity:.9;display:flex;align-items:center;gap:12px}
+  main{max-width:1180px;margin:0 auto;padding:20px 16px 60px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:18px}
+  .card h2{margin:0 0 4px;font-size:15px;color:var(--royal)}
+  .card p.sub{margin:0 0 14px;color:var(--muted);font-size:13px}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .tile{border:1px solid var(--line);border-radius:9px;padding:12px 14px;background:var(--royal-soft)}
+  .tile .n{font-size:22px;font-weight:650;line-height:1.1}
+  .tile .l{font-size:12px;color:var(--muted);margin-top:3px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{border-bottom:1px solid var(--line);padding:8px 8px;text-align:left;vertical-align:top}
+  th{font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
+  td.num,th.num{text-align:right;white-space:nowrap}
+  tr.shop:hover{background:#fcfafa}
+  button{font:inherit;border:1px solid var(--royal);background:var(--royal);color:#fff;border-radius:7px;
+         padding:7px 13px;cursor:pointer}
+  button.ghost{background:#fff;color:var(--royal)}
+  button.small{padding:4px 9px;font-size:12px;border-radius:6px}
+  button.danger{border-color:var(--bad);background:#fff;color:var(--bad)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  input,select{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink)}
+  input:focus,select:focus{outline:2px solid var(--royal-soft);border-color:var(--royal)}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .row > div{flex:1;min-width:150px}
+  .pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line)}
+  .pill.ok{color:var(--ok);border-color:#bfe3d0;background:#f1faf5}
+  .pill.warn{color:var(--warn);border-color:#f0dcb8;background:#fdf7ec}
+  .pill.bad{color:var(--bad);border-color:#efc9ce;background:#fdf0f1}
+  .msg{padding:10px 12px;border-radius:8px;margin:10px 0;font-size:13px;display:none}
+  .msg.show{display:block}
+  .msg.err{background:#fdf0f1;border:1px solid #efc9ce;color:var(--bad)}
+  .msg.ok{background:#f1faf5;border:1px solid #bfe3d0;color:var(--ok)}
+  .key{font-family:Consolas,monospace;font-size:12px;background:#f6f1f2;border:1px solid var(--line);
+       border-radius:6px;padding:8px;word-break:break-all;margin-top:6px}
+  .login{max-width:420px;margin:60px auto}
+  .muted{color:var(--muted)}
+  .emails{font-size:12px;color:var(--muted)}
+  .emails span{display:inline-block;margin:2px 6px 2px 0;padding:1px 6px;border:1px solid var(--line);border-radius:5px}
+  details summary{cursor:pointer;color:var(--royal);font-size:12px}
+  .bar{height:6px;background:var(--royal-soft);border-radius:4px;overflow:hidden;margin-top:4px}
+  .bar > i{display:block;height:100%;background:var(--royal)}
+  @media (max-width:640px){ th.hide,td.hide{display:none} }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Pawn Cloud &middot; Admin</h1>
+  <div class="who" id="who" hidden>
+    <span id="whoEmail"></span>
+    <button class="ghost small" onclick="signOut()">Sign out</button>
+  </div>
+</header>
+
+<main>
+  <!-- ── sign in ─────────────────────────────────────────────── -->
+  <section id="loginCard" class="card login">
+    <h2>Sign in</h2>
+    <p class="sub">A code is sent to your address. Only admin addresses can open this page.</p>
+    <div class="msg" id="loginMsg"></div>
+    <div id="step1">
+      <label for="email">Admin email</label>
+      <input id="email" type="email" style="width:100%" autocomplete="username" placeholder="you@gmail.com">
+      <p style="margin:12px 0 0"><button onclick="sendCode()" id="sendBtn">Send code</button></p>
+    </div>
+    <div id="step2" hidden>
+      <label for="code">The 6-digit code</label>
+      <input id="code" inputmode="numeric" style="width:100%" autocomplete="one-time-code" placeholder="123456">
+      <p style="margin:12px 0 0">
+        <button onclick="verifyCode()" id="verifyBtn">Sign in</button>
+        <button class="ghost" onclick="backToEmail()">Back</button>
+      </p>
+    </div>
+  </section>
+
+  <!-- ── console ─────────────────────────────────────────────── -->
+  <div id="console" hidden>
+    <div class="msg" id="msg"></div>
+
+    <section class="card">
+      <h2>Where things stand</h2>
+      <p class="sub" id="asOf"></p>
+      <div class="tiles" id="tiles"></div>
+    </section>
+
+    <section class="card">
+      <h2>Shops</h2>
+      <p class="sub">Space is what each shop actually holds: its rows in the cloud database, and the photos and
+        backups in Magizhchi Share. The cost column splits the monthly bill by that share.</p>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>Shop</th><th>Sending</th>
+            <th class="num">Rows</th><th class="num hide">Photos</th><th class="num hide">Backups</th>
+            <th class="num">Database</th><th class="num">Share</th><th class="num">Total</th>
+            <th class="num">Cost</th><th>Sign-ins</th><th></th>
+          </tr></thead>
+          <tbody id="shopRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>New shop</h2>
+      <p class="sub">Makes the tenant, its tables, the owner's sign-in and the sync key — the key is shown once.</p>
+      <div class="row">
+        <div><label for="nsId">Shop id (lowercase, no spaces)</label><input id="nsId" placeholder="dhineshsuganya"></div>
+        <div><label for="nsName">Name to show</label><input id="nsName" placeholder="Dhineshsuganya Pawn Broking"></div>
+        <div><label for="nsEmail">Owner's email</label><input id="nsEmail" type="email" placeholder="owner@gmail.com"></div>
+        <div style="flex:0 0 auto"><button onclick="createShop()" id="createBtn">Create shop</button></div>
+      </div>
+      <div id="newShopOut"></div>
+    </section>
+
+    <section class="card">
+      <h2>Admins</h2>
+      <p class="sub">Who may open this page. Each address signs in with a code, so it needs a Magizhchi Share account.</p>
+      <table><tbody id="adminRows"></tbody></table>
+      <div class="row" style="margin-top:12px">
+        <div><label for="newAdmin">Add an admin</label><input id="newAdmin" type="email" placeholder="name@gmail.com"></div>
+        <div style="flex:0 0 auto"><button class="ghost" onclick="addAdmin()">Add</button></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>What the cloud costs</h2>
+      <p class="sub">Type the real monthly amounts. Everything above uses this to work out each shop's share.</p>
+      <table><thead><tr><th>Line</th><th class="num" style="width:160px">Every month</th><th style="width:40px"></th></tr></thead>
+        <tbody id="costRows"></tbody></table>
+      <div class="row" style="margin-top:12px">
+        <div style="flex:0 0 auto"><button class="ghost" onclick="addCostRow()">Add a line</button></div>
+        <div style="flex:0 0 auto"><button onclick="saveCosts()" id="costBtn">Save</button></div>
+        <div class="muted" id="costTotal" style="align-self:center"></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+const API = '';                       // same origin as this page
+let token = sessionStorage.getItem('pawnAdminToken') || '';
+let adminEmail = sessionStorage.getItem('pawnAdminEmail') || '';
+let costs = [];
+let currency = 'INR';
+
+// ── helpers ──────────────────────────────────────────────────
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+      ...(opts.headers || {})
+    }
+  });
+  const text = await res.text();
+  let body = null;
+  try { body = text ? JSON.parse(text) : null; } catch { body = { message: text }; }
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) { if (token) signOut(); }
+    throw new Error((body && (body.message || body.error)) || ('error ' + res.status));
+  }
+  return body;
+}
+function show(el, text, kind) {
+  el.textContent = text;
+  el.className = 'msg show ' + (kind || 'ok');
+  if (kind !== 'err') setTimeout(() => { el.className = 'msg'; }, 6000);
+}
+const msgEl = () => document.getElementById('msg');
+function bytes(n) {
+  n = Number(n || 0);
+  if (n < 1024) return n + ' B';
+  const u = ['KB','MB','GB','TB'];
+  let i = -1;
+  do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1);
+  return n.toFixed(n < 10 ? 1 : 0) + ' ' + u[i];
+}
+function money(n) {
+  const v = Number(n || 0);
+  return (currency === 'INR' ? '₹' : currency + ' ') + v.toLocaleString(undefined, {maximumFractionDigits: 0});
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ── sign in ──────────────────────────────────────────────────
+async function sendCode() {
+  const email = document.getElementById('email').value.trim();
+  if (!email) return;
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+  try {
+    const r = await api('/v1/admin/login/send-otp', { method: 'POST', body: JSON.stringify({ email }) });
+    show(document.getElementById('loginMsg'), r.message, 'ok');
+    document.getElementById('step1').hidden = true;
+    document.getElementById('step2').hidden = false;
+    document.getElementById('code').focus();
+  } catch (e) {
+    show(document.getElementById('loginMsg'), e.message, 'err');
+  } finally { btn.disabled = false; }
+}
+function backToEmail() {
+  document.getElementById('step2').hidden = true;
+  document.getElementById('step1').hidden = false;
+}
+async function verifyCode() {
+  const email = document.getElementById('email').value.trim();
+  const code = document.getElementById('code').value.trim();
+  const btn = document.getElementById('verifyBtn');
+  btn.disabled = true;
+  try {
+    const r = await api('/v1/admin/login/verify', { method: 'POST', body: JSON.stringify({ email, code }) });
+    token = r.token; adminEmail = r.email;
+    sessionStorage.setItem('pawnAdminToken', token);
+    sessionStorage.setItem('pawnAdminEmail', adminEmail);
+    await openConsole();
+  } catch (e) {
+    show(document.getElementById('loginMsg'), e.message, 'err');
+  } finally { btn.disabled = false; }
+}
+function signOut() {
+  token = ''; adminEmail = '';
+  sessionStorage.removeItem('pawnAdminToken');
+  sessionStorage.removeItem('pawnAdminEmail');
+  document.getElementById('console').hidden = true;
+  document.getElementById('who').hidden = true;
+  document.getElementById('loginCard').hidden = false;
+  backToEmail();
+}
+
+// ── console ──────────────────────────────────────────────────
+async function openConsole() {
+  document.getElementById('loginCard').hidden = true;
+  document.getElementById('console').hidden = false;
+  document.getElementById('who').hidden = false;
+  document.getElementById('whoEmail').textContent = adminEmail;
+  await refresh();
+}
+async function refresh() {
+  try {
+    const [ov, shops, admins, cost] = await Promise.all([
+      api('/v1/admin/overview'), api('/v1/admin/shops'),
+      api('/v1/admin/admins'), api('/v1/admin/costs')
+    ]);
+    currency = ov.currency || 'INR';
+    costs = cost.items || [];
+    drawTiles(ov);
+    drawShops(shops);
+    drawAdmins(admins);
+    drawCosts();
+    document.getElementById('asOf').textContent =
+      'As of ' + new Date().toLocaleString() + '. Signed in as ' + adminEmail + '.';
+  } catch (e) { show(msgEl(), e.message, 'err'); }
+}
+function drawTiles(ov) {
+  const t = [
+    [ov.shops_total, 'shops'],
+    [ov.syncing_today, 'sent something today'],
+    [ov.silent_over_7_days, 'silent over 7 days'],
+    [ov.never_synced, 'never synced'],
+    [ov.without_photo_key, 'no photo key yet'],
+    [bytes(ov.db_bytes), 'cloud database'],
+    [bytes(ov.box_bytes), 'in Magizhchi Share'],
+    [money(ov.monthly_cost), 'every month']
+  ];
+  document.getElementById('tiles').innerHTML = t.map(([n, l]) =>
+    `<div class="tile"><div class="n">${esc(n)}</div><div class="l">${esc(l)}</div></div>`).join('');
+}
+function sendingPill(s) {
+  const h = s.hours_since_sync;
+  if (h === null || h === undefined) return '<span class="pill bad">never</span>';
+  if (h <= 24) return '<span class="pill ok">today</span>';
+  if (h <= 24 * 7) return `<span class="pill warn">${Math.round(h / 24)} d ago</span>`;
+  return `<span class="pill bad">${Math.round(h / 24)} d ago</span>`;
+}
+function drawShops(shops) {
+  document.getElementById('shopRows').innerHTML = shops.map(s => {
+    const total = Number(s.db_bytes || 0) + Number(s.box_bytes || 0);
+    const emails = (s.emails || []).map(e =>
+      `<span>${esc(e.email)}<button class="small ghost" style="margin-left:6px;padding:0 5px"
+        onclick="removeEmail('${esc(s.shop_id)}','${esc(e.email)}')" title="Remove">&times;</button></span>`).join('');
+    return `<tr class="shop">
+      <td><strong>${esc(s.display_name || s.shop_id)}</strong><br>
+          <span class="muted">${esc(s.shop_id)}</span>
+          ${s.active ? '' : ' <span class="pill bad">off</span>'}
+          ${s.photo_key ? '' : ' <span class="pill warn" title="Nobody has signed in on the phone for this shop yet, so photos and backups are refused">no photo key</span>'}
+          ${s.readable === false ? ' <span class="pill bad">schema unreadable</span>' : ''}</td>
+      <td>${sendingPill(s)}</td>
+      <td class="num">${Number(s.rows || 0).toLocaleString()}</td>
+      <td class="num hide">${Number(s.photos || 0).toLocaleString()}</td>
+      <td class="num hide">${Number(s.backups || 0).toLocaleString()}</td>
+      <td class="num">${bytes(s.db_bytes)}</td>
+      <td class="num">${bytes(s.box_bytes)}</td>
+      <td class="num">${bytes(total)}</td>
+      <td class="num">${money(s.cost_amount)}<div class="muted">${Number(s.cost_percent).toFixed(1)}%</div>
+          <div class="bar"><i style="width:${Math.min(100, Number(s.cost_percent))}%"></i></div></td>
+      <td><div class="emails">${emails || '<span class="pill bad">nobody</span>'}</div>
+          <details><summary>add</summary>
+            <div style="margin-top:6px"><input placeholder="email" id="add-${esc(s.shop_id)}" style="width:170px">
+            <button class="small ghost" onclick="addEmail('${esc(s.shop_id)}')">Add</button></div>
+          </details></td>
+      <td><button class="small ghost" onclick="showKey('${esc(s.shop_id)}')">Key</button></td>
+    </tr>`;
+  }).join('');
+}
+function drawAdmins(admins) {
+  document.getElementById('adminRows').innerHTML = admins.map(a =>
+    `<tr><td>${esc(a.email)}${a.email === adminEmail ? ' <span class="pill">you</span>' : ''}</td>
+     <td class="muted">added ${new Date(a.added_at).toLocaleDateString()}${a.added_by ? ' by ' + esc(a.added_by) : ''}</td>
+     <td style="width:40px">${a.email === adminEmail ? '' :
+        `<button class="small danger" onclick="removeAdmin('${esc(a.email)}')">Remove</button>`}</td></tr>`).join('');
+}
+function drawCosts() {
+  document.getElementById('costRows').innerHTML = costs.map((c, i) =>
+    `<tr><td><input value="${esc(c.name)}" style="width:100%" oninput="costs[${i}].name=this.value"></td>
+     <td class="num"><input type="number" min="0" step="1" value="${Number(c.monthly_amount || 0)}"
+        style="width:140px;text-align:right" oninput="costs[${i}].monthly_amount=this.value; costTotalText()"></td>
+     <td><button class="small danger" onclick="costs.splice(${i},1); drawCosts(); costTotalText()">&times;</button></td></tr>`).join('');
+  costTotalText();
+}
+function costTotalText() {
+  const t = costs.reduce((a, c) => a + Number(c.monthly_amount || 0), 0);
+  document.getElementById('costTotal').textContent = 'Total ' + money(t) + ' a month';
+}
+function addCostRow() { costs.push({ name: '', monthly_amount: 0 }); drawCosts(); }
+async function saveCosts() {
+  const btn = document.getElementById('costBtn');
+  btn.disabled = true;
+  try {
+    await api('/v1/admin/costs', { method: 'PUT', body: JSON.stringify(
+      costs.map(c => ({ id: c.id, name: c.name, monthly_amount: Number(c.monthly_amount || 0), note: c.note }))) });
+    show(msgEl(), 'Costs saved.', 'ok');
+    await refresh();
+  } catch (e) { show(msgEl(), e.message, 'err'); } finally { btn.disabled = false; }
+}
+
+// ── shop actions ─────────────────────────────────────────────
+async function createShop() {
+  const shop_id = document.getElementById('nsId').value.trim().toLowerCase();
+  const display_name = document.getElementById('nsName').value.trim();
+  const email = document.getElementById('nsEmail').value.trim();
+  const btn = document.getElementById('createBtn');
+  btn.disabled = true;
+  try {
+    const r = await api('/v1/admin/shops', { method: 'POST',
+      body: JSON.stringify({ shop_id, display_name, email }) });
+    document.getElementById('newShopOut').innerHTML =
+      `<div class="msg ok show"><strong>${esc(r.display_name)}</strong> is ready.
+        Its sync key is shown once — put it straight into the setup exe on the shop PC:
+        <div class="key">${esc(r.api_key)}</div>
+        <ul style="margin:8px 0 0 18px;padding:0">${r.next_steps.map(s => '<li>' + esc(s) + '</li>').join('')}</ul>
+       </div>`;
+    document.getElementById('nsId').value = '';
+    document.getElementById('nsName').value = '';
+    document.getElementById('nsEmail').value = '';
+    await refresh();
+  } catch (e) { show(msgEl(), e.message, 'err'); } finally { btn.disabled = false; }
+}
+async function addEmail(shopId) {
+  const input = document.getElementById('add-' + shopId);
+  const email = input.value.trim();
+  if (!email) return;
+  try {
+    await api(`/v1/admin/shops/${encodeURIComponent(shopId)}/emails`,
+      { method: 'POST', body: JSON.stringify({ email, role: 'OWNER' }) });
+    show(msgEl(), email + ' can now sign in for ' + shopId + '.', 'ok');
+    await refresh();
+  } catch (e) { show(msgEl(), e.message, 'err'); }
+}
+async function removeEmail(shopId, email) {
+  if (!confirm(`Take ${email} off ${shopId}?\n\nThey lose the shop on their phone at once.`)) return;
+  try {
+    await api(`/v1/admin/shops/${encodeURIComponent(shopId)}/emails/${encodeURIComponent(email)}`,
+      { method: 'DELETE' });
+    await refresh();
+  } catch (e) { show(msgEl(), e.message, 'err'); }
+}
+async function showKey(shopId) {
+  try {
+    const r = await api(`/v1/admin/shops/${encodeURIComponent(shopId)}/api-key`);
+    const rotate = confirm(`Sync key for ${shopId}:\n\n${r.api_key}\n\n` +
+      `OK copies it to the clipboard.\nCancel if you meant to make a NEW key instead.`);
+    if (rotate) {
+      try { await navigator.clipboard.writeText(r.api_key); show(msgEl(), 'Key copied.', 'ok'); }
+      catch { show(msgEl(), 'Key shown above — copy it by hand.', 'ok'); }
+      return;
+    }
+    if (!confirm(`Make a NEW key for ${shopId}?\n\nThe shop PC STOPS syncing until the new key is in its setup.`)) return;
+    const n = await api(`/v1/admin/shops/${encodeURIComponent(shopId)}/api-key`, { method: 'POST' });
+    alert(`New key for ${shopId}:\n\n${n.api_key}\n\n${n.warning}`);
+    await refresh();
+  } catch (e) { show(msgEl(), e.message, 'err'); }
+}
+
+// ── admins ───────────────────────────────────────────────────
+async function addAdmin() {
+  const email = document.getElementById('newAdmin').value.trim();
+  if (!email) return;
+  try {
+    const r = await api('/v1/admin/admins', { method: 'POST', body: JSON.stringify({ email }) });
+    document.getElementById('newAdmin').value = '';
+    show(msgEl(), r.note, 'ok');
+    await refresh();
+  } catch (e) { show(msgEl(), e.message, 'err'); }
+}
+async function removeAdmin(email) {
+  if (!confirm(`Remove ${email} as an admin?`)) return;
+  try { await api('/v1/admin/admins/' + encodeURIComponent(email), { method: 'DELETE' }); await refresh(); }
+  catch (e) { show(msgEl(), e.message, 'err'); }
+}
+
+// ── go ───────────────────────────────────────────────────────
+document.getElementById('email').addEventListener('keydown', e => { if (e.key === 'Enter') sendCode(); });
+document.getElementById('code').addEventListener('keydown', e => { if (e.key === 'Enter') verifyCode(); });
+if (token) { openConsole().catch(() => signOut()); }
+</script>
+</body>
+</html>

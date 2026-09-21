@@ -52,6 +52,12 @@ pawnbroking:
   # Magizhchi Share ("the box") — used for passwordless email-OTP login
   box:
     url: ${MAGIZHCHI_BOX_URL:https://box.magizhchi.software}
+  # Who may open /admin.html. Comma separated; each address signs in with a
+  # code sent to it, so it must have a Magizhchi Share account. Read on every
+  # boot and added if missing — admins are otherwise managed from the page,
+  # and this variable never removes anyone.
+  admin:
+    emails: ${ADMIN_EMAILS:tirukaruna@gmail.com}
   # Magizhchi ID single sign-on. Set MAGIZHCHI_JWT_SECRET to the suite's
   # shared HS256 secret to let suite products (Meet's Pawn Shop rooms) call
   # this API with a Magizhchi ID token instead of a pawn login. Left blank,

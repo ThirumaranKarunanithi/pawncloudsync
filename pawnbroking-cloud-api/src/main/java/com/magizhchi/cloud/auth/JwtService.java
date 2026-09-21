@@ -72,6 +72,26 @@ public class JwtService {
                 .compact();
     }
 
+    /**
+     * Admin console token. It carries an email and no shop_id: an admin is
+     * not a user of any one shop, and nothing downstream should ever read
+     * shop data with it. Short-lived on purpose — this token can create
+     * shops and hand out access, so a browser left open in a shop is not a
+     * standing key. AdminController re-checks the email against
+     * public.admin_users on every call, so removing an admin takes effect
+     * at once rather than when their token expires.
+     */
+    public String mintAdmin(String email) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject(email)
+                .claims(Map.of("kind", "admin", "role", "admin"))
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plus(Duration.ofHours(12))))
+                .signWith(key)
+                .compact();
+    }
+
     public Claims parse(String token) {
         Jws<Claims> jws = Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
         return jws.getPayload();
