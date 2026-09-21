@@ -82,6 +82,26 @@ public class PruneService {
             log.info("prune is switched off in the console settings");
             return Map.of("skipped", true, "reason", "switched off in the console");
         }
+
+        // Refuse to delete when the volume is nearly full.
+        //
+        // Deleting rows WRITES: every deleted row goes into the write-ahead
+        // log first, and that log only shrinks at a checkpoint. On 21-09-2026
+        // a prune of 2.3 million rows was started with 360 MB free, filled
+        // pg_wal, and Postgres shut itself down and could not restart until
+        // the volume was resized. Batching kept each transaction small, which
+        // is not the same as keeping the log small.
+        //
+        // Postgres cannot see its own disk, so the volume size is a number the
+        // console is told once. Left at 0 the check is simply skipped — it
+        // cannot invent a limit it has no way to know.
+        if (!dryRun) {
+            String tight = spaceWarning();
+            if (tight != null) {
+                log.warn("prune refused: {}", tight);
+                return Map.of("skipped", true, "reason", tight);
+            }
+        }
         // 0 means "keep everything" for that table — a deliberate off switch,
         // not a bug, so it is honoured rather than corrected.
         if (eventDays <= 0 && notifDays <= 0) {
@@ -210,7 +230,9 @@ public class PruneService {
             return n == null ? 0 : n;
         }
 
+        int checkpointEvery = Math.max(1, intSetting("prune.checkpoint.every.batches", 5));
         long total = 0;
+        int batches = 0;
         while (System.currentTimeMillis() < deadline) {
             int deleted = jdbc.update(
                     "DELETE FROM " + qualified + " WHERE ctid IN (" +
@@ -218,9 +240,54 @@ public class PruneService {
                     "   WHERE " + dateColumn + " < now() - make_interval(days => ?) LIMIT " + BATCH + ")",
                     days);
             total += deleted;
+            batches++;
+            // A checkpoint is what lets Postgres recycle the write-ahead log
+            // instead of piling it up on the disk. Without this, a long run of
+            // deletes grows pg_wal until the next timed checkpoint — which is
+            // exactly how this job filled a volume once.
+            if (batches % checkpointEvery == 0) checkpoint();
             if (deleted < BATCH) break;
         }
+        if (batches > 0) checkpoint();
         return total;
+    }
+
+    private void checkpoint() {
+        try {
+            jdbc.execute("CHECKPOINT");
+        } catch (Exception e) {
+            // Needs a superuser. Where it is not allowed, say so once and carry
+            // on: the deletes are still correct, they just lean on Postgres's
+            // own timed checkpoints.
+            log.warn("could not CHECKPOINT between batches ({}). Watch the volume.", e.getMessage());
+        }
+    }
+
+    /**
+     * @return why it is too tight to delete anything right now, or null when
+     *         there is room (or when nobody has said how big the volume is).
+     */
+    private String spaceWarning() {
+        int volumeGb = intSetting("prune.volume.gb", 0);
+        if (volumeGb <= 0) return null;
+        long used = 0;
+        try {
+            Long db = jdbc.queryForObject("SELECT pg_database_size(current_database())", Long.class);
+            Long wal = jdbc.queryForObject("SELECT COALESCE(sum(size), 0) FROM pg_ls_waldir()", Long.class);
+            used = (db == null ? 0 : db) + (wal == null ? 0 : wal);
+        } catch (Exception e) {
+            log.warn("could not measure how full the volume is: {}", e.toString());
+            return null;
+        }
+        long volume = volumeGb * 1024L * 1024 * 1024;
+        // Deleting needs room to write the log first. Below this much free
+        // space, the safe move is to make the volume bigger, not to delete.
+        if (used > volume * 85 / 100) {
+            return "the database and its log are " + human(used) + " of a " + volumeGb +
+                   " GB volume. Deleting writes to the log before it frees anything, so this " +
+                   "would risk filling the disk. Make the volume bigger first, then run it again.";
+        }
+        return null;
     }
 
     private void vacuum(String schema, String table) {

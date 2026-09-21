@@ -456,6 +456,18 @@ public class AdminController {
         out.put("events_days", prune.intSetting("prune.events.days", 90));
         out.put("notifications_days", prune.intSetting("prune.notifications.days", 30));
         out.put("vacuum", Boolean.parseBoolean(prune.setting("prune.vacuum", "true")));
+        out.put("volume_gb", prune.intSetting("prune.volume.gb", 0));
+        out.put("checkpoint_every", prune.intSetting("prune.checkpoint.every.batches", 5));
+        // What the volume actually holds now — the database plus its
+        // write-ahead log, which is the part that filled the disk.
+        try {
+            out.put("database_bytes", jdbc.queryForObject(
+                    "SELECT pg_database_size(current_database())", Long.class));
+            out.put("wal_bytes", jdbc.queryForObject(
+                    "SELECT COALESCE(sum(size), 0) FROM pg_ls_waldir()", Long.class));
+        } catch (Exception e) {
+            log.warn("could not read the database or WAL size: {}", e.toString());
+        }
         out.put("runs", jdbc.queryForList(
                 "SELECT id, started_at, finished_at, triggered_by, dry_run, events_deleted, " +
                 "       notifications_deleted, bytes_before, bytes_after, shops, note " +
@@ -471,7 +483,8 @@ public class AdminController {
     }
 
     public record HousekeepingPatch(Boolean enabled, Integer events_days,
-                                    Integer notifications_days, Boolean vacuum) {}
+                                    Integer notifications_days, Boolean vacuum,
+                                    Integer volume_gb, Integer checkpoint_every) {}
 
     @PutMapping("/housekeeping")
     public Map<String, Object> putHousekeeping(@RequestHeader(value = "Authorization", required = false) String auth,
@@ -493,6 +506,15 @@ public class AdminController {
         }
         if (p.enabled() != null) prune.putSetting("prune.enabled", String.valueOf(p.enabled()), admin);
         if (p.vacuum() != null) prune.putSetting("prune.vacuum", String.valueOf(p.vacuum()), admin);
+        if (p.volume_gb() != null) {
+            if (p.volume_gb() < 0 || p.volume_gb() > 10000) throw bad("volume size must be 0-10000 GB");
+            prune.putSetting("prune.volume.gb", String.valueOf(p.volume_gb()), admin);
+        }
+        if (p.checkpoint_every() != null) {
+            if (p.checkpoint_every() < 1 || p.checkpoint_every() > 100)
+                throw bad("checkpoint every 1-100 batches");
+            prune.putSetting("prune.checkpoint.every.batches", String.valueOf(p.checkpoint_every()), admin);
+        }
         log.info("admin {} changed the housekeeping settings", admin);
         return Map.of("ok", true);
     }

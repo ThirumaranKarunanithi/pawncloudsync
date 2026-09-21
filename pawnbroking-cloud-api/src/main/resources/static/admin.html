@@ -184,10 +184,15 @@
           <label for="hkNotifs">Keep notifications (days)</label>
           <input id="hkNotifs" type="number" min="0" max="3650" style="width:110px">
         </div>
+        <div style="flex:0 0 auto">
+          <label for="hkVolume">Volume size (GB)</label>
+          <input id="hkVolume" type="number" min="0" max="10000" style="width:110px">
+        </div>
         <div style="flex:0 0 auto"><button class="ghost" onclick="saveHousekeeping()">Save</button></div>
         <div style="flex:0 0 auto"><button class="ghost" onclick="runPrune(true)">Count only</button></div>
         <div style="flex:0 0 auto"><button onclick="runPrune(false)" id="pruneBtn">Run now</button></div>
       </div>
+      <div id="hkSpace" class="muted" style="font-size:12px;margin-top:8px"></div>
       <p class="muted" style="font-size:12px;margin:10px 0 0">
         Deleting frees room inside the database; it does not shrink the file on disk. The volume bar only
         falls after a <code>VACUUM FULL</code> on the table, run by hand when nothing is syncing. That
@@ -441,6 +446,24 @@ function drawHousekeeping(hk) {
   document.getElementById('hkEnabled').value = String(hk.enabled);
   document.getElementById('hkEvents').value = hk.events_days;
   document.getElementById('hkNotifs').value = hk.notifications_days;
+  document.getElementById('hkVolume').value = hk.volume_gb || 0;
+
+  // What is on the volume now: the database plus its write-ahead log. The log
+  // is the part that fills a disk during a big delete, so it is shown, not hidden.
+  const used = Number(hk.database_bytes || 0) + Number(hk.wal_bytes || 0);
+  const vol = Number(hk.volume_gb || 0) * 1024 * 1024 * 1024;
+  let line = 'Now holding ' + bytes(hk.database_bytes) + ' of data and ' +
+             bytes(hk.wal_bytes) + ' of write-ahead log.';
+  if (vol > 0) {
+    const pct = Math.round(100 * used / vol);
+    line += ' That is ' + pct + '% of the ' + hk.volume_gb + ' GB volume.' +
+      (pct > 85 ? ' Too tight to delete safely — a prune writes to the log before it frees anything,'
+                + ' so make the volume bigger first. Run now will refuse until then.' : '');
+  } else {
+    line += ' Set the volume size above and the nightly run will refuse to start when the disk is'
+          + ' too tight to delete safely.';
+  }
+  document.getElementById('hkSpace').innerHTML = line;
 
   const runs = hk.runs || [];
   document.getElementById('hkRuns').innerHTML = runs.length === 0
@@ -471,7 +494,8 @@ async function saveHousekeeping() {
     await api('/v1/admin/housekeeping', { method: 'PUT', body: JSON.stringify({
       enabled: document.getElementById('hkEnabled').value === 'true',
       events_days: Number(document.getElementById('hkEvents').value),
-      notifications_days: Number(document.getElementById('hkNotifs').value)
+      notifications_days: Number(document.getElementById('hkNotifs').value),
+      volume_gb: Number(document.getElementById('hkVolume').value)
     })});
     show(msgEl(), 'Saved. The next nightly run uses these.', 'ok');
     await refresh();
