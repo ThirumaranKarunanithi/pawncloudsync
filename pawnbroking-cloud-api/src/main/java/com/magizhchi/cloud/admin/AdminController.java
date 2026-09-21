@@ -37,15 +37,18 @@ public class AdminController {
     private final JwtService jwt;
     private final AdminOtp otp;
     private final TenantBootstrap tenants;
+    private final PruneService prune;
     /** Same BCrypt the mobile app's password login uses, over the same table. */
     private final org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder pwd
             = new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
 
-    public AdminController(JdbcTemplate jdbc, JwtService jwt, AdminOtp otp, TenantBootstrap tenants) {
+    public AdminController(JdbcTemplate jdbc, JwtService jwt, AdminOtp otp,
+                           TenantBootstrap tenants, PruneService prune) {
         this.jdbc = jdbc;
         this.jwt = jwt;
         this.otp = otp;
         this.tenants = tenants;
+        this.prune = prune;
     }
 
     // ── sign in ───────────────────────────────────────────────────────────────
@@ -440,6 +443,70 @@ public class AdminController {
         }
         log.info("admin {} updated the cost lines", admin);
         return Map.of("ok", true, "monthly_total", monthlyCost());
+    }
+
+    // ── housekeeping ──────────────────────────────────────────────────────────
+
+    /** The prune settings, what the last runs did, and where the space is now. */
+    @GetMapping("/housekeeping")
+    public Map<String, Object> housekeeping(@RequestHeader(value = "Authorization", required = false) String auth) {
+        requireAdmin(auth);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("enabled", Boolean.parseBoolean(prune.setting("prune.enabled", "true")));
+        out.put("events_days", prune.intSetting("prune.events.days", 90));
+        out.put("notifications_days", prune.intSetting("prune.notifications.days", 30));
+        out.put("vacuum", Boolean.parseBoolean(prune.setting("prune.vacuum", "true")));
+        out.put("runs", jdbc.queryForList(
+                "SELECT id, started_at, finished_at, triggered_by, dry_run, events_deleted, " +
+                "       notifications_deleted, bytes_before, bytes_after, shops, note " +
+                "  FROM public.prune_runs ORDER BY started_at DESC LIMIT 10"));
+        // Where the space actually is, the same three tables the job knows about.
+        out.put("biggest", jdbc.queryForList(
+                "SELECT n.nspname AS schema, c.relname AS table, " +
+                "       pg_total_relation_size(c.oid) AS bytes, c.reltuples::bigint AS approx_rows " +
+                "  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace " +
+                " WHERE c.relkind = 'r' AND n.nspname NOT IN ('pg_catalog','information_schema') " +
+                " ORDER BY pg_total_relation_size(c.oid) DESC LIMIT 12"));
+        return out;
+    }
+
+    public record HousekeepingPatch(Boolean enabled, Integer events_days,
+                                    Integer notifications_days, Boolean vacuum) {}
+
+    @PutMapping("/housekeeping")
+    public Map<String, Object> putHousekeeping(@RequestHeader(value = "Authorization", required = false) String auth,
+                                               @RequestBody HousekeepingPatch p) {
+        String admin = requireAdmin(auth);
+        if (p.events_days() != null) {
+            if (p.events_days() < 0 || p.events_days() > 3650) throw bad("events window must be 0-3650 days");
+            // A window shorter than a month throws away the evidence a
+            // date-tamper question needs, which is the one thing raw events
+            // are kept for.
+            if (p.events_days() > 0 && p.events_days() < 30)
+                throw bad("keep at least 30 days of events — they are what a date-tamper check reads");
+            prune.putSetting("prune.events.days", String.valueOf(p.events_days()), admin);
+        }
+        if (p.notifications_days() != null) {
+            if (p.notifications_days() < 0 || p.notifications_days() > 3650)
+                throw bad("notifications window must be 0-3650 days");
+            prune.putSetting("prune.notifications.days", String.valueOf(p.notifications_days()), admin);
+        }
+        if (p.enabled() != null) prune.putSetting("prune.enabled", String.valueOf(p.enabled()), admin);
+        if (p.vacuum() != null) prune.putSetting("prune.vacuum", String.valueOf(p.vacuum()), admin);
+        log.info("admin {} changed the housekeeping settings", admin);
+        return Map.of("ok", true);
+    }
+
+    /**
+     * Run it now. {@code dry=true} counts what would go and deletes nothing —
+     * worth doing first on a shop you have never pruned.
+     */
+    @PostMapping("/housekeeping/run")
+    public Map<String, Object> runPrune(@RequestHeader(value = "Authorization", required = false) String auth,
+                                        @RequestParam(defaultValue = "false") boolean dry) {
+        String admin = requireAdmin(auth);
+        log.warn("admin {} started a prune by hand (dry={})", admin, dry);
+        return prune.run(admin, dry);
     }
 
     // ── the numbers behind a shop row ─────────────────────────────────────────

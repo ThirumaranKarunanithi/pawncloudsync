@@ -167,6 +167,39 @@
     </section>
 
     <section class="card">
+      <h2>Housekeeping</h2>
+      <p class="sub">Every night at 2:30 the cloud throws away raw sync history older than the window below.
+        It never touches what the phones read — bills, customers, stock and day accounts are in
+        <em>projections</em>, and no figure in the app changes.</p>
+      <div class="row">
+        <div style="flex:0 0 auto">
+          <label for="hkEnabled">Nightly</label>
+          <select id="hkEnabled"><option value="true">on</option><option value="false">off</option></select>
+        </div>
+        <div style="flex:0 0 auto">
+          <label for="hkEvents">Keep raw events (days)</label>
+          <input id="hkEvents" type="number" min="0" max="3650" style="width:110px">
+        </div>
+        <div style="flex:0 0 auto">
+          <label for="hkNotifs">Keep notifications (days)</label>
+          <input id="hkNotifs" type="number" min="0" max="3650" style="width:110px">
+        </div>
+        <div style="flex:0 0 auto"><button class="ghost" onclick="saveHousekeeping()">Save</button></div>
+        <div style="flex:0 0 auto"><button class="ghost" onclick="runPrune(true)">Count only</button></div>
+        <div style="flex:0 0 auto"><button onclick="runPrune(false)" id="pruneBtn">Run now</button></div>
+      </div>
+      <p class="muted" style="font-size:12px;margin:10px 0 0">
+        Deleting frees room inside the database; it does not shrink the file on disk. The volume bar only
+        falls after a <code>VACUUM FULL</code>, which needs as much free space as the table is big — so
+        resize first, prune second, reclaim last.
+      </p>
+      <div id="hkRuns" style="margin-top:12px"></div>
+      <details style="margin-top:10px"><summary>Where the space is</summary>
+        <div id="hkBiggest" style="margin-top:8px"></div>
+      </details>
+    </section>
+
+    <section class="card">
       <h2>What the cloud costs</h2>
       <p class="sub">Type the real monthly amounts. Everything above uses this to work out each shop's share.</p>
       <table><thead><tr><th>Line</th><th class="num" style="width:160px">Every month</th><th style="width:40px"></th></tr></thead>
@@ -315,9 +348,9 @@ async function openConsole() {
 }
 async function refresh() {
   try {
-    const [ov, shops, admins, cost] = await Promise.all([
+    const [ov, shops, admins, cost, hk] = await Promise.all([
       api('/v1/admin/overview'), api('/v1/admin/shops'),
-      api('/v1/admin/admins'), api('/v1/admin/costs')
+      api('/v1/admin/admins'), api('/v1/admin/costs'), api('/v1/admin/housekeeping')
     ]);
     currency = ov.currency || 'INR';
     costs = cost.items || [];
@@ -325,6 +358,7 @@ async function refresh() {
     drawShops(shops);
     drawAdmins(admins);
     drawCosts();
+    drawHousekeeping(hk);
     document.getElementById('asOf').textContent =
       'As of ' + new Date().toLocaleString() + '. Signed in as ' + adminEmail + '.';
   } catch (e) { show(msgEl(), e.message, 'err'); }
@@ -400,6 +434,64 @@ function costTotalText() {
   document.getElementById('costTotal').textContent = 'Total ' + money(t) + ' a month';
 }
 function addCostRow() { costs.push({ name: '', monthly_amount: 0 }); drawCosts(); }
+
+// ── housekeeping ─────────────────────────────────────────────
+function drawHousekeeping(hk) {
+  document.getElementById('hkEnabled').value = String(hk.enabled);
+  document.getElementById('hkEvents').value = hk.events_days;
+  document.getElementById('hkNotifs').value = hk.notifications_days;
+
+  const runs = hk.runs || [];
+  document.getElementById('hkRuns').innerHTML = runs.length === 0
+    ? '<p class="muted" style="font-size:12px">It has not run yet. The first nightly run is at 2:30.</p>'
+    : '<table><thead><tr><th>When</th><th>Started by</th><th class="num">Events</th>' +
+      '<th class="num">Notifications</th><th class="num">Database</th><th>What it did</th></tr></thead><tbody>' +
+      runs.map(r => {
+        const freed = (r.bytes_before != null && r.bytes_after != null)
+          ? bytes(r.bytes_before) + ' → ' + bytes(r.bytes_after) : '-';
+        return `<tr><td>${new Date(r.started_at).toLocaleString()}${r.dry_run ? ' <span class="pill">count only</span>' : ''}</td>
+          <td class="muted">${esc(r.triggered_by)}</td>
+          <td class="num">${Number(r.events_deleted).toLocaleString()}</td>
+          <td class="num">${Number(r.notifications_deleted).toLocaleString()}</td>
+          <td class="num">${freed}</td>
+          <td class="muted" style="font-size:12px">${esc(r.note || '')}</td></tr>`;
+      }).join('') + '</tbody></table>';
+
+  document.getElementById('hkBiggest').innerHTML =
+    '<table><thead><tr><th>Table</th><th class="num">Size</th><th class="num">Rows (approx)</th></tr></thead><tbody>' +
+    (hk.biggest || []).map(b => `<tr><td>${esc(b.schema)}.${esc(b.table)}${
+        b.table === 'projections' ? ' <span class="pill ok">the phones read this</span>' : ''}</td>
+      <td class="num">${bytes(b.bytes)}</td>
+      <td class="num">${Number(b.approx_rows) < 0 ? 'not counted yet' : Number(b.approx_rows).toLocaleString()}</td></tr>`
+    ).join('') + '</tbody></table>';
+}
+async function saveHousekeeping() {
+  try {
+    await api('/v1/admin/housekeeping', { method: 'PUT', body: JSON.stringify({
+      enabled: document.getElementById('hkEnabled').value === 'true',
+      events_days: Number(document.getElementById('hkEvents').value),
+      notifications_days: Number(document.getElementById('hkNotifs').value)
+    })});
+    show(msgEl(), 'Saved. The next nightly run uses these.', 'ok');
+    await refresh();
+  } catch (e) { show(msgEl(), e.message, 'err'); }
+}
+async function runPrune(dry) {
+  if (!dry && !confirm('Throw away raw sync history older than the window now?\n\n' +
+      'Bills, customers, stock and day accounts are not touched — only the raw log behind them. ' +
+      'On a big shop this takes a few minutes.')) return;
+  const btn = document.getElementById('pruneBtn');
+  btn.disabled = true;
+  show(msgEl(), dry ? 'Counting…' : 'Pruning… this can take a few minutes.', 'ok');
+  try {
+    const r = await api('/v1/admin/housekeeping/run?dry=' + (dry ? 'true' : 'false'), { method: 'POST' });
+    if (r.skipped) show(msgEl(), 'Nothing done: ' + r.reason, 'err');
+    else show(msgEl(), (dry ? 'Would delete ' : 'Deleted ') +
+      Number(r.events_deleted).toLocaleString() + ' events and ' +
+      Number(r.notifications_deleted).toLocaleString() + ' notifications across ' + r.shops + ' shops.', 'ok');
+    await refresh();
+  } catch (e) { show(msgEl(), e.message, 'err'); } finally { btn.disabled = false; }
+}
 async function saveCosts() {
   const btn = document.getElementById('costBtn');
   btn.disabled = true;
