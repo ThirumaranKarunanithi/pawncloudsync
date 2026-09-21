@@ -77,7 +77,13 @@
     <div id="step1">
       <label for="email">Admin email</label>
       <input id="email" type="email" style="width:100%" autocomplete="username" placeholder="you@gmail.com">
-      <p style="margin:12px 0 0"><button onclick="sendCode()" id="sendBtn">Send code</button></p>
+      <p style="margin:12px 0 0">
+        <button onclick="sendCode()" id="sendBtn">Send code</button>
+        <button class="ghost" onclick="showPassword()">Use a password</button>
+      </p>
+      <p class="muted" style="font-size:12px;margin:8px 0 0">
+        If the code never arrives — the email provider has a daily limit — use a password instead.
+      </p>
     </div>
     <div id="step2" hidden>
       <label for="code">The 6-digit code</label>
@@ -85,6 +91,18 @@
       <p style="margin:12px 0 0">
         <button onclick="verifyCode()" id="verifyBtn">Sign in</button>
         <button class="ghost" onclick="backToEmail()">Back</button>
+      </p>
+    </div>
+    <div id="step3" hidden>
+      <label for="pwd">Password</label>
+      <input id="pwd" type="password" style="width:100%" autocomplete="current-password">
+      <p style="margin:12px 0 0">
+        <button onclick="passwordLogin()" id="pwdBtn">Sign in</button>
+        <button class="ghost" onclick="backToEmail()">Back</button>
+      </p>
+      <p class="muted" style="font-size:12px;margin:8px 0 0">
+        The same password this address uses in the mobile app. No password set? Sign in with a
+        code once and set one below.
       </p>
     </div>
   </section>
@@ -135,6 +153,16 @@
       <div class="row" style="margin-top:12px">
         <div><label for="newAdmin">Add an admin</label><input id="newAdmin" type="email" placeholder="name@gmail.com"></div>
         <div style="flex:0 0 auto"><button class="ghost" onclick="addAdmin()">Add</button></div>
+      </div>
+      <div class="row" style="margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
+        <div>
+          <label for="myPwd">Your own password for this page (at least 8 characters)</label>
+          <input id="myPwd" type="password" autocomplete="new-password" style="width:100%">
+        </div>
+        <div style="flex:0 0 auto"><button class="ghost" onclick="setMyPassword()">Save password</button></div>
+        <div class="muted" style="flex:1 1 100%;font-size:12px">
+          Worth setting now: it is the way in when the email provider's daily code limit is reached.
+        </div>
       </div>
     </section>
 
@@ -217,7 +245,40 @@ async function sendCode() {
 }
 function backToEmail() {
   document.getElementById('step2').hidden = true;
+  document.getElementById('step3').hidden = true;
   document.getElementById('step1').hidden = false;
+}
+function showPassword() {
+  document.getElementById('step1').hidden = true;
+  document.getElementById('step3').hidden = false;
+  document.getElementById('pwd').focus();
+}
+async function passwordLogin() {
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('pwd').value;
+  const btn = document.getElementById('pwdBtn');
+  btn.disabled = true;
+  try {
+    const r = await api('/v1/admin/login/password', { method: 'POST',
+      body: JSON.stringify({ email, password }) });
+    token = r.token; adminEmail = r.email;
+    sessionStorage.setItem('pawnAdminToken', token);
+    sessionStorage.setItem('pawnAdminEmail', adminEmail);
+    document.getElementById('pwd').value = '';
+    await openConsole();
+  } catch (e) {
+    show(document.getElementById('loginMsg'), e.message, 'err');
+  } finally { btn.disabled = false; }
+}
+async function setMyPassword() {
+  const password = document.getElementById('myPwd').value;
+  if (password.length < 8) { show(msgEl(), 'Choose at least 8 characters.', 'err'); return; }
+  try {
+    const r = await api('/v1/admin/admins/me/password', { method: 'POST',
+      body: JSON.stringify({ password }) });
+    document.getElementById('myPwd').value = '';
+    show(msgEl(), r.note, 'ok');
+  } catch (e) { show(msgEl(), e.message, 'err'); }
 }
 async function verifyCode() {
   const email = document.getElementById('email').value.trim();
@@ -428,6 +489,7 @@ async function removeAdmin(email) {
 // ── go ───────────────────────────────────────────────────────
 document.getElementById('email').addEventListener('keydown', e => { if (e.key === 'Enter') sendCode(); });
 document.getElementById('code').addEventListener('keydown', e => { if (e.key === 'Enter') verifyCode(); });
+document.getElementById('pwd').addEventListener('keydown', e => { if (e.key === 'Enter') passwordLogin(); });
 if (token) { openConsole().catch(() => signOut()); }
 </script>
 </body>

@@ -37,6 +37,9 @@ public class AdminController {
     private final JwtService jwt;
     private final AdminOtp otp;
     private final TenantBootstrap tenants;
+    /** Same BCrypt the mobile app's password login uses, over the same table. */
+    private final org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder pwd
+            = new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
 
     public AdminController(JdbcTemplate jdbc, JwtService jwt, AdminOtp otp, TenantBootstrap tenants) {
         this.jdbc = jdbc;
@@ -49,6 +52,12 @@ public class AdminController {
 
     public record EmailRequest(String email) {}
     public record VerifyRequest(String email, String code) {}
+    public record PasswordRequest(String email, String password) {}
+
+    /** Per address: {how many wrong passwords in a row, when the last one was}. */
+    private static final Map<String, long[]> FAILURES = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final int MAX_FAILURES = 5;
+    private static final long LOCKOUT_MS = 15 * 60_000L;
 
     /**
      * The code only goes out to an email that is already an admin. An
@@ -80,6 +89,74 @@ public class AdminController {
                 "display_name", displayName,
                 "expires_in_hours", 12
         );
+    }
+
+    /**
+     * Sign in with a password instead of a code.
+     *
+     * The code route depends on the email provider, and a provider that has
+     * hit its daily quota locks every admin out of the console exactly when
+     * something is wrong and it is needed. This reads the same
+     * public.login_passwords table the mobile app uses (BCrypt), and only for
+     * an address that is already an admin.
+     *
+     * Wrong passwords are counted per address: five in a row and that address
+     * waits fifteen minutes.
+     */
+    @PostMapping("/login/password")
+    public Map<String, Object> passwordLogin(@RequestBody PasswordRequest req) {
+        String email = normalizeEmail(req == null ? null : req.email());
+        String password = req == null || req.password() == null ? "" : req.password();
+        if (email.isEmpty() || password.isEmpty()) throw bad("email and password are required");
+
+        long now = System.currentTimeMillis();
+        long[] state = FAILURES.get(email);
+        if (state != null && state[0] >= MAX_FAILURES && now - state[1] < LOCKOUT_MS) {
+            long waitMin = (LOCKOUT_MS - (now - state[1])) / 60_000 + 1;
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                    "too many wrong passwords — try again in " + waitMin + " minutes");
+        }
+
+        // Same answer whether the address is not an admin or the password is
+        // wrong: the console should not tell a stranger who the admins are.
+        boolean ok = false;
+        if (isAdmin(email)) {
+            List<String> hashes = jdbc.queryForList(
+                    "SELECT password_hash FROM public.login_passwords WHERE email = ?",
+                    String.class, email);
+            ok = !hashes.isEmpty() && pwd.matches(password, hashes.get(0));
+        }
+        if (!ok) {
+            // A run of failures older than the lockout starts counting again.
+            FAILURES.compute(email, (k, v) -> (v == null || now - v[1] > LOCKOUT_MS)
+                    ? new long[]{1, now}
+                    : new long[]{v[0] + 1, now});
+            log.warn("admin password sign-in refused for {}", email);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                    "wrong email or password. If no password is set for this address, " +
+                    "sign in with a code and set one from the page.");
+        }
+        FAILURES.remove(email);
+        log.info("admin signed in with a password: {}", email);
+        return Map.of("token", jwt.mintAdmin(email), "email", email,
+                      "display_name", email, "expires_in_hours", 12);
+    }
+
+    /** Set or change your own console password. Only ever your own. */
+    @PostMapping("/admins/me/password")
+    public Map<String, Object> setMyPassword(@RequestHeader(value = "Authorization", required = false) String auth,
+                                             @RequestBody PasswordRequest req) {
+        String admin = requireAdmin(auth);
+        String password = req == null || req.password() == null ? "" : req.password();
+        if (password.length() < 8) throw bad("choose at least 8 characters");
+        jdbc.update("INSERT INTO public.login_passwords(email, password_hash) VALUES (?,?) " +
+                    "ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, " +
+                    "updated_at = now()", admin, pwd.encode(password));
+        FAILURES.remove(admin);
+        log.info("admin {} set a console password", admin);
+        return Map.of("ok", true,
+                      "note", "You can now sign in with this password when the email code is slow or blocked. " +
+                              "It is the same password the mobile app uses for this address.");
     }
 
     // ── the estate ────────────────────────────────────────────────────────────

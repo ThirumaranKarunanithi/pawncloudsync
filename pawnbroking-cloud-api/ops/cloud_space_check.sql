@@ -13,10 +13,15 @@
 
 -- S1  The whole database, and how it splits by schema (= by shop).
 --     Compare the total with the volume size Railway shows.
-SELECT COALESCE(n.nspname, 'TOTAL')                   AS schema,
+--     (The TOTAL row's own percentage is excluded from the share, or it
+--      would count itself and every line would read half what it is.)
+SELECT COALESCE(n.nspname, 'TOTAL')                       AS schema,
        pg_size_pretty(sum(pg_total_relation_size(c.oid))) AS size,
-       round(100.0 * sum(pg_total_relation_size(c.oid))
-             / NULLIF(sum(sum(pg_total_relation_size(c.oid))) OVER (), 0), 1) AS pct
+       CASE WHEN n.nspname IS NULL THEN 100.0
+            ELSE round(100.0 * sum(pg_total_relation_size(c.oid))
+                 / NULLIF(sum(sum(pg_total_relation_size(c.oid)))
+                          FILTER (WHERE n.nspname IS NOT NULL) OVER (), 0), 1)
+       END AS pct
   FROM pg_class c
   JOIN pg_namespace n ON n.oid = c.relnamespace
  WHERE c.relkind = 'r'
