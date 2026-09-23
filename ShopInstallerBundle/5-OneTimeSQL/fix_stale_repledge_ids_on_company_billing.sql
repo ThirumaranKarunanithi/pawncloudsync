@@ -80,6 +80,68 @@ SELECT r.company_id,
  ORDER BY r.bill_status, r.bill_number, r.rep_id;
 
 
+-- ── 1b. EVERY BILL THAT CARRIES IDS, ONE ROW EACH ────────────────────
+--    Section 1 lists one row per STALE id, so a bill holding three ids
+--    of which two are closed appears twice and a bill holding one live
+--    id does not appear at all. This is the other view: one row per
+--    BILL, every id it carries with what that id points at, and counts
+--    to sort by.
+--
+--    A bill with more than one id comes from Rebilled Multiple: the
+--    merged bill keeps every id it came from, e.g.
+--        REPBILL6231,REPBILL6854,REPBILL6849
+--    Those are the ones where a whole-string comparison silently does
+--    nothing, so they are listed first.
+--
+--    Shown: any bill with two or more ids, or with an id that is closed
+--    or missing. A bill holding a single live id is working correctly
+--    and is left out - change the HAVING to  TRUE  to see those too.
+
+\echo ''
+\echo '=== Each bill and every repledge id on it (lists first) ==='
+
+WITH ref AS (
+    SELECT cb.company_id, cb.bill_number, cb.jewel_material_type,
+           cb.status AS bill_status, cb.repledge_bill_id AS current_list,
+           trim(x) AS rep_id
+      FROM company_billing cb
+      CROSS JOIN LATERAL unnest(string_to_array(cb.repledge_bill_id, ',')) AS x
+     WHERE COALESCE(cb.repledge_bill_id, '') <> ''
+), labelled AS (
+    SELECT r.*,
+           COALESCE(rb.status::text, 'NO SUCH REPLEDGE') AS id_status,
+           rb.repledge_name, rb.closing_date
+      FROM ref r
+      LEFT JOIN repledge_billing rb
+        ON rb.company_id       = r.company_id
+       AND rb.repledge_bill_id = r.rep_id
+)
+SELECT company_id, bill_number, jewel_material_type, bill_status,
+       count(*)                                                        AS ids,
+       count(*) FILTER (WHERE id_status IN ('RECEIVED','CLOSED'))      AS closed_ids,
+       count(*) FILTER (WHERE id_status IN ('GIVEN','OPENED'))         AS live_ids,
+       count(*) FILTER (WHERE id_status = 'NO SUCH REPLEDGE')          AS missing_ids,
+       string_agg(rep_id || ' = ' || id_status
+                  || COALESCE(' (' || repledge_name || ')', '')
+                  || COALESCE(', closed ' || closing_date::text, ''),
+                  E'\n' ORDER BY rep_id)                               AS what_each_id_is
+  FROM labelled
+ GROUP BY company_id, bill_number, jewel_material_type, bill_status
+HAVING count(*) > 1
+    OR count(*) FILTER (WHERE id_status IN ('RECEIVED','CLOSED','NO SUCH REPLEDGE')) > 0
+ ORDER BY ids DESC, closed_ids DESC, bill_number;
+
+\echo ''
+\echo '=== How many ids bills carry ==='
+
+SELECT array_length(string_to_array(repledge_bill_id, ','), 1) AS ids_on_the_bill,
+       count(*) AS bills
+  FROM company_billing
+ WHERE COALESCE(repledge_bill_id, '') <> ''
+ GROUP BY 1
+ ORDER BY 1;
+
+
 -- ── 2. REPAIR ─────────────────────────────────────────────────────────
 --    Removes ONLY the ids whose repledge is RECEIVED or CLOSED. An id
 --    whose repledge is still GIVEN or OPENED is left exactly where it
