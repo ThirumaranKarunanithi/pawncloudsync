@@ -646,23 +646,30 @@ public class DataController {
             // SILVER OPENING, SILVER ADV, SILVER CLOSING (desktop order).
             ops = reorderForDesktop(ops);
 
-            // ── Row 7 : REPLEDGE BILL OPENING (credit — financier paid us)
+            // ── Row 7 : REPLEDGE BILL OPENING ────────────────────────────
+            // Credit is the principal the financier advanced; the debit is
+            // what they held back out of it (interest + document charge),
+            // which the desktop takes as amount − got_amount. Booking that
+            // debit as 0 is what left the phone's Total Debit 750 short.
             Map<String,Object> rOpen = repledgeAggRich(j, "opening_date", date, compFilter);
-            long   roCnt = num(rOpen, "cnt").longValue();
-            double roAmt = num(rOpen, "amt").doubleValue();
-            double roInt = num(rOpen, "intr").doubleValue();
-            double roDoc = num(rOpen, "doc").doubleValue();
-            ops.add(opRow("REPLEDGE BILL OPENING", roCnt, 0, roAmt,
+            long   roCnt   = num(rOpen, "cnt").longValue();
+            double roAmt   = num(rOpen, "amt").doubleValue();
+            double roDebit = num(rOpen, "open_debit").doubleValue();
+            double roInt   = num(rOpen, "open_intr").doubleValue();
+            double roDoc   = num(rOpen, "doc").doubleValue();
+            ops.add(opRow("REPLEDGE BILL OPENING", roCnt, roDebit, roAmt,
                     "( Amt: " + b(roAmt) + ", Intr: " + b(roInt) + ", Doc: " + b(roDoc) + " )"));
+            totalDebit  += roDebit;
             totalCredit += roAmt;
 
             // ── Row 8 : REPLEDGE BILL CLOSING (debit — we paid financier)
             Map<String,Object> rClose = repledgeAggRich(j, "closing_date", date, compFilter);
-            long   rcCnt = num(rClose, "cnt").longValue();
-            double rcAmt = num(rClose, "amt").doubleValue();
-            double rcInt = num(rClose, "intr").doubleValue();
-            // Desktop closing debit = principal + interest paid to financier.
-            double rcDebit = rcAmt + rcInt;
+            long   rcCnt   = num(rClose, "cnt").longValue();
+            double rcAmt   = num(rClose, "amt").doubleValue();
+            double rcInt   = num(rClose, "close_intr").doubleValue();
+            // Desktop closing debit is sum(given_amount) - the cash actually
+            // handed over - not principal + interest recomputed here.
+            double rcDebit = num(rClose, "close_debit").doubleValue();
             ops.add(opRow("REPLEDGE BILL CLOSING", rcCnt, rcDebit, 0,
                     "( Amt: " + b(rcAmt) + ", Intr: " + b(rcInt) + " )"));
             totalDebit += rcDebit;
@@ -888,21 +895,42 @@ public class DataController {
     private Map<String,Object> repledgeAggRich(org.springframework.jdbc.core.JdbcTemplate j,
                                                 String dateField, String date,
                                                 String companyId) {
-        // Column names per the user's desktop schema:
-        //   amount, interest, document_charge.
+        // Every figure here mirrors TodaysAccountDBOperation on the desktop
+        // (getReBillOpeningAccountValues / getReBillClosingAccountValues):
+        //
+        //   opening  debit  = sum(amount - got_amount)
+        //            credit = sum(amount)
+        //            Intr   = sum(open_taken_amount - document_charge)
+        //            Doc    = sum(document_charge)
+        //   closing  debit  = sum(given_amount)
+        //            Intr   = sum(close_taken_amount)
+        //
+        // NOTE repledge_billing.interest is the financier's RATE from
+        // REPLEDGE_INTEREST, not an amount. Summing it gave the phone
+        // "Intr: 16" against the desktop's 725 — it was adding percentages.
+        // Nothing below reads that column.
         StringBuilder sql = new StringBuilder(
-            "SELECT count(*)                                            AS cnt, " +
-            "       COALESCE(sum(numF(payload->>'amount')),          0) AS amt, " +
-            "       COALESCE(sum(numF(payload->>'interest')),        0) AS intr, " +
-            "       COALESCE(sum(numF(payload->>'document_charge')), 0) AS doc " +
+            "SELECT count(*)                                                 AS cnt, " +
+            "       COALESCE(sum(numF(payload->>'amount')),               0) AS amt, " +
+            "       COALESCE(sum(numF(payload->>'amount')" +
+            "                  - numF(payload->>'got_amount')),          0) AS open_debit, " +
+            "       COALESCE(sum(numF(payload->>'open_taken_amount')" +
+            "                  - numF(payload->>'document_charge')),     0) AS open_intr, " +
+            "       COALESCE(sum(numF(payload->>'given_amount')),         0) AS close_debit, " +
+            "       COALESCE(sum(numF(payload->>'close_taken_amount')),   0) AS close_intr, " +
+            "       COALESCE(sum(numF(payload->>'document_charge')),      0) AS doc " +
             "  FROM projections " +
             " WHERE table_name = 'repledge_billing' AND NOT deleted " +
+            // The desktop asks for GOLD and nothing else, and the repledge
+            // screen only ever writes GOLD, so this is parity rather than a
+            // filter: whatever a row's material is, both ends treat it alike.
+            "   AND payload->>'jewel_material_type' = 'GOLD' " +
             "   AND COALESCE(payload->>'" + dateField + "','') LIKE ? ");
         java.util.List<Object> args = new java.util.ArrayList<>();
         args.add(date + "%");
         if (companyId != null) { sql.append(" AND payload->>'company_id' = ? "); args.add(companyId); }
         return queryRowOrZero(j, sql.toString(), args.toArray(),
-                "cnt","amt","intr","doc");
+                "cnt","amt","open_debit","open_intr","close_debit","close_intr","doc");
     }
 
     /**

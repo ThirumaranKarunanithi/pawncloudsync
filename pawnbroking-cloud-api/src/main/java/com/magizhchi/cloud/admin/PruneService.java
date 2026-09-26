@@ -148,7 +148,7 @@ public class PruneService {
                                       int eventDays, int notifDays, boolean vacuum) {
         long runId = -1;
         long deadline = System.currentTimeMillis() + BUDGET_MS;
-        long events = 0, notifs = 0, bytesBefore = totalBytes(), shops = 0;
+        long events = 0, notifs = 0, repledge = 0, bytesBefore = totalBytes(), shops = 0;
         List<String> touched = new ArrayList<>();
         try {
             runId = jdbc.queryForObject(
@@ -164,18 +164,22 @@ public class PruneService {
                     continue;
                 }
                 shops++;
-                long e = 0, n = 0;
+                long e = 0, n = 0, r = 0;
                 try {
                     if (eventDays > 0)
                         e = prune(schema, "events", "received_at", eventDays, dryRun, deadline);
                     if (notifDays > 0)
                         n = prune(schema, "notifications", "created_at", notifDays, dryRun, deadline);
+                    r = dropCollapsedRepledge(schema, dryRun);
                 } catch (Exception ex) {
                     // One shop's problem is not every shop's problem.
                     log.warn("prune failed for {}: {}", shopId, ex.toString());
                 }
                 events += e;
                 notifs += n;
+                repledge += r;
+                if (r > 0)
+                    touched.add(shopId + " (" + r + " collapsed repledge rows)");
                 if (e > 0 || n > 0) {
                     touched.add(shopId + " (" + e + " events, " + n + " notifications)");
                     if (vacuum && !dryRun) {
@@ -193,6 +197,7 @@ public class PruneService {
             long bytesAfter = totalBytes();
             String note = (dryRun ? "DRY RUN. " : "") +
                     "events older than " + eventDays + " days, notifications older than " + notifDays +
+                    (repledge > 0 ? ", plus " + repledge + " collapsed repledge rows" : "") +
                     (touched.isEmpty() ? ". Nothing needed pruning." : ". " + String.join("; ", touched));
             jdbc.update("UPDATE public.prune_runs SET finished_at = now(), events_deleted = ?, " +
                         "notifications_deleted = ?, bytes_after = ?, shops = ?, note = ? WHERE id = ?",
@@ -210,6 +215,50 @@ public class PruneService {
             if (runId > 0)
                 jdbc.update("UPDATE public.prune_runs SET finished_at = COALESCE(finished_at, now()) WHERE id = ?", runId);
         }
+    }
+
+    /**
+     * Clear repledge rows left behind by the old capture key.
+     *
+     * Before the agent read a table's real primary key, repledge_billing was
+     * keyed company_id|repledge_bill_number|bill_number — and that table has
+     * no bill_number column, so every leg of one repledge bill shared the key
+     * and the cloud, which upserts on (table_name, row_pk), kept only the
+     * last. The desktop showed 4 repledges and the phone showed 1.
+     *
+     * Once a shop's setup adds the primary key it re-sends every repledge
+     * under its own key, and the good rows land beside the collapsed ones —
+     * which would then be counted twice. This drops the old ones.
+     *
+     * THE SAFETY RULE: only when that shop already has correctly-keyed rows.
+     * A shop still running the old agent has nothing but collapsed rows, and
+     * deleting those would take its repledges off the phone altogether. One
+     * wrong row beats none, until its agent is updated.
+     *
+     * A correct key is a bare repledge_bill_id, so it never contains '|'.
+     */
+    private long dropCollapsedRepledge(String schema, boolean dryRun) {
+        Long good = jdbc.queryForObject(
+                "SELECT count(*) FROM " + schema + ".projections " +
+                " WHERE table_name = 'repledge_billing' AND row_pk NOT LIKE '%|%'", Long.class);
+        if (good == null || good == 0) return 0;
+
+        Long stale = jdbc.queryForObject(
+                "SELECT count(*) FROM " + schema + ".projections " +
+                " WHERE table_name = 'repledge_billing' AND row_pk LIKE '%|%'", Long.class);
+        if (stale == null || stale == 0) return 0;
+
+        if (dryRun) {
+            log.info("prune dry run: {} would drop {} collapsed repledge rows ({} good ones remain)",
+                     schema, stale, good);
+            return stale;
+        }
+        int deleted = jdbc.update(
+                "DELETE FROM " + schema + ".projections " +
+                " WHERE table_name = 'repledge_billing' AND row_pk LIKE '%|%'");
+        log.info("prune: {} dropped {} collapsed repledge rows, {} good ones remain",
+                 schema, deleted, good);
+        return deleted;
     }
 
     /**
