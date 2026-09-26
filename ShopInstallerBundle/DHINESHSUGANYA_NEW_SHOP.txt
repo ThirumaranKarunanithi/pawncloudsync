@@ -1,0 +1,164 @@
+=======================================================================
+  DHINESHSUGANYA  -  bringing the shop onto the phone      (26-09-2026)
+  shop_id: dhineshsuganya     owner: sreekumaravel1402@gmail.com
+=======================================================================
+
+  This is the shop's own sheet. The general version of these steps, for
+  any new shop, is NEW_SHOP_RUNBOOK.txt.
+
+  Three places, in this order:
+
+     1. SHARE     the owner needs an account - do this FIRST
+     2. CLOUD     one page, ~2 minutes. No SQL, no redeploy.
+     3. SHOP PC   one exe, run as administrator
+     4. PHONE     the same APK every shop uses
+
+  This shop is its own business. It does NOT get the Rajeshwari admin
+  logins. Add only what the owner asks for.
+
+
+-----------------------------------------------------------------------
+1. THE OWNER'S MAGIZHCHI SHARE ACCOUNT          (before anything else)
+-----------------------------------------------------------------------
+
+  Sign-in on the phone sends its code through Magizhchi Share. Without a
+  Share account for that exact address, "Send OTP" answers only
+  "Not Found" and nothing after this works.
+
+  Sign up at  https://boxapp.magizhchi.software  with the name, mobile
+  number and  sreekumaravel1402@gmail.com .
+
+
+-----------------------------------------------------------------------
+2. CREATE THE SHOP ON THE CLOUD                 (your laptop, ~2 min)
+-----------------------------------------------------------------------
+
+  https://devpawn.magizhchi.academy/admin.html
+  Sign in with an address listed in ADMIN_EMAILS, then Create shop:
+
+     shop id        dhineshsuganya
+     owner e-mail   sreekumaravel1402@gmail.com
+     display name   Dhineshsuganya Pawn Broking
+
+  It makes the schema and its tables, registers the shop, grants the
+  owner, and hands you ONE key - mbk_... . COPY IT: you need it in
+  step 3, and it is the only thing the shop PC asks for that you cannot
+  work out on the spot. You can read it back on the same page later.
+
+  NO Railway SQL. NO TENANTS variable. NO redeploy. If an older note
+  tells you to do any of those, it predates the admin console.
+
+  To give yourself support access: the same page, the shop's Emails.
+
+
+-----------------------------------------------------------------------
+3. SHOP PC        the machine that HOLDS the pawnbroking database
+-----------------------------------------------------------------------
+
+  Already there before you start: PostgreSQL, the desktop app, the
+  shop's database, and the image and backup folders at the paths the
+  database points at. Java is not needed - the exe brings its own.
+
+  Run, as administrator:
+
+     ShopKits\NEW-INSTALLATION\5-MobileSync\PawnBrokingSyncSetup.exe
+
+  It asks:
+
+     Shop ID        dhineshsuganya
+     Cloud API key  the mbk_ key from step 2
+     Cloud URL      leave the default
+     DB user        postgres
+     DB password    the one pgAdmin connects with on that PC
+
+  Then it does the rest by itself, in a console you can watch: the agent
+  and its service, the config, the whole database (sync tables and
+  triggers, SUSPENSE, Re+ pricing, notice mode, the desktop app's own
+  tables, the repledge and ledger primary keys), the day-account Deficit
+  repair, the one-time history send, and the folder checks.
+
+  There is NO SQL to run afterwards.
+
+  Do this when nobody is billing - on a shop with a lot of history the
+  send takes a few minutes and billing waits while it runs. Leave 2 GB
+  free on the drive PostgreSQL is on.
+
+  When it finishes it shows a summary and leaves the full report at
+     C:\pawnbrokingSync\logs\setup-report.txt
+
+  Read the "Needs attention" lines. The usual one is a photo folder that
+  still has the old machine's drive letter - copy the images to that
+  exact path, or correct camera_temp_file_name for that company, then
+  use the "Run setup again" shortcut.
+
+  Leave the PC on. The desktop shortcut "Sync progress report" shows how
+  far the queue has got, in plain numbers.
+
+
+-----------------------------------------------------------------------
+4. PHONE
+-----------------------------------------------------------------------
+
+  Install  ShopKits\NEW-INSTALLATION\5-MobileSync\Pawnbroking.apk  (the
+  same file every shop uses) and sign in as
+  sreekumaravel1402@gmail.com -> Send OTP -> the 6-digit code -> Verify.
+
+  That first sign-in matters beyond the phone: it mints the box token,
+  and until it exists every photo and backup upload is refused with 503.
+  So do it the same day, even if the queue is still draining.
+
+  Check on the phone: Stock Details -> ALL DETAILS count, Today's
+  Account, MIS Report, and a bill's photos once they have uploaded.
+
+
+-----------------------------------------------------------------------
+5. AFTERWARDS
+-----------------------------------------------------------------------
+
+  Once the report says 0 waiting, open the RAILWAY box at the top of
+     5-OneTimeSQL\shops\dhineshsuganya_setup.sql
+  and run R7 and R8 on Railway -> Data -> Query.
+
+     R7  company_billing, repledge_billing and customer_details must
+         match the "Desktop rows" lines of the shop PC's report
+     R8  legacy_key_rows must be 0
+
+  Then, if the shop wants it, a Meet room: type PAWN_SHOP, "Pawn shop
+  this room shows" = dhineshsuganya, the owner's address added and
+  promoted to ADMIN. Being in that room is NOT permission to see the
+  figures - anyone who should see them must also be granted the shop in
+  the admin console.
+
+  Hand over: the email used, the PostgreSQL password, and who to call.
+  Keep those where the shop's other passwords are kept - not in a file
+  in this bundle, which is a public repository.
+
+
+-----------------------------------------------------------------------
+  IF SOMETHING LOOKS WRONG
+-----------------------------------------------------------------------
+
+  Send OTP says "Not Found"
+      step 1 was skipped, or the Share account uses a different address.
+
+  the exe said the cloud refused the key (401)
+      the mbk_ key is wrong. Read it back on the admin console, shop ->
+      api key. Do not mint a second one.
+
+  no photos on the phone
+      nobody has signed in on the phone yet (503), or the photo folder
+      named in the report does not exist on that PC.
+
+  the phone shows FEWER repledges than the desktop
+      the report's "repledge_billing key" line said MISSING - this
+      shop's repledge_bill_id values are repeated or empty, so the key
+      could not be added. Find them with query A3 of
+      5-OneTimeSQL\tools\repledge_why_it_is_still_wrong.sql, settle
+      those rows, then run the exe again. It re-sends the repledges by
+      itself once the key is in.
+
+  the phone shows MORE repledges than the desktop
+      expected for a short while after the key is added: the good rows
+      sit beside the old collapsed ones. Admin console -> Housekeeping
+      -> Run (not dry) clears them, and it also happens overnight.
+=======================================================================
