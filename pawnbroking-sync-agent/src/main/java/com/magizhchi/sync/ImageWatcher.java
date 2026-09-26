@@ -44,9 +44,8 @@ public class ImageWatcher implements Runnable {
     private final Config cfg;
     private final HttpClient http;
     private volatile boolean running = true;
-    /** Magizhchi Share rate limit is 60 req/min/token. 1100ms keeps us
-     *  safely under (~54/min) without burning idle time. */
-    private static final long MIN_UPLOAD_INTERVAL_MS = 1_100L;
+    /** Throttle between uploads, configurable via image.upload.interval.ms.
+     *  Magizhchi Share rate limit is 60 req/min/token (1000ms is the floor). */
     private long lastUploadAt = 0L;
 
     public ImageWatcher(DataSource ds, Config cfg) {
@@ -61,7 +60,11 @@ public class ImageWatcher implements Runnable {
     public void stop() { running = false; }
 
     /** Idempotent — creates both tracker tables if missing. */
-    public void ensureTrackerTable() {
+    public void ensureTrackerTable() { ensureTrackerTables(ds); }
+
+    /** Same thing without an agent: {@link Setup} calls this so the tables
+     *  (and therefore the progress report) exist before the service runs. */
+    public static void ensureTrackerTables(DataSource ds) {
         try (Connection c = ds.getConnection(); Statement s = c.createStatement()) {
             s.execute(
                 "CREATE TABLE IF NOT EXISTS sync_image_uploads (" +
@@ -92,9 +95,24 @@ public class ImageWatcher implements Runnable {
     @Override
     public void run() {
         ensureTrackerTable();
+        // Backups run on their OWN thread. Otherwise a huge first-time image
+        // backlog (tens of thousands of files at ~1.1s each = many hours)
+        // would block scanBackupsOnce() from ever being called, since both
+        // used to run sequentially in this loop. Separating them lets backups
+        // upload immediately even while images are still draining.
+        Thread backupThread = new Thread(() -> {
+            while (running) {
+                try { scanBackupsOnce(); }
+                catch (Throwable t) { log.warn("backup scan failed: {}", t.toString()); }
+                try { Thread.sleep(cfg.imageScanIntervalMs); }
+                catch (InterruptedException ie) { Thread.currentThread().interrupt(); break; }
+            }
+        }, "backup-watcher");
+        backupThread.setDaemon(true);
+        backupThread.start();
+
         while (running) {
-            try { scanOnce();         } catch (Throwable t) { log.warn("image scan failed: {}", t.toString()); }
-            try { scanBackupsOnce();  } catch (Throwable t) { log.warn("backup scan failed: {}", t.toString()); }
+            try { scanOnce(); } catch (Throwable t) { log.warn("image scan failed: {}", t.toString()); }
             try { Thread.sleep(cfg.imageScanIntervalMs); }
             catch (InterruptedException ie) { Thread.currentThread().interrupt(); break; }
         }
@@ -127,15 +145,42 @@ public class ImageWatcher implements Runnable {
                     scanned++;
                     String abs = p.toAbsolutePath().toString();
                     if (alreadyUploaded.contains(abs)) { skipped++; continue; }
-                    // Derive (companyId, material, bill_number, image_name) from path.
-                    // root/<companyId>/<material>/<billNumber>/<imageName>
+                    // Two supported layouts under the image root:
+                    //   BILLS:     <companyId>/<material>/<billNumber>/<imageName>   (4 levels)
+                    //   CUSTOMERS: …/CUSTOMERS/<customerId>/<imageName>             (a
+                    //              CUSTOMERS/CUSTOMER segment anywhere in the path)
+                    // Customer photos are stored in the box under
+                    //   bills/<companyId>/CUSTOMER/<customerId>/<file>
+                    // reusing the same upload pipeline + bill_images index.
                     Path rel = root.relativize(p);
-                    if (rel.getNameCount() != 4) continue; // skip stray files
-                    String companyId  = rel.getName(0).toString();
-                    String material   = rel.getName(1).toString();
-                    String billNumber = rel.getName(2).toString();
-                    String imageName  = rel.getName(3).toString();
-                    if (!companyId.equalsIgnoreCase(cr.companyId)) continue;
+                    int n = rel.getNameCount();
+                    String companyId, material, billNumber, imageName;
+
+                    int custIdx = -1;
+                    for (int i = 0; i < n; i++) {
+                        String seg = rel.getName(i).toString();
+                        if (seg.equalsIgnoreCase("CUSTOMERS") || seg.equalsIgnoreCase("CUSTOMER")) {
+                            custIdx = i; break;
+                        }
+                    }
+
+                    if (custIdx >= 0 && custIdx + 1 < n) {
+                        // Customer photo.
+                        companyId  = cr.companyId;
+                        material   = "CUSTOMER";
+                        billNumber = rel.getName(custIdx + 1).toString(); // customerId
+                        imageName  = rel.getFileName().toString();
+                    } else if (n == 4) {
+                        // Bill photo (original layout).
+                        companyId  = rel.getName(0).toString();
+                        material   = rel.getName(1).toString();
+                        billNumber = rel.getName(2).toString();
+                        imageName  = rel.getName(3).toString();
+                        if (!companyId.equalsIgnoreCase(cr.companyId)) continue;
+                    } else {
+                        continue; // unknown layout — skip stray files
+                    }
+
                     try {
                         uploadOne(p, companyId, material, billNumber, imageName);
                         uploaded++;
@@ -155,9 +200,12 @@ public class ImageWatcher implements Runnable {
 
     private List<CompanyRoot> resolveRoots() throws Exception {
         List<CompanyRoot> out = new ArrayList<>();
+        // Dedup by companyId so we don't walk the same root twice when a
+        // company has multiple material rows (e.g., CMP2 GOLD + CMP2 SILVER).
+        java.util.Set<String> seen = new java.util.HashSet<>();
         try (Connection c = ds.getConnection();
              PreparedStatement ps = c.prepareStatement(
-                "SELECT company_id, camera_temp_file_name FROM company_other_settings " +
+                "SELECT DISTINCT company_id, camera_temp_file_name FROM company_other_settings " +
                 "WHERE camera_temp_file_name IS NOT NULL AND trim(camera_temp_file_name) <> ''");
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
@@ -165,10 +213,13 @@ public class ImageWatcher implements Runnable {
                 String root = cfg.imageRootOverride != null
                         ? cfg.imageRootOverride
                         : rs.getString(2);
-                if (cid != null && root != null && !root.isBlank())
+                if (cid != null && root != null && !root.isBlank() && seen.add(cid))
                     out.add(new CompanyRoot(cid, root));
             }
         }
+        // Shuffle so no single company always wins all upload budget in a
+        // scan — gives CMP2 fair access alongside CMP3 etc.
+        java.util.Collections.shuffle(out, RNG);
         return out;
     }
 
@@ -203,11 +254,19 @@ public class ImageWatcher implements Runnable {
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                 .build();
         HttpResponse<String> r = http.send(req, HttpResponse.BodyHandlers.ofString());
-        // 429 / 502-rate-limit → honour Retry-After if present, then retry once.
-        if (r.statusCode() == 429 || (r.statusCode() == 502 && r.body() != null && r.body().contains("Rate limit"))) {
+
+        // Transient failures — back off and retry up to 3 times. Covers 429
+        // (rate limit) plus 502/503/504 (box or cloud briefly unavailable).
+        // Previously only 429/502-rate-limit retried, so a 503 burst churned
+        // through files one-per-second with no backoff and no retry.
+        int attempt = 0;
+        while (isTransient(r) && attempt < 3) {
+            attempt++;
             long retryS = parseRetryAfter(r);
-            log.info("box rate-limited, sleeping {}s then retrying {}", retryS, file.getFileName());
-            Thread.sleep(Math.max(1, retryS) * 1000L);
+            if (retryS <= 0) retryS = Math.min(30, 2L * attempt); // 2s,4s,6s default
+            log.info("box transient {} on {} — retry {}/3 in {}s",
+                     r.statusCode(), file.getFileName(), attempt, retryS);
+            Thread.sleep(retryS * 1000L);
             lastUploadAt = 0L; // reset throttle so retry isn't doubly delayed
             r = http.send(req, HttpResponse.BodyHandlers.ofString());
         }
@@ -218,9 +277,17 @@ public class ImageWatcher implements Runnable {
                        billNumber, imageName, attrs.size(), attrs.lastModifiedTime().toInstant());
     }
 
+    /** True for statuses worth retrying: rate-limit + transient gateway errors. */
+    private static boolean isTransient(HttpResponse<String> r) {
+        int s = r.statusCode();
+        if (s == 429 || s == 502 || s == 503 || s == 504) return true;
+        return false;
+    }
+
     private synchronized void throttle() throws InterruptedException {
+        long interval = cfg.imageUploadIntervalMs;
         long since = System.currentTimeMillis() - lastUploadAt;
-        if (since < MIN_UPLOAD_INTERVAL_MS) Thread.sleep(MIN_UPLOAD_INTERVAL_MS - since);
+        if (since < interval) Thread.sleep(interval - since);
         lastUploadAt = System.currentTimeMillis();
     }
 
@@ -297,7 +364,7 @@ public class ImageWatcher implements Runnable {
     private void scanBackupsOnce() throws Exception {
         List<CompanyRoot> roots = resolveBackupRoots();
         if (roots.isEmpty()) return;
-        Set<String> alreadyUploaded = loadAlreadyUploadedBackupPaths();
+        java.util.Map<String, long[]> alreadyUploaded = loadAlreadyUploadedBackups();
         int scanned = 0, uploaded = 0, skipped = 0;
         for (CompanyRoot cr : roots) {
             Path root = Paths.get(cr.root);
@@ -305,12 +372,32 @@ public class ImageWatcher implements Runnable {
                 log.debug("backup root for {} does not exist: {}", cr.companyId, cr.root);
                 continue;
             }
+            // Only sync backups modified within the retention window — old
+            // daily dumps (100MB+ each) would otherwise flood the box. Default
+            // 30 days; override with backup.retention.days in sync.properties.
+            long cutoffMs = System.currentTimeMillis()
+                    - (long) cfg.backupRetentionDays * 24L * 60L * 60L * 1000L;
             try (var stream = Files.walk(root)) {
                 for (Path p : (Iterable<Path>) stream::iterator) {
                     if (!Files.isRegularFile(p)) continue;
                     scanned++;
                     String abs = p.toAbsolutePath().toString();
-                    if (alreadyUploaded.contains(abs)) { skipped++; continue; }
+                    long[] sent = alreadyUploaded.get(abs);
+                    if (sent != null) {
+                        // Re-send only when the file genuinely changed: a different
+                        // size, or an mtime clearly newer than what we shipped. The
+                        // 5s margin keeps timestamp-precision differences between
+                        // NTFS and Postgres from causing an endless re-upload loop.
+                        long sz = Files.size(p);
+                        long mt = Files.getLastModifiedTime(p).toMillis();
+                        if (sz == sent[0] && mt <= sent[1] + 5000) { skipped++; continue; }
+                        log.info("backup changed since last upload, re-sending: {}", abs);
+                    }
+                    // Skip files older than the retention window.
+                    if (cfg.backupRetentionDays > 0) {
+                        long mtime = Files.getLastModifiedTime(p).toMillis();
+                        if (mtime < cutoffMs) { skipped++; continue; }
+                    }
                     Path rel = root.relativize(p);
                     String fileName = rel.getFileName().toString();
                     Path parent = rel.getParent();
@@ -347,53 +434,132 @@ public class ImageWatcher implements Runnable {
         return out;
     }
 
-    private Set<String> loadAlreadyUploadedBackupPaths() throws Exception {
-        Set<String> out = new HashSet<>();
+    /**
+     * abs_path -> {size_bytes, mtime_millis} of what we last shipped. Keyed on
+     * path but carrying size+mtime so a file REPLACED at the same path (a
+     * re-run backup overwriting today's dump) is detected and re-uploaded
+     * instead of being skipped forever.
+     */
+    private java.util.Map<String, long[]> loadAlreadyUploadedBackups() throws Exception {
+        java.util.Map<String, long[]> out = new java.util.HashMap<>();
         try (Connection c = ds.getConnection();
              Statement s = c.createStatement();
-             ResultSet rs = s.executeQuery("SELECT abs_path FROM sync_backup_uploads")) {
-            while (rs.next()) out.add(rs.getString(1));
+             ResultSet rs = s.executeQuery(
+                 "SELECT abs_path, size_bytes, " +
+                 "       (extract(epoch from mtime) * 1000)::bigint FROM sync_backup_uploads")) {
+            while (rs.next()) out.put(rs.getString(1), new long[]{ rs.getLong(2), rs.getLong(3) });
         }
         return out;
     }
 
     private void uploadBackup(Path file, String companyId, String relPath, String fileName) throws Exception {
-        throttle();
-        byte[] bytes = Files.readAllBytes(file);
         BasicFileAttributes attrs = Files.readAttributes(file, BasicFileAttributes.class);
-        String contentType = guessContentType(fileName);
 
+        // pg_dump tar-format backups run 500MB+ and get killed with 502 when
+        // proxied through the cloud. Gzip first — these compress ~5-10x, which
+        // also cuts upload time and box storage by the same factor. The ORIGINAL
+        // path and size are what we record, so dedupe/retention are unaffected.
+        Path gzTmp = null;
+        if (cfg.backupGzip && attrs.size() >= cfg.backupGzipMinBytes
+                && !isAlreadyCompressed(fileName)) {
+            gzTmp = Files.createTempFile("pawnsync-backup-", ".gz");
+            gzTmp.toFile().deleteOnExit();   // safety net if we die mid-upload
+            long t0 = System.currentTimeMillis();
+            gzipTo(file, gzTmp);
+            log.info("gzipped {}: {} MB -> {} MB in {}s", fileName,
+                     attrs.size() >> 20, Files.size(gzTmp) >> 20,
+                     (System.currentTimeMillis() - t0) / 1000);
+        }
+        try {
+            postBackup(gzTmp != null ? gzTmp : file,
+                       gzTmp != null ? fileName + ".gz" : fileName,
+                       companyId, relPath);
+        } finally {
+            if (gzTmp != null) Files.deleteIfExists(gzTmp);
+        }
+        recordBackupUploaded(file, companyId, relPath, fileName, attrs);
+    }
+
+    /** POSTs one file to the cloud as multipart, retrying transient failures. */
+    private void postBackup(Path file, String fileName, String companyId, String relPath)
+            throws Exception {
+        throttle();
+        String contentType = guessContentType(fileName);
         String boundary = "PawnSyncBackup" + Math.abs(RNG.nextLong());
-        var baos = new java.io.ByteArrayOutputStream();
-        appendTextPart(baos, boundary, "companyId",    companyId);
-        appendTextPart(baos, boundary, "relativePath", relPath);
-        appendTextPart(baos, boundary, "fileName",     fileName);
-        String head = "--" + boundary + "\r\n"
+
+        // Build head (text parts + file part header) and tail as byte arrays,
+        // then STREAM the file body between them so a 100MB+ backup is never
+        // loaded into the agent's heap. The file part must come last because
+        // the field parts precede it.
+        var headBaos = new java.io.ByteArrayOutputStream();
+        appendTextPart(headBaos, boundary, "companyId",    companyId);
+        appendTextPart(headBaos, boundary, "relativePath", relPath);
+        appendTextPart(headBaos, boundary, "fileName",     fileName);
+        headBaos.write(("--" + boundary + "\r\n"
                 + "Content-Disposition: form-data; name=\"file\"; filename=\""
                 + fileName.replace("\"", "\\\"") + "\"\r\n"
-                + "Content-Type: " + contentType + "\r\n\r\n";
-        baos.write(head.getBytes(StandardCharsets.UTF_8));
-        baos.write(bytes);
-        baos.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+                + "Content-Type: " + contentType + "\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+        byte[] headB = headBaos.toByteArray();
+        byte[] tailB = ("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8);
 
-        HttpRequest req = HttpRequest.newBuilder(
+        // Fresh streams per attempt (a consumed InputStream can't be replayed).
+        java.util.function.Supplier<java.io.InputStream> bodySupplier = () -> {
+            try {
+                return new java.io.SequenceInputStream(
+                    new java.io.SequenceInputStream(
+                        new java.io.ByteArrayInputStream(headB),
+                        Files.newInputStream(file)),
+                    new java.io.ByteArrayInputStream(tailB));
+            } catch (IOException e) { throw new RuntimeException(e); }
+        };
+
+        java.util.function.Supplier<HttpRequest> reqSupplier = () -> HttpRequest.newBuilder(
                 URI.create(cfg.cloudUrl + "/v1/files/backup"))
                 .header("Authorization", "Bearer " + cfg.cloudApiKey)
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                .timeout(Duration.ofMinutes(5))
-                .POST(HttpRequest.BodyPublishers.ofByteArray(baos.toByteArray()))
+                .timeout(Duration.ofMinutes(30))   // big files need a long window
+                .POST(HttpRequest.BodyPublishers.ofInputStream(bodySupplier))
                 .build();
-        HttpResponse<String> r = http.send(req, HttpResponse.BodyHandlers.ofString());
-        if (r.statusCode() == 429 || (r.statusCode() == 502 && r.body() != null && r.body().contains("Rate limit"))) {
+
+        HttpResponse<String> r = http.send(reqSupplier.get(), HttpResponse.BodyHandlers.ofString());
+        // Transient (429/502/503/504) → back off and retry up to 3 times.
+        int attempt = 0;
+        while (isTransient(r) && attempt < 3) {
+            attempt++;
             long retryS = parseRetryAfter(r);
-            log.info("box rate-limited (backup), sleeping {}s then retrying {}", retryS, fileName);
-            Thread.sleep(Math.max(1, retryS) * 1000L);
+            if (retryS <= 0) retryS = Math.min(30, 2L * attempt);
+            log.info("box transient {} (backup) on {} — retry {}/3 in {}s",
+                     r.statusCode(), fileName, attempt, retryS);
+            Thread.sleep(retryS * 1000L);
             lastUploadAt = 0L;
-            r = http.send(req, HttpResponse.BodyHandlers.ofString());
+            r = http.send(reqSupplier.get(), HttpResponse.BodyHandlers.ofString());
         }
         if (r.statusCode() / 100 != 2) {
             throw new IOException("cloud backup status=" + r.statusCode() + " body=" + r.body());
         }
+    }
+
+    /** Streams src through GZIP into dst — constant memory whatever the size. */
+    private static void gzipTo(Path src, Path dst) throws IOException {
+        try (java.io.InputStream in =
+                     new java.io.BufferedInputStream(Files.newInputStream(src), 1 << 16);
+             java.util.zip.GZIPOutputStream out = new java.util.zip.GZIPOutputStream(
+                     new java.io.BufferedOutputStream(Files.newOutputStream(dst), 1 << 16), 1 << 16)) {
+            in.transferTo(out);
+        }
+    }
+
+    /** Re-compressing these burns CPU and usually makes the file slightly bigger. */
+    private static boolean isAlreadyCompressed(String name) {
+        String n = name.toLowerCase();
+        return n.endsWith(".gz")  || n.endsWith(".zip")  || n.endsWith(".7z")
+            || n.endsWith(".rar") || n.endsWith(".jpg")  || n.endsWith(".jpeg")
+            || n.endsWith(".png") || n.endsWith(".pdf");
+    }
+
+    /** Marks the ORIGINAL (uncompressed) file as sent so it isn't re-uploaded. */
+    private void recordBackupUploaded(Path file, String companyId, String relPath,
+                                      String fileName, BasicFileAttributes attrs) throws Exception {
         try (Connection c = ds.getConnection();
              PreparedStatement ps = c.prepareStatement(
                 "INSERT INTO sync_backup_uploads(abs_path, company_id, relative_path, file_name, " +

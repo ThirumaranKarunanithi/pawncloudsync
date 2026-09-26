@@ -4,8 +4,9 @@
 -- INSERT/UPDATE/DELETE on business tables as a JSONB event, then fires
 -- a NOTIFY so the sync agent wakes immediately.
 --
--- Idempotent: safe to run multiple times.
--- Apply on EACH local PostgreSQL (one per shop machine).
+-- Idempotent: safe to run multiple times. SchemaGuard re-runs this on
+-- every service start so updates to sync_capture() take effect.
+-- Trigger attachment lives in V2 — it iterates every user table.
 -- =====================================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -35,6 +36,10 @@ CREATE TABLE IF NOT EXISTS sync_outbox_dlq (
 -- Generic capture function. Reads shop_id from session GUC `app.shop_id`
 -- which the desktop app sets right after acquiring a JDBC connection.
 -- Falls back to 'DEFAULT' so legacy code paths still work.
+--
+-- row_pk is composite per table so the cloud projection upsert keeps one
+-- row per natural key. Pre-2026-06-12 builds used a single-column
+-- COALESCE that collapsed every bill per company into one cloud row.
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION sync_capture() RETURNS trigger AS $$
 DECLARE
@@ -42,6 +47,9 @@ DECLARE
     v_payload   JSONB;
     v_row_pk    TEXT;
     v_event_id  UUID;
+    v_pk_cols   TEXT[];
+    v_col       TEXT;
+    v_parts     TEXT[] := ARRAY[]::TEXT[];
 BEGIN
     BEGIN
         v_shop_id := current_setting('app.shop_id', true);
@@ -58,14 +66,77 @@ BEGIN
         v_payload := to_jsonb(NEW);
     END IF;
 
-    -- best-effort PK extraction: try common id columns
-    v_row_pk := COALESCE(
-        v_payload->>'id',
-        v_payload->>'bill_no',
-        v_payload->>'customer_id',
-        v_payload->>'company_id',
-        v_payload->>'pk'
-    );
+    -- Prefer the table's REAL primary key. The hardcoded map below assumes
+    -- column names that don't hold on every shop -- repledge_billing, for
+    -- one, has no bill_number column, so its key degraded to
+    -- 'CMP1|<repledge_no>|' and every leg of a repledge that covers several
+    -- pawn bills collapsed into a single cloud row. Reading pg_index instead
+    -- keeps one cloud row per real row, whatever the table looks like.
+    SELECT array_agg(a.attname ORDER BY x.ord)
+      INTO v_pk_cols
+      FROM pg_index i
+      CROSS JOIN LATERAL unnest(i.indkey) WITH ORDINALITY AS x(attnum, ord)
+      JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = x.attnum
+     WHERE i.indrelid = (quote_ident(TG_TABLE_SCHEMA) || '.'
+                      || quote_ident(TG_TABLE_NAME))::regclass
+       AND i.indisprimary;
+
+    IF v_pk_cols IS NOT NULL AND array_length(v_pk_cols, 1) > 0 THEN
+        FOREACH v_col IN ARRAY v_pk_cols LOOP
+            v_parts := array_append(v_parts, COALESCE(v_payload->>v_col, ''));
+        END LOOP;
+        v_row_pk := array_to_string(v_parts, '|');
+    ELSE
+    -- No primary key on this table: fall back to the known-good composites.
+    v_row_pk := CASE TG_TABLE_NAME
+        WHEN 'company_billing' THEN
+            COALESCE(v_payload->>'company_id','') || '|' ||
+            COALESCE(v_payload->>'jewel_material_type','') || '|' ||
+            COALESCE(v_payload->>'bill_number','')
+        WHEN 'customer_details' THEN
+            COALESCE(v_payload->>'customer_id', v_payload->>'id', '')
+        WHEN 'company_advance_amount' THEN
+            COALESCE(v_payload->>'company_id','') || '|' ||
+            COALESCE(v_payload->>'jewel_material_type','') || '|' ||
+            COALESCE(v_payload->>'bill_number','') || '|' ||
+            COALESCE(v_payload->>'paid_date','')
+        WHEN 'company_todays_account_available_amount' THEN
+            COALESCE(v_payload->>'company_id','') || '|' ||
+            COALESCE(v_payload->>'todays_date','')
+        WHEN 'company_todays_account' THEN
+            COALESCE(v_payload->>'company_id','') || '|' ||
+            COALESCE(v_payload->>'jewel_material_type','') || '|' ||
+            COALESCE(v_payload->>'todays_date','') || '|' ||
+            COALESCE(v_payload->>'id','')
+        WHEN 'repledge_billing' THEN
+            COALESCE(v_payload->>'company_id','') || '|' ||
+            COALESCE(v_payload->>'repledge_bill_number','') || '|' ||
+            COALESCE(v_payload->>'bill_number','')
+        WHEN 'company_other_settings' THEN
+            COALESCE(v_payload->>'company_id','') || '|' ||
+            COALESCE(v_payload->>'jewel_material_type','')
+        WHEN 'company_master' THEN
+            COALESCE(v_payload->>'company_id','')
+        WHEN 'company_bill_number_generator' THEN
+            COALESCE(v_payload->>'company_id','') || '|' ||
+            COALESCE(v_payload->>'jewel_material_type','')
+        WHEN 'company_other_credit' THEN
+            COALESCE(v_payload->>'company_id','') || '|' ||
+            COALESCE(v_payload->>'id','')
+        WHEN 'company_other_debit' THEN
+            COALESCE(v_payload->>'company_id','') || '|' ||
+            COALESCE(v_payload->>'id','')
+        ELSE
+            COALESCE(
+                v_payload->>'id',
+                v_payload->>'bill_number',
+                v_payload->>'bill_no',
+                v_payload->>'customer_id',
+                v_payload->>'company_id',
+                v_payload->>'pk'
+            )
+    END;
+    END IF;
 
     v_event_id := gen_random_uuid();
 
@@ -77,35 +148,3 @@ BEGIN
     RETURN COALESCE(NEW, OLD);
 END;
 $$ LANGUAGE plpgsql;
-
--- ---------------------------------------------------------------------
--- Attach triggers. If a table doesn't exist locally we skip it instead
--- of failing the whole script.
--- ---------------------------------------------------------------------
-DO $$
-DECLARE
-    t TEXT;
-    tables TEXT[] := ARRAY[
-        'bill_opening','bill_closing','company_master','customer_master',
-        'credit','debit','advance_amount','expense_income','stock_details',
-        'user_master','repledge_master','company_advance_amount',
-        'todays_account','rebill_mapper','notice_generation'
-    ];
-BEGIN
-    FOREACH t IN ARRAY tables LOOP
-        IF EXISTS (
-            SELECT 1 FROM information_schema.tables
-            WHERE table_schema = current_schema() AND table_name = t
-        ) THEN
-            EXECUTE format('DROP TRIGGER IF EXISTS trg_sync_%I ON %I', t, t);
-            EXECUTE format(
-                'CREATE TRIGGER trg_sync_%I
-                 AFTER INSERT OR UPDATE OR DELETE ON %I
-                 FOR EACH ROW EXECUTE FUNCTION sync_capture()',
-                 t, t);
-            RAISE NOTICE 'sync trigger attached to %', t;
-        ELSE
-            RAISE NOTICE 'skipped % (not present)', t;
-        END IF;
-    END LOOP;
-END $$;

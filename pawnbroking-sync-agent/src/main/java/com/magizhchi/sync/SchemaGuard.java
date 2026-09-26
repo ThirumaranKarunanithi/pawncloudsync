@@ -44,11 +44,15 @@ public class SchemaGuard implements Runnable {
         try (Connection conn = ds.getConnection()) {
             boolean repaired = false;
 
-            if (!tableExists(conn, "sync_outbox")) {
-                log.warn("sync_outbox missing -> applying V1");
-                executeSql(conn, loadResource("/migrations/V1__sync_outbox.sql"));
-                repaired = true;
-            }
+            // Always re-apply V1 so updates to sync_capture() (e.g. composite
+            // row_pk per table) take effect on every service start. V1 is
+            // fully idempotent — CREATE TABLE IF NOT EXISTS + CREATE OR
+            // REPLACE FUNCTION + CREATE INDEX IF NOT EXISTS.
+            boolean outboxExisted = tableExists(conn, "sync_outbox");
+            log.info("applying V1 (sync_outbox {}, refreshing sync_capture())",
+                     outboxExisted ? "exists" : "missing");
+            executeSql(conn, loadResource("/migrations/V1__sync_outbox.sql"));
+            if (!outboxExisted) repaired = true;
 
             int triggersBefore = countSyncTriggers(conn);
             int userTables     = countUserTables(conn);

@@ -1,0 +1,104 @@
+═══════════════════════════════════════════════════════════════════════
+  STEP 5 — ONE FILE PER SHOP                              (26-09-2026)
+═══════════════════════════════════════════════════════════════════════
+
+  This folder used to hold 41 loose scripts — a cloud-provision and a
+  verify per shop, a backfill per shop, and a dozen shared "add this
+  table" scripts that every shop needed but nobody could tell had been
+  run. Picking the right six for a given shop was guesswork.
+
+  Now there is ONE file per shop. Open that shop's file and nothing
+  else.
+
+
+  shops\
+  ───────────────────────────────────────────────────────────────────
+     aiyanarpuram_setup.sql        iravathanallur_setup.sql
+     alwarpuram_setup.sql          karumbalai_setup.sql
+     annanagar_setup.sql           manonmani_setup.sql
+     balamurugan_setup.sql         dhineshsuganya_setup.sql
+
+     Everything that shop needs, filled in, nothing to edit.
+     Each file has two halves:
+
+        the RAILWAY box at the top, inside a /* comment */ so that F5
+        on the shop PC skips it. Copy those statements into Railway ->
+        Data -> Query by hand, one at a time.
+
+        everything below it — the SHOP PC half. pgAdmin, Query Tool on
+        the "pawnbroking" database.
+
+     Order:  1. Railway R1–R6        (a new shop — hands you the key)
+             2. Sync agent installed and Running
+             3. Shop PC  STEP 1, then STEP 2
+             4. Railway R7–R8        (once the report says 0 waiting)
+
+     Safe to run again whenever you like. It only does what is still
+     left and it never sends the history twice. Read the table it
+     prints at the end — 18 rows saying what was done and what is
+     still waiting.
+
+     Before the run that sends the history: leave 2 GB free on the
+     drive PostgreSQL lives on, and do it when NOBODY IS BILLING.
+     Use pgAdmin, not the DB Communicator — that stops any statement
+     at 30 seconds and this one needs longer. A cancelled run changes
+     nothing.
+
+
+  tools\
+  ───────────────────────────────────────────────────────────────────
+     Not part of setting a shop up. Each is a decision you make, or a
+     question you are answering, so none of them is folded into the
+     shop files.
+
+     repledge_why_it_is_still_wrong.sql
+         The phone shows fewer repledges than the desktop. Diagnoses
+         WHY at a given shop, then repairs it. Start here for that
+         complaint.
+     fix_stale_repledge_ids_on_company_billing.sql
+         Bills still advertising a repledge that came back months ago.
+     repledge_id_lists_which_is_closed.sql
+         'REPBILL1,REPBILL2' on one bill — which of them is closed.
+     ledger_day_enforcement.sql
+         Refuses entries dated outside the open day. A policy: turn it
+         on per shop, and NOT while a shop is still entering history.
+     todays_account_deficit_check.sql
+         Lists closed days whose Deficit disagrees with Available −
+         Actual. The repair is already inside every shop file (X5).
+     aiyanarpuram_date_tamper_check.sql
+         A one-off forensic, written for aiyanarpuram.
+     manonmani_share_basic_100gb_yearly.sql
+         Runs on the Magizhchi SHARE database, not the pawn cloud.
+
+
+  _superseded-26-09-2026\
+  ───────────────────────────────────────────────────────────────────
+     The 34 files now folded into the shop files. Kept, not deleted:
+     almost none of them were in git, so a delete could not be undone.
+     Nothing here needs running. Look something up if you want to see
+     what a shop was given before.
+
+
+───────────────────────────────────────────────────────────────────────
+HOW THE SHOP FILES ARE MADE — do not hand-edit them
+───────────────────────────────────────────────────────────────────────
+   They are generated, so they cannot drift from what the installer
+   actually does:
+
+     D:\Pawnbroking\_claude-backups\onetimesql-2026-09-26\
+         build_shop_sql.py     builds all eight
+         check_shop_sql.py     structural checks
+         run_like_pgadmin.py   sends a file as ONE query, as F5 does
+         before\               the whole folder as it was on 26-09
+
+   The shop-PC half is built from the sync agent's own
+   shop_setup.sql — the same script PawnBrokingSyncSetup.exe runs —
+   plus the desktop app's own tables (company_settings,
+   customer_merge_log, receipt printing, the accepted-closing-term
+   column) and the deficit repair. Change shop_setup.sql, re-run
+   build_shop_sql.py, and all eight pick it up.
+
+   Tested 26-09-2026 on restored copies of two real shop databases
+   (7,222 and 19,059 bills): all eight run clean as a single batch,
+   the way pgAdmin sends them, and the repledge primary key is added
+   when it is missing.

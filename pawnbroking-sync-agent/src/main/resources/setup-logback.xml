@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logging for the setup run only (com.magizhchi.sync.Setup selects this).
+  The shop reads the setup's own lines; Hikari and SchemaGuard chatter would
+  bury them, so only real problems get through.
+-->
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>   (%level) %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ERROR only: SchemaGuard's "applying V2" warning is normal on a fresh
+         shop and reads like a fault next to the setup's own lines. -->
+    <root level="ERROR">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>

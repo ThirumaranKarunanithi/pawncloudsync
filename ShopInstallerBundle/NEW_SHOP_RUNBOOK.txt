@@ -1,0 +1,179 @@
+═══════════════════════════════════════════════════════════════════════
+  A NEW SHOP ON THE CLOUD  -  mobile app and Meet        (26-09-2026)
+═══════════════════════════════════════════════════════════════════════
+
+  Six steps. Two of them are on your laptop, one is on the shop PC, and
+  the rest are on the owner's phone.
+
+  Nothing here needs pgAdmin, and nothing needs a Railway redeploy. If
+  an older note tells you to run SQL on Railway or to add the shop to
+  the TENANTS variable, it is out of date - the admin console does both.
+
+  Have ready before you leave:
+     * the owner's e-mail address (this is how they sign in - get it
+       from them, do not invent one)
+     * the shop id you will use: lower case, letters/digits/underscore
+       only, e.g. dhineshsuganya. It becomes the schema name and cannot
+       be changed later.
+     * the shop PC's PostgreSQL password
+     * 2 GB free on the drive PostgreSQL lives on
+
+
+───────────────────────────────────────────────────────────────────────
+  1  THE OWNER NEEDS A MAGIZHCHI SHARE ACCOUNT           (do this first)
+───────────────────────────────────────────────────────────────────────
+     Sign-in on the phone sends its OTP through Magizhchi Share. If
+     that e-mail has no Share account, Send OTP answers "Not Found" and
+     nothing else in this list will work.
+
+     Have the owner create it, or create it for them, BEFORE step 2.
+     The address must be exactly the one you use in step 2.
+
+
+───────────────────────────────────────────────────────────────────────
+  2  CREATE THE SHOP                                    (your laptop)
+───────────────────────────────────────────────────────────────────────
+     https://devpawn.magizhchi.academy/admin.html
+
+     Sign in with an address listed in the ADMIN_EMAILS variable. Then
+     Create shop: shop id, the owner's e-mail, and the display name the
+     phone will show.
+
+     It makes the schema and its tables, registers the shop, grants the
+     owner, and hands you ONE api key - mbk_... . Copy it now; you need
+     it in step 3. You can read it back later on the same page.
+
+     No Railway SQL. No TENANTS edit. No redeploy.
+
+     Adding YOURSELF or another admin to this shop: same page, the
+     shop's Emails. Do it here rather than in SQL.
+
+
+───────────────────────────────────────────────────────────────────────
+  3  THE SHOP PC                                        (one exe)
+───────────────────────────────────────────────────────────────────────
+     PawnBrokingSyncSetup.exe  -  right-click, Run as administrator, on
+     the PC that holds the "pawnbroking" database.
+
+        kits:  ShopKits\NEW-INSTALLATION\5-MobileSync\
+               ShopKits\EXISTING-SHOP-UPDATE\4-MobileSync\
+
+     It asks three things: the shop id, the mbk_ key from step 2, and
+     the postgres password. Then it does the lot by itself:
+
+        installs the sync agent as a service and starts it
+        writes sync.properties, keeping anything already there
+        prepares the database - the SUSPENSE bill status and its table,
+           Re+ pricing, notice mode, the desktop app's own tables
+        gives repledge_billing and the five ledger tables their primary
+           keys, so rows stop collapsing or multiplying on the cloud
+        puts wrong day-account Deficit figures right
+        sends the shop's existing history to the cloud, ONCE
+        checks the photo and backup folders exist on this PC
+        prints a report
+
+     READ THE REPORT. The lines that matter:
+        repledge_billing key      must not say MISSING
+        History to the cloud      says queued, or why not
+        Waiting to send           counts down to 0 as it uploads
+        Photo / Backup folder(s)  must be folders that exist HERE
+
+     Do it when nobody is billing. The history goes as one step and
+     takes a few minutes; until it ends, saving a bill waits. It is not
+     stuck - do not cancel.
+
+     Safe to run again any time. It only does what is still left and it
+     never sends the history twice. This is also how you update an
+     existing shop.
+
+     There is NO SQL to run afterwards.
+
+
+───────────────────────────────────────────────────────────────────────
+  4  THE PHONE                                          (the owner)
+───────────────────────────────────────────────────────────────────────
+     Install  ShopKits\NEW-INSTALLATION\5-MobileSync\Pawnbroking.apk
+     Sign in with the owner's e-mail and the OTP.
+
+     THE OWNER MUST SIGN IN ONCE BEFORE PHOTOS AND BACKUPS WILL UPLOAD.
+     Until that first sign-in the cloud refuses them with 503 and the
+     agent keeps retrying. If the report in step 3 shows photos and
+     backups stuck at 0, this is almost always why.
+
+
+───────────────────────────────────────────────────────────────────────
+  5  CHECK THE TWO ENDS AGREE                           (once 0 waiting)
+───────────────────────────────────────────────────────────────────────
+     Wait until step 3's report says Waiting to send = 0. Re-run the exe
+     to see it again, or use the "Sync progress report" shortcut it
+     leaves on the desktop.
+
+     Then open the shop's file:
+        ShopInstallerBundle\5-OneTimeSQL\shops\<shop>_setup.sql
+     and run R7 and R8 from the RAILWAY box at the top, on
+     Railway -> your cloud service -> Data -> Query.
+
+        R7  company_billing and repledge_billing must match the desktop
+        R8  legacy_key_rows must be 0
+
+     On the phone, open Today's Account for a day the shop has already
+     closed and hold it against the desktop screen. Counts and totals
+     should be the same.
+
+
+───────────────────────────────────────────────────────────────────────
+  6  THE MEET ROOM                                      (only if wanted)
+───────────────────────────────────────────────────────────────────────
+     A shop does not need Meet to use the mobile app. Add it only if
+     they asked.
+
+     In Meet, create a room:
+        type                          PAWN_SHOP
+        "Pawn shop this room shows"   the shop id from step 2
+        the owner's address           added, then promoted to ADMIN
+
+     BEING IN THE ROOM IS NOT PERMISSION TO SEE THE SHOP. Pawn keeps
+     its own grants and checks them on every call. Anyone who should
+     see the figures must ALSO be granted the shop in the admin console
+     (step 2, the shop's Emails). A member without that grant sees an
+     empty room and it looks like a bug.
+
+
+───────────────────────────────────────────────────────────────────────
+  HAND OVER
+───────────────────────────────────────────────────────────────────────
+     The e-mail used, the PostgreSQL password, and who to call.
+
+
+───────────────────────────────────────────────────────────────────────
+  IF SOMETHING LOOKS WRONG
+───────────────────────────────────────────────────────────────────────
+  the exe said the cloud refused the key (401)
+      the mbk_ key is wrong. Read it back on the admin console, shop ->
+      api key. Do not mint a second one: a shop should have exactly one.
+
+  Send OTP says Not Found
+      step 1 was skipped, or the address does not match the one in
+      step 2 exactly.
+
+  photos and backups stay at 0
+      the owner has not signed in on the phone yet (step 4), or the
+      folder in the report does not exist on that PC.
+
+  the phone shows FEWER repledges than the desktop
+      the report line "repledge_billing key" said MISSING - the shop's
+      repledge_bill_id values are duplicated, so the key could not be
+      added. Find them with
+      5-OneTimeSQL\tools\repledge_why_it_is_still_wrong.sql (query A3),
+      settle those rows, then run the exe again. It re-sends the
+      repledges by itself once the key is in.
+
+  the phone's money is wrong but the counts are right
+      that is the cloud, not the shop. Check the cloud api is on the
+      26-09-2026 release or later.
+
+  Today's Account is right except EXPENSES / INCOMES
+      those come from 14 ledger tables. Check the report's "Ledger
+      keys" line - any table listed as STILL WITHOUT A KEY has repeated
+      ids that have to be settled first.
+═══════════════════════════════════════════════════════════════════════

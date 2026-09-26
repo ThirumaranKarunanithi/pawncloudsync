@@ -1,30 +1,178 @@
 -- =====================================================================
---  SHOP PC DATABASE SETUP  -  shop_id: ${SHOP_ID}
+--  IRAVATHANALLUR PAWN BROKING  -  COMPLETE SETUP, CLOUD + SHOP PC
+--  shop_id: iravathanallur
 --
---  This is what PawnBrokingSyncSetup.exe runs on the shop PC after it
---  has installed the sync agent. A resolved copy is left next to the
---  agent as  shop_setup_${SHOP_ID}.sql  so the same thing can be run
---  from pgAdmin (Query Tool on the "pawnbroking" database, F5) if the
---  exe ever cannot be used. Nothing in it needs editing.
+--  ### YOU PROBABLY ONLY NEED THE RAILWAY BOX BELOW. ###
 --
---  It does only what is still left, and it never sends the history
---  twice: the send marks sync_outbox with a comment, and every later
---  run sees that and steps aside.
+--  PawnBrokingSyncSetup.exe does the ENTIRE shop-PC half by itself -
+--  it runs exactly the steps in this file. Run it as administrator on
+--  the PC that holds the "pawnbroking" database and there is no SQL to
+--  run there at all. Re-running it is how an existing shop is brought
+--  up to date; it only does what is still left.
 --
---  The SUSPENSE bill status is added by the exe itself, before this
---  file, because ALTER TYPE ... ADD VALUE cannot run inside a batch on
---  older PostgreSQL. From pgAdmin run this first, on its own:
---      ALTER TYPE company_bill_status ADD VALUE IF NOT EXISTS 'SUSPENSE' AFTER 'CANCELED';
+--  The shop-PC half is kept here for one reason: a PC where the exe
+--  cannot be used. It is the same script, so running both is harmless.
 --
---  Covers, for this shop: suspense_company_billing_suspense.sql,
---  re_plus_customer_pricing.sql, re_plus_customer_pricing_dated.sql,
---  notice_one_per_bill_setting.sql, and the history send (built on the
---  balamurugan_full_backfill pattern, the one that stops repledges
---  collapsing).
+--  THE CLOUD HALF CANNOT BE AUTOMATED - the exe has no way into
+--  Railway, and it needs the API key the Railway box hands out. So for
+--  a NEW shop, the Railway box is the one piece that is still yours.
+--  An existing shop is already registered and needs none of it.
 --
---  Not included on purpose: ledger_day_enforcement.sql. It refuses
---  back-dated entries, which is a separate decision per shop.
+--  WHERE EACH PART RUNS
+--    The RAILWAY box below is inside a comment, so pressing F5 on the
+--    shop PC skips it. Copy those statements into Railway by hand.
+--    Everything after it runs on the SHOP PC, in pgAdmin, Query Tool on
+--    the "pawnbroking" database.
+--
+--  ORDER
+--    1. Railway box  R1-R6      (a new shop: gets the sync key)
+--    2. PawnBrokingSyncSetup.exe on the shop PC  -  and that is the
+--       shop PC done. STEP 1 / STEP 2 below are the fallback only.
+--    3. Railway box  R7-R8      (once the report says 0 waiting)
+--
+--  Pressing F5 before the agent is ready is fine: it does the schema
+--  part and tells you it is still waiting.
+--
+--  REPLACES, for this shop: iravathanallur_cloud_provision.sql,
+--  iravathanallur_cloud_verify.sql, the backfills and replays,
+--  suspense_company_billing_suspense.sql, re_plus_customer_pricing.sql,
+--  re_plus_customer_pricing_dated.sql, notice_one_per_bill_setting.sql,
+--  company_settings.sql, customer_merge_log.sql,
+--  receipt_print_settings.sql, bill_opening_default_term.sql and
+--  todays_account_deficit_fix.sql. All of those are in
+--  _superseded-26-09-2026\ if you need to look one up.
+--
+--  NOT here, on purpose - each is a decision, not part of setup:
+--    tools\ledger_day_enforcement.sql   refuses back-dated entries
+--    tools\fix_stale_repledge_ids_on_company_billing.sql
+--    tools\repledge_why_it_is_still_wrong.sql
 -- =====================================================================
+
+
+/* =====================================================================
+   RAILWAY  -  the cloud half.  NOT the shop PC.
+   Railway -> your cloud service -> Data -> Query, ONE statement at a
+   time (the console splits on ';').
+
+   ALREADY PROVISIONED. R1 to R5 were done when iravathanallur went live, so
+   run R6 to confirm and stop there. NEVER re-run R5: it would mint a
+   second key beside the working one. R1 to R4 are safe to re-run -
+   they all end in ON CONFLICT DO NOTHING - and are here so a missing
+   sign-in can be put back without hunting for another file.
+
+   =====================================================================
+
+-- R1  Register the tenant. schema_name + display_name are NOT NULL.
+INSERT INTO public.tenants (shop_id, schema_name, display_name)
+VALUES ('iravathanallur', 'iravathanallur', 'Iravathanallur Pawn Broking')
+ON CONFLICT DO NOTHING;
+
+-- R2  The legacy primary_email (user_shop_access is what gates login).
+UPDATE public.tenants SET primary_email = 'rajeshwariiravathanallur@gmail.com'
+ WHERE shop_id = 'iravathanallur';
+
+-- R3  The owner - the address that signs in on the phone.
+INSERT INTO public.user_shop_access (email, shop_id, role)
+VALUES ('rajeshwariiravathanallur@gmail.com', 'iravathanallur', 'OWNER')
+ON CONFLICT (email, shop_id) DO NOTHING;
+
+-- R4  The two admin addresses that hold every Rajeshwari branch.
+INSERT INTO public.user_shop_access (email, shop_id, role)
+VALUES ('tirukaruna@gmail.com', 'iravathanallur', 'OWNER')
+ON CONFLICT (email, shop_id) DO NOTHING;
+
+INSERT INTO public.user_shop_access (email, shop_id, role)
+VALUES ('neelamanikandank@gmail.com', 'iravathanallur', 'OWNER')
+ON CONFLICT (email, shop_id) DO NOTHING;
+
+-- R5  The sync key - ONCE ONLY. It goes into the shop PC's
+--     C:\ProgramData\PawnBroking\sync.properties as cloud.api_key.
+--     FIRST look for one that already exists. Keys are stored in plain
+--     text, so an existing one can simply be read back:
+--       SELECT api_key, created_at FROM public.shop_credentials
+--        WHERE shop_id = 'iravathanallur' AND revoked_at IS NULL;
+--     Only if that returns nothing, run this and copy the mbk_... back.
+-- INSERT INTO public.shop_credentials (api_key, shop_id, label)
+-- VALUES ('mbk_' || replace(gen_random_uuid()::text,'-','')
+--               || replace(gen_random_uuid()::text,'-',''),
+--         'iravathanallur', 'Iravathanallur Pawn Broking - sync agent')
+-- RETURNING api_key;
+
+--     Then, in the Railway UI (not SQL): add  iravathanallur  to the TENANTS
+--     variable, comma-separated, and let it redeploy (~3 min). Deploy
+--     Logs should show:  Provisioning tenant schema 'iravathanallur'
+
+-- R6  Check. Expect 1 tenant, an owner email, the sign-ins, 1 api key.
+SELECT 'tenant'  AS what, shop_id                     AS value FROM public.tenants          WHERE shop_id='iravathanallur'
+UNION ALL
+SELECT 'email',  COALESCE(primary_email,'(none)')            FROM public.tenants          WHERE shop_id='iravathanallur'
+UNION ALL
+SELECT 'access', email || ' (' || role || ')'                FROM public.user_shop_access WHERE shop_id='iravathanallur' AND revoked_at IS NULL
+UNION ALL
+SELECT 'api_key',label                                       FROM public.shop_credentials WHERE shop_id='iravathanallur' AND revoked_at IS NULL;
+
+
+-- ----- R7 and R8: only after the shop PC report says 0 waiting -------
+
+-- R7  What the cloud holds. company_billing and repledge_billing should
+--     match the desktop exactly.
+SELECT table_name, count(*) AS cloud_rows
+  FROM iravathanallur.projections
+ WHERE NOT deleted
+   AND table_name IN ('company_billing','repledge_billing','company_advance_amount',
+                      'company_todays_account','customer_details')
+ GROUP BY table_name ORDER BY table_name;
+
+-- R8  REPLEDGE REPAIR - the reason the phone shows fewer repledges than
+--     the desktop. A legacy key contains '|' (it was
+--     company_id|repledge_bill_number|bill_number, and repledge_billing
+--     has no bill_number column, so every leg of one repledge bill
+--     landed on the same key and the cloud kept only the last).
+--
+--     Count them first:
+SELECT count(*) FILTER (WHERE row_pk LIKE '%|%')     AS legacy_key_rows,
+       count(*) FILTER (WHERE row_pk NOT LIKE '%|%') AS good_rows,
+       count(*)                                      AS total
+  FROM iravathanallur.projections
+ WHERE table_name = 'repledge_billing' AND NOT deleted;
+
+--     If legacy_key_rows is 0 this shop is already repaired - stop here.
+--     Otherwise: check the shop PC's report says the repledge primary key
+--     is in place, then delete below and run X6 on the shop PC. Safe:
+--     projections are a rebuildable copy, and X6 rebuilds them.
+-- DELETE FROM iravathanallur.projections WHERE table_name = 'repledge_billing';
+
+   ===================================================================== */
+
+
+-- #####################################################################
+--  STEP 1 OF 2 ON THE SHOP PC  -  run this ONE line on its own first.
+--
+--  ALTER TYPE ... ADD VALUE cannot share a batch with anything that uses
+--  the new value, so it will not go through with the rest of the file.
+--  Highlight the line below and press F5, then F5 the whole file.
+--
+--  Without it Bill Closing fails on the first bill number typed:
+--      invalid input value for enum company_bill_status: "SUSPENSE"
+--  Already there? It says so and changes nothing.
+-- #####################################################################
+
+ALTER TYPE company_bill_status ADD VALUE IF NOT EXISTS 'SUSPENSE' AFTER 'CANCELED';
+
+
+-- #####################################################################
+--  STEP 2 OF 2  -  F5 the whole file. Everything below is one batch.
+--
+--  Re-runnable: it only does what is still left, and it never sends the
+--  history twice. Read the table it prints at the end.
+--
+--  Before the run that sends the history: leave 2 GB free on the drive
+--  PostgreSQL lives on, and do it when NOBODY IS BILLING. It rewrites
+--  every row it sends; until it finishes, saving a bill waits. It is not
+--  stuck - do not cancel. A tool with a statement timeout will cancel it
+--  for you (the Magizhchi DB Communicator stops at 30 seconds), so use
+--  pgAdmin. A cancelled run changes nothing; just run it again.
+-- #####################################################################
 
 
 -- S0  Right database? Stops everything - and changes nothing - if not.
@@ -276,7 +424,7 @@ BEGIN
     IF array_length(v_done, 1) IS NOT NULL
        AND to_regclass('public.sync_outbox') IS NOT NULL
        AND EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_sync_company_billing') THEN
-        PERFORM set_config('app.shop_id', '${SHOP_ID}', false);
+        PERFORM set_config('app.shop_id', 'iravathanallur', false);
         FOREACH t IN ARRAY v_done LOOP
             -- A no-op update: same value, same row, but it fires the
             -- capture trigger, which is what carries the new key up.
@@ -421,12 +569,108 @@ BEGIN
         RETURN;
     END IF;
 
-    PERFORM set_config('app.shop_id', '${SHOP_ID}', false);
+    PERFORM set_config('app.shop_id', 'iravathanallur', false);
     EXECUTE 'UPDATE repledge_billing SET company_id = company_id';
     GET DIAGNOSTICS n = ROW_COUNT;
     PERFORM set_config('mb.repledge_resent',
         format('%s repledges re-sent under their own keys (the key was just added)', n), false);
 END $$;
+
+
+
+-- #####################################################################
+--  X1 to X5  -  tables the DESKTOP app needs.
+--  shop_setup.sql does not carry these: they belong to the app, not to
+--  the sync agent. Silent on purpose - the report at the end is the
+--  last thing this file prints. Anything they do shows in the Messages
+--  tab.
+-- #####################################################################
+
+-- X1  Per-company settings that are not per gold / silver. First use:
+--     Company Module -> Account Settings -> Other Settings -> which parts
+--     of a saved debit / credit may be changed. Without it they cannot.
+CREATE TABLE IF NOT EXISTS company_settings (
+    company_id    VARCHAR(100) NOT NULL,
+    setting_key   VARCHAR(100) NOT NULL,
+    setting_value VARCHAR(500),
+    updated_at    TIMESTAMP    NOT NULL DEFAULT now(),
+    PRIMARY KEY (company_id, setting_key)
+);
+
+
+-- X2  What a customer merge overwrote, so "Undo Last Merge" can put it
+--     back. Without it Find Duplicates lists them but will not merge.
+CREATE TABLE IF NOT EXISTS customer_merge_log (
+    id                  BIGSERIAL PRIMARY KEY,
+    merge_id            VARCHAR(40)  NOT NULL,
+    merged_at           TIMESTAMP    NOT NULL DEFAULT now(),
+    merged_by           VARCHAR(100),
+    table_name          VARCHAR(60)  NOT NULL,
+    company_id          VARCHAR(100) NOT NULL,
+    jewel_material_type VARCHAR(20)  NOT NULL,
+    bill_number         VARCHAR(100) NOT NULL,
+    row_ref             VARCHAR(100),
+    old_values          JSONB        NOT NULL,
+    new_values          JSONB        NOT NULL,
+    undone_at           TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS ix_customer_merge_log_merge ON customer_merge_log (merge_id);
+CREATE INDEX IF NOT EXISTS ix_customer_merge_log_open  ON customer_merge_log (merged_at) WHERE undone_at IS NULL;
+
+
+-- X3  A printer, and PROMPT or DIRECT, per receipt. Company Module ->
+--     Gold / Silver Settings -> Print And Camera Settings.
+CREATE TABLE IF NOT EXISTS company_receipt_print_settings (
+    company_id           VARCHAR(50)  NOT NULL,
+    jewel_material_type  VARCHAR(10)  NOT NULL,
+    receipt              VARCHAR(40)  NOT NULL,
+    printer_name         VARCHAR(200),
+    print_directly       BOOLEAN      NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (company_id, jewel_material_type, receipt)
+);
+
+
+-- X4  The Accepted Closing term a new bill starts on, per company.
+--     NULL keeps the screen's own default (1Y gold, 6M silver).
+DO $X4$
+BEGIN
+    IF to_regclass('public.company_other_settings') IS NOT NULL THEN
+        ALTER TABLE company_other_settings
+            ADD COLUMN IF NOT EXISTS default_closing_term VARCHAR(3);
+    END IF;
+END $X4$;
+
+
+-- X5  Put wrong Deficit figures right. Before the 14-09-2026 app, typing
+--     the Available Balance counted each keystroke twice (774164 read as
+--     7741644) and Close Account saved whatever the box showed. The right
+--     Deficit is always Available - Actual. A second run finds nothing.
+--
+--     Install the new desktop app first, or the next close saves it again.
+DO $X5$
+DECLARE v_day INT := 0; v_pre INT := 0;
+BEGIN
+    IF to_regclass('public.company_todays_account') IS NULL THEN
+        RETURN;
+    END IF;
+
+    UPDATE company_todays_account
+       SET todays_deficit_amount = round((todays_available_amount - todays_actual_amount)::numeric, 2)
+     WHERE abs(todays_deficit_amount - (todays_available_amount - todays_actual_amount)) >= 0.01;
+    GET DIAGNOSTICS v_day = ROW_COUNT;
+
+    UPDATE company_todays_account
+       SET pre_deficit_amount = round((pre_available_amount - pre_actual_amount)::numeric, 2)
+     WHERE abs(pre_deficit_amount - (pre_available_amount - pre_actual_amount)) >= 0.01;
+    GET DIAGNOSTICS v_pre = ROW_COUNT;
+
+    IF v_day + v_pre > 0 THEN
+        RAISE NOTICE 'X5  deficit corrected on % day rows and % carried-forward rows', v_day, v_pre;
+    ELSE
+        RAISE NOTICE 'X5  every deficit already agrees with Available - Actual';
+    END IF;
+END $X5$;
 
 
 -- S6  Send the history to the cloud - when, and only when, it is right to.
@@ -443,7 +687,7 @@ END $$;
 --     already SENT are kept: they are the local record of what reached
 --     the cloud and when, which a date-tamper investigation reads.
 --
---     ${HISTORY_MODE_NOTE}
+--     Sent once, then never again.
 DO $$
 DECLARE
     v_capture TEXT;
@@ -467,7 +711,7 @@ DECLARE
         'repledge_bill_credit','repledge_other_credit'];
 BEGIN
     -- Told to leave the history alone this run.
-    IF '${HISTORY_MODE}' = 'skip' THEN
+    IF 'auto' = 'skip' THEN
         PERFORM set_config('mb.history',
             'NOT THIS RUN - the setup was told to leave the history alone. Run the setup again without that option to send it.', false);
         RETURN;
@@ -515,7 +759,7 @@ BEGIN
     END IF;
 
     -- Anything still WAITING may carry keys from before the primary key.
-    PERFORM set_config('app.shop_id', '${SHOP_ID}', false);
+    PERFORM set_config('app.shop_id', 'iravathanallur', false);
     DELETE FROM sync_outbox WHERE sent_at IS NULL;
 
     -- Every existing row of the tables the phone reads, including all 14
@@ -533,7 +777,7 @@ BEGIN
     END LOOP;
 
     EXECUTE format('COMMENT ON TABLE sync_outbox IS %L',
-                   format('${SHOP_ID} history queued %s, %s rows',
+                   format('iravathanallur history queued %s, %s rows',
                           to_char(now(), 'DD-MM-YYYY HH24:MI'), grand));
     PERFORM pg_notify('sync_channel', 'backfill');
 
@@ -659,3 +903,32 @@ SELECT step, item, status FROM (
     (21, 'Desktop rows: customer_details', current_setting('mb.rows_customers', true))
 ) AS report(step, item, status)
 ORDER BY step;
+
+
+/* =====================================================================
+   THE REPLEDGE REPAIR IS AUTOMATIC NOW - nothing to do here.
+
+   S5f above re-sends every repledge by itself, but only in the one case
+   where it is needed: when S5b has just given repledge_billing its
+   primary key. Until that key exists, every leg of a repledge bill
+   shares one cloud row and the phone shows fewer repledges than the
+   desktop. The report line "Repledges re-sent" says whether it happened.
+
+   The collapsed rows already on the cloud are dropped by the cloud's own
+   nightly housekeeping, and only once that shop has correctly-keyed rows
+   to replace them - a shop still on the old agent keeps its one wrong
+   row rather than losing them all.
+
+   So: run the setup (or the exe), wait for the queue to drain, and check
+   Railway R8. If it still shows legacy_key_rows and the report said the
+   key is MISSING, the repledge ids are duplicated - find them with
+   tools\repledge_why_it_is_still_wrong.sql (A3) and settle those first.
+
+   To force a re-send by hand anyway - it changes NO business data, a
+   no-op self-UPDATE just makes the trigger ship each row again:
+
+SET app.shop_id = 'iravathanallur';
+UPDATE repledge_billing SET company_id = company_id;
+NOTIFY sync_channel, 'repledge-repair';
+
+   ===================================================================== */

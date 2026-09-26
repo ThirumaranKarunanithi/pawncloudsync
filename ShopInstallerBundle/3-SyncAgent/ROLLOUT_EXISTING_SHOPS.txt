@@ -3,6 +3,21 @@
   annanagar · balamurugan · karumbalai · alwarpuram
 ═══════════════════════════════════════════════════════════════════════
 
+  ►► THE ONE-EXE WAY ◄◄
+
+     SyncInstaller\dist\PawnBrokingSyncSetup.exe, run as administrator,
+     now does STEPS 1, 2b and the schema half of STEP 3 on its own, and
+     fills every box in from the PC — on a shop that already has the
+     agent it is Next, Next, Install with nothing typed. It swaps the
+     jar, keeps the shop's config (a timestamped .bak beside it),
+     corrects batch.size, repairs the database, and does NOT resend the
+     history. It also takes over a service registered by hand from
+     another folder, e.g. C:\Program Files\PawnbrokingSync.
+
+     The steps below still stand for a shop you would rather touch by
+     hand, and STEP 2 (backup.retention.days) and STEP 4 (the phone) are
+     still yours either way.
+
 WHY
    Three things, all agent-side. Nothing on the cloud needs redeploying.
 

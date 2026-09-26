@@ -88,5 +88,7 @@ SELECT 'api_key',label                                             FROM public.s
 --
 --  AFTER THAT it can have its own room in Meet: room type PAWN_SHOP,
 --  "Pawn shop this room shows" = aiyanarpuram, and the owner's address
---  as that room's Super Admin.
+--  added to that room and promoted to ADMIN. (Super Admin cannot be
+--  given to anyone - it is always whoever created the room. Admin is
+--  enough for the shop PC to publish, and reaches only this room.)
 -- =====================================================================

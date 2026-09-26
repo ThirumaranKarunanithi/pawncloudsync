@@ -1,0 +1,25 @@
+# Build output. None of this belongs in the repo, and some of it is huge:
+# staging a whole jlink'd JRE and the 745 MB desktop installer by accident
+# is a one-line mistake away without this file.
+
+# Installer staging and output
+ShopInstallerBundle/SyncInstaller/stage/
+ShopInstallerBundle/SyncInstaller/dist/
+ShopInstallerBundle/2-DesktopApp/*.exe
+
+# Maven / Gradle
+target/
+build/
+.gradle/
+
+# Android
+*.apk
+*.aab
+local.properties
+
+# Editors and OS
+.idea/
+*.iml
+.vscode/
+Thumbs.db
+desktop.ini

@@ -1,0 +1,19 @@
+<service>
+    <id>pawnbroking-sync</id>
+    <name>Pawnbroking Sync Agent</name>
+    <description>Streams local PostgreSQL changes to the Magizhchi cloud so mobile apps stay in sync.</description>
+    <!--
+      Points at the JRE bundled with the installer rather than system java.
+      Keeps the service running even if the shop uninstalls / upgrades Java.
+    -->
+    <executable>%BASE%\runtime\bin\java.exe</executable>
+    <arguments>-jar "%BASE%\pawnbroking-sync-agent.jar"</arguments>
+    <log mode="roll-by-size">
+        <sizeThreshold>10240</sizeThreshold>
+        <keepFiles>10</keepFiles>
+    </log>
+    <logpath>%BASE%\logs</logpath>
+    <onfailure action="restart" delay="10 sec"/>
+    <startmode>Automatic</startmode>
+    <env name="PAWNBROKING_SYNC_CONFIG" value="%PROGRAMDATA%\PawnBroking\sync.properties"/>
+</service>
