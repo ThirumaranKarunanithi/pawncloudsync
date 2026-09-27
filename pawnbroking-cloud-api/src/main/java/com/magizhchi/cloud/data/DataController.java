@@ -605,9 +605,12 @@ public class DataController {
                 double rowDebit  = amt;
                 double rowCredit = taken;
                 double intr      = taken - doc;
+                double rbAmt = num(openR, "rb_amt").doubleValue();
+                double nbAmt = num(openR, "nb_amt").doubleValue();
                 ops.add(opRow(mat + " BILL OPENING", cnt, rowDebit, rowCredit,
                         "( Amt: " + b(amt) + ", Intr: " + b(intr) + ", Doc: " + b(doc) + " )"
-                        + "  ( RB: " + rb + ", NB: " + nb + " )"));
+                        + "  ( RB: " + rb + " = " + b(rbAmt)
+                        + ", NB: " + nb + " = " + b(nbAmt) + " )"));
                 totalDebit  += rowDebit;
                 totalCredit += rowCredit;
 
@@ -815,8 +818,16 @@ public class DataController {
             "       COALESCE(sum(numF(payload->>'amount')),                0) AS amt, " +
             "       COALESCE(sum(numF(payload->>'open_taken_amount')),     0) AS taken, " +
             "       COALESCE(sum(numF(payload->>'document_charge')),       0) AS doc, " +
-            "       count(*) FILTER (WHERE COALESCE(payload->>'repledge_bill_id','') <> '') AS rb, " +
-            "       count(*) FILTER (WHERE COALESCE(payload->>'repledge_bill_id','') =  '') AS nb " +
+            // RB / NB is REBILLED versus NEW, which the desktop reads off
+            // rebilled_from. It was reading repledge_bill_id here - whether the
+            // bill is with a financier - so the phone's split was a different
+            // question's answer that happened to add up to the same total.
+            "       count(*) FILTER (WHERE payload->>'rebilled_from' IS NOT NULL) AS rb, " +
+            "       count(*) FILTER (WHERE payload->>'rebilled_from' IS NULL)     AS nb, " +
+            "       COALESCE(sum(numF(payload->>'amount'))" +
+            "                FILTER (WHERE payload->>'rebilled_from' IS NOT NULL), 0) AS rb_amt, " +
+            "       COALESCE(sum(numF(payload->>'amount'))" +
+            "                FILTER (WHERE payload->>'rebilled_from' IS NULL),     0) AS nb_amt " +
             "  FROM projections " +
             " WHERE table_name = 'company_billing' AND NOT deleted " +
             "   AND COALESCE(payload->>'opening_date','') LIKE ? " +
@@ -827,7 +838,7 @@ public class DataController {
         if (companyId != null) { sql.append(" AND payload->>'company_id' = ? "); args.add(companyId); }
         sql.append(statusClause);
         return queryRowOrZero(j, sql.toString(), args.toArray(),
-                "cnt","amt","intr","doc","rb","nb");
+                "cnt","amt","taken","doc","rb","nb","rb_amt","nb_amt");
     }
 
     private Map<String,Object> billClosingAgg(org.springframework.jdbc.core.JdbcTemplate j,
