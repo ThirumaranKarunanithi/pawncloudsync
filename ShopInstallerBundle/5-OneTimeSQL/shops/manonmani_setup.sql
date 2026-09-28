@@ -573,6 +573,61 @@ BEGIN
 END $$;
 
 
+-- S5g Tamil BESIDE English, never instead of it.
+--
+--     Every customer in every shop is written in English letters today -
+--     BALAMURUGAN, VADAKU THERU - 26,000 bills' worth across the two shop
+--     databases this was checked against, and not one of them in Tamil. The
+--     moment Tamil could be typed into those same columns, a shop would have
+--     BALAMURUGAN on the old bills and the Tamil spelling on the new ones:
+--     the same person, twice, matching neither in the customer search nor in
+--     the duplicate finder, and shown as a mix on the phone.
+--
+--     So Tamil gets columns of its own. The English ones stay exactly as they
+--     are and remain what the app searches, matches and sends to the cloud.
+--     The Tamil is what the bill copy prints, when the company asks for it,
+--     and where it is blank the English is printed instead - so a shop can
+--     fill it in for the customers it cares about and leave the rest.
+--
+--     Adding these changes nothing on its own: an app that does not know
+--     about them ignores them, which is what makes it safe to put one PC on
+--     the new app and leave the rest of the shop alone.
+DO $$
+DECLARE
+    v_added TEXT[] := ARRAY[]::TEXT[];
+    v_tab   TEXT;
+    v_col   TEXT;
+    v_cols  TEXT[];
+BEGIN
+    FOREACH v_tab IN ARRAY ARRAY['customer_details', 'company_billing', 'company_billing_suspense'] LOOP
+        IF to_regclass('public.' || v_tab) IS NULL THEN
+            CONTINUE;
+        END IF;
+        -- The bill snapshot carries two the customer master does not.
+        v_cols := CASE WHEN v_tab = 'customer_details'
+                       THEN ARRAY['customer_name','spouse_name','street','area','city']
+                       ELSE ARRAY['customer_name','spouse_name','street','area','city','nominee_name','items']
+                  END;
+        FOREACH v_col IN ARRAY v_cols LOOP
+            -- Only beside a column that is really there: these tables differ a
+            -- little between a 2022 shop and a new one.
+            IF EXISTS (SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public' AND table_name = v_tab AND column_name = v_col)
+               AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public' AND table_name = v_tab AND column_name = v_col || '_ta') THEN
+                EXECUTE format('ALTER TABLE %I ADD COLUMN %I character varying(500)', v_tab, v_col || '_ta');
+                v_added := array_append(v_added, v_tab || '.' || v_col || '_ta');
+            END IF;
+        END LOOP;
+    END LOOP;
+
+    PERFORM set_config('mb.tamil_cols',
+        CASE WHEN array_length(v_added,1) IS NULL
+             THEN 'ok - already there'
+             ELSE format('added %s', array_length(v_added,1)) END, false);
+END $$;
+
+
 
 -- #####################################################################
 --  X1 to X5  -  tables the DESKTOP app needs.
@@ -885,18 +940,20 @@ SELECT step, item, status FROM (
               THEN COALESCE(nullif(current_setting('mb.replpk', true), 'ok'), 'ok')
               ELSE COALESCE(current_setting('mb.replpk', true), 'none') END),
     (9,  'Desktop app tables',     COALESCE(current_setting('mb.app_tables', true), 'ok')),
-    (10, 'Day account deficits',   COALESCE(current_setting('mb.deficit', true), 'ok')),
-    (11, 'Repledges re-sent',      COALESCE(current_setting('mb.repledge_resent', true), '- (not needed)')),
-    (12, 'History to the cloud',   current_setting('mb.history', true)),
-    (13, 'Already sent',           current_setting('mb.sent', true)),
-    (14, 'Waiting to send',        current_setting('mb.pending', true)),
-    (15, 'Photos uploaded so far', current_setting('mb.images', true)),
-    (16, 'Backups uploaded so far', current_setting('mb.backups', true)),
-    (17, 'Photo folder(s) - must exist on THIS PC',  current_setting('mb.photo_dirs', true)),
-    (18, 'Backup folder(s) - must exist on THIS PC', current_setting('mb.backup_dirs', true)),
-    (19, 'Desktop rows: company_billing',  current_setting('mb.rows_bills', true)),
-    (20, 'Desktop rows: repledge_billing', current_setting('mb.rows_repledge', true)),
-    (21, 'Desktop rows: customer_details', current_setting('mb.rows_customers', true))
+    (10, 'Tamil columns (beside the English ones)',
+         COALESCE(current_setting('mb.tamil_cols', true), 'ok')),
+    (11, 'Day account deficits',   COALESCE(current_setting('mb.deficit', true), 'ok')),
+    (12, 'Repledges re-sent',      COALESCE(current_setting('mb.repledge_resent', true), '- (not needed)')),
+    (13, 'History to the cloud',   current_setting('mb.history', true)),
+    (14, 'Already sent',           current_setting('mb.sent', true)),
+    (15, 'Waiting to send',        current_setting('mb.pending', true)),
+    (16, 'Photos uploaded so far', current_setting('mb.images', true)),
+    (17, 'Backups uploaded so far', current_setting('mb.backups', true)),
+    (18, 'Photo folder(s) - must exist on THIS PC',  current_setting('mb.photo_dirs', true)),
+    (19, 'Backup folder(s) - must exist on THIS PC', current_setting('mb.backup_dirs', true)),
+    (20, 'Desktop rows: company_billing',  current_setting('mb.rows_bills', true)),
+    (21, 'Desktop rows: repledge_billing', current_setting('mb.rows_repledge', true)),
+    (22, 'Desktop rows: customer_details', current_setting('mb.rows_customers', true))
 ) AS report(step, item, status)
 ORDER BY step;
 
