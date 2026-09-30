@@ -632,6 +632,44 @@ BEGIN
 END $$;
 
 
+-- S5h The Tamil word list: each English word spelled ONCE, for the whole shop.
+--
+--     Counted on a real shop: 37,413 bills, but only 1,756 different
+--     customer names, 647 streets, 281 areas, 69 cities and 284 jewels.
+--     About 2,750 words cover every bill there is. Spelling them one bill
+--     at a time would be thirteen times the work for the same answer, and
+--     a name corrected on one bill would still be wrong on the other two
+--     hundred it appears on.
+--
+--     So the Tamil for a word is kept here, once, and every bill that uses
+--     that word prints it - bills from 2022 as readily as one entered
+--     tomorrow. The _ta columns on a bill stay: they are the exception,
+--     for the one customer who spells their own name differently.
+--
+--     checked = false means a machine worked it out from the sound of the
+--     English and nobody has looked at it yet. It still prints; the review
+--     screen lists them so a shop can correct as it goes.
+--
+--     Shop-wide, not per company: a street is the same street whichever
+--     company the bill belongs to.
+CREATE TABLE IF NOT EXISTS tamil_words (
+    kind        character varying(20)  NOT NULL,     -- NAME, SPOUSE, STREET, AREA, CITY, ITEM
+    english     character varying(500) NOT NULL,     -- held upper case, which is how the shop types
+    tamil       character varying(500),
+    checked     boolean NOT NULL DEFAULT false,
+    updated_at  timestamp without time zone NOT NULL DEFAULT now(),
+    updated_by  character varying(100),
+    PRIMARY KEY (kind, english)
+);
+
+DO $$
+BEGIN
+    PERFORM set_config('mb.tamil_words',
+        CASE WHEN to_regclass('public.tamil_words') IS NULL THEN 'MISSING'
+             ELSE (SELECT count(*) || ' word(s)' FROM tamil_words) END, false);
+END $$;
+
+
 
 -- #####################################################################
 --  X1 to X5  -  tables the DESKTOP app needs.
@@ -946,18 +984,19 @@ SELECT step, item, status FROM (
     (9,  'Desktop app tables',     COALESCE(current_setting('mb.app_tables', true), 'ok')),
     (10, 'Tamil columns (beside the English ones)',
          COALESCE(current_setting('mb.tamil_cols', true), 'ok')),
-    (11, 'Day account deficits',   COALESCE(current_setting('mb.deficit', true), 'ok')),
-    (12, 'Repledges re-sent',      COALESCE(current_setting('mb.repledge_resent', true), '- (not needed)')),
-    (13, 'History to the cloud',   current_setting('mb.history', true)),
-    (14, 'Already sent',           current_setting('mb.sent', true)),
-    (15, 'Waiting to send',        current_setting('mb.pending', true)),
-    (16, 'Photos uploaded so far', current_setting('mb.images', true)),
-    (17, 'Backups uploaded so far', current_setting('mb.backups', true)),
-    (18, 'Photo folder(s) - must exist on THIS PC',  current_setting('mb.photo_dirs', true)),
-    (19, 'Backup folder(s) - must exist on THIS PC', current_setting('mb.backup_dirs', true)),
-    (20, 'Desktop rows: company_billing',  current_setting('mb.rows_bills', true)),
-    (21, 'Desktop rows: repledge_billing', current_setting('mb.rows_repledge', true)),
-    (22, 'Desktop rows: customer_details', current_setting('mb.rows_customers', true))
+    (11, 'Tamil word list',        COALESCE(current_setting('mb.tamil_words', true), 'ok')),
+    (12, 'Day account deficits',   COALESCE(current_setting('mb.deficit', true), 'ok')),
+    (13, 'Repledges re-sent',      COALESCE(current_setting('mb.repledge_resent', true), '- (not needed)')),
+    (14, 'History to the cloud',   current_setting('mb.history', true)),
+    (15, 'Already sent',           current_setting('mb.sent', true)),
+    (16, 'Waiting to send',        current_setting('mb.pending', true)),
+    (17, 'Photos uploaded so far', current_setting('mb.images', true)),
+    (18, 'Backups uploaded so far', current_setting('mb.backups', true)),
+    (19, 'Photo folder(s) - must exist on THIS PC',  current_setting('mb.photo_dirs', true)),
+    (20, 'Backup folder(s) - must exist on THIS PC', current_setting('mb.backup_dirs', true)),
+    (21, 'Desktop rows: company_billing',  current_setting('mb.rows_bills', true)),
+    (22, 'Desktop rows: repledge_billing', current_setting('mb.rows_repledge', true)),
+    (23, 'Desktop rows: customer_details', current_setting('mb.rows_customers', true))
 ) AS report(step, item, status)
 ORDER BY step;
 
