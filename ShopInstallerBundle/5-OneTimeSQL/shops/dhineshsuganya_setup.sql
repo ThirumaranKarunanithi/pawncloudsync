@@ -664,6 +664,181 @@ BEGIN
 END $$;
 
 
+-- S5i The jewels on a bill, one line each.
+--
+--     A bill has always held its jewels as one piece of text - "STUD-2,
+--     RING-1, CHAIN-1" - and one weight, one purity and one net for the lot.
+--     That works until a customer brings in a 70% stud and a 916 ring
+--     together, which is an ordinary morning in a pawn shop. The net weight
+--     is not worked out the same way at both purities:
+--
+--         gold    purity <  88  ->  net = gross x purity%
+--                 purity >= 88  ->  net = gross - (gross x the company's reduction)
+--         silver  purity >  80  ->  net = gross x purity%
+--                 purity <= 80  ->  net = gross - (gross x the company's reduction)
+--
+--     so one purity for the whole bill forces BOTH jewels down ONE of those
+--     branches, and whichever is typed, one of them is valued wrongly. There
+--     is no averaging round it; it needs a line per jewel.
+--
+--     The text column stays exactly as it is and is still what prints, what
+--     the ledger searches and what goes to the cloud. These lines sit beside
+--     it. An app that does not know about them ignores them, so one PC can
+--     take the new app while the rest of the shop carries on.
+CREATE OR REPLACE FUNCTION magizhchi_jewel_count(p_items text) RETURNS integer AS $$
+    -- Counts the jewels in "STUD-2, RING-1". A piece with no number on the
+    -- end counts as one: there are two such lines in 42,845 on a real shop,
+    -- both typed before the count was ever asked for, and they are one jewel.
+    --
+    -- A jewel that is marked reads "STUD-2 (BROKEN)", so anything in brackets
+    -- on the end comes off before the number is looked for - otherwise a
+    -- broken stud would count as one jewel instead of two. Neither an item
+    -- name nor any of 37,215 bills has a bracket in it, so nothing else is
+    -- caught by this.
+    SELECT COALESCE(sum(COALESCE(NULLIF(
+               substring(regexp_replace(trim(p), '\s*\([^()]*\)$', '') FROM '-([0-9]+)$'), '')::int, 1)), 0)::int
+    FROM regexp_split_to_table(COALESCE(p_items, ''), ',') AS p
+    WHERE trim(p) <> '';
+$$ LANGUAGE sql IMMUTABLE;
+
+-- Worked out by the database, not by the app. A bill is written from bill
+-- opening, from a rebill, by the sync agent and now and then by hand; a
+-- trigger is the only place that catches all four, so the count can never
+-- come to disagree with the jewels printed on the bill.
+CREATE OR REPLACE FUNCTION magizhchi_set_jewel_count() RETURNS trigger AS $t$
+BEGIN
+    NEW.jewel_count := magizhchi_jewel_count(NEW.items);
+    RETURN NEW;
+END $t$ LANGUAGE plpgsql;
+
+DO $$
+DECLARE
+    v_tab   TEXT;
+    v_added INT := 0;
+    v_filled INT := 0;
+BEGIN
+    -- The count, on the bill and on its parked copy.
+    FOREACH v_tab IN ARRAY ARRAY['company_billing', 'company_billing_suspense'] LOOP
+        IF to_regclass('public.' || v_tab) IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+                            WHERE table_schema = 'public' AND table_name = v_tab
+                              AND column_name = 'jewel_count') THEN
+            EXECUTE format('ALTER TABLE %I ADD COLUMN jewel_count integer', v_tab);
+            v_added := v_added + 1;
+        END IF;
+    END LOOP;
+
+    FOREACH v_tab IN ARRAY ARRAY['company_billing', 'company_billing_suspense'] LOOP
+        IF to_regclass('public.' || v_tab) IS NOT NULL THEN
+            EXECUTE format('DROP TRIGGER IF EXISTS trg_jewel_count_%I ON %I', v_tab, v_tab);
+            EXECUTE format('CREATE TRIGGER trg_jewel_count_%I BEFORE INSERT OR UPDATE ON %I '
+                        || 'FOR EACH ROW EXECUTE FUNCTION magizhchi_set_jewel_count()', v_tab, v_tab);
+        END IF;
+    END LOOP;
+
+    -- Every bill there has ever been, filled from its own jewels. Exact, not
+    -- a guess - the count is read off the same text the bill prints.
+    UPDATE company_billing SET jewel_count = magizhchi_jewel_count(items)
+     WHERE jewel_count IS DISTINCT FROM magizhchi_jewel_count(items);
+    GET DIAGNOSTICS v_filled = ROW_COUNT;
+
+    PERFORM set_config('mb.jewel_count',
+        CASE WHEN v_added = 0 AND v_filled = 0 THEN 'ok - already there'
+             ELSE format('%s bill(s) counted', v_filled) END, false);
+END $$;
+
+-- The lines themselves. Keyed as the bill is keyed, with the line number on
+-- the end, so the cloud keeps one row per line without being told anything.
+CREATE TABLE IF NOT EXISTS company_bill_items (
+    company_id          character varying(100) NOT NULL,
+    jewel_material_type material_type          NOT NULL,
+    bill_number         character varying(100) NOT NULL,
+    line_no             integer                NOT NULL,
+    jewel_item          character varying(200),
+    jewel_count         integer NOT NULL DEFAULT 1,
+    gross_weight        double precision,
+    purity              double precision,
+    net_weight          double precision,
+    jewel_condition     character varying(500),   -- "BROKEN, STONE MISSING", as ticked
+    note                character varying(500),
+    created_date        timestamp without time zone NOT NULL DEFAULT now(),
+    user_id             character varying(100),
+    PRIMARY KEY (company_id, jewel_material_type, bill_number, line_no)
+);
+
+-- What a jewel can be marked as. A list the shop keeps, exactly like the
+-- Jewel Item Module - so a shop that wants CLASP BROKEN adds it itself and
+-- nothing has to be installed for it.
+CREATE TABLE IF NOT EXISTS jewel_conditions (
+    jewel_condition character varying(200) NOT NULL,
+    sort_order      integer NOT NULL DEFAULT 0,
+    status          character varying(20)  NOT NULL DEFAULT 'ACTIVE',
+    created_date    timestamp without time zone NOT NULL DEFAULT now(),
+    user_id         character varying(100),
+    PRIMARY KEY (jewel_condition)
+);
+
+INSERT INTO jewel_conditions (jewel_condition, sort_order, user_id)
+VALUES ('BROKEN', 10, 'SETUP'), ('DAMAGED', 20, 'SETUP'), ('BENT', 30, 'SETUP'),
+       ('SCRATCHED', 40, 'SETUP'), ('DENT', 50, 'SETUP'), ('STONE MISSING', 60, 'SETUP'),
+       ('SOLDERED', 70, 'SETUP'), ('COLOUR FADED', 80, 'SETUP')
+ON CONFLICT (jewel_condition) DO NOTHING;
+
+DO $$
+DECLARE
+    v_lines INT := 0;
+    v_tab   TEXT;
+BEGIN
+    -- Old bills get their lines, with the COUNT filled and the weights left
+    -- empty. There is no record of what each jewel on a 2019 bill weighed,
+    -- and splitting the bill's gross by the number of jewels would put a
+    -- figure nobody ever weighed onto a legal document. Blank is the truth.
+    INSERT INTO company_bill_items (company_id, jewel_material_type, bill_number, line_no,
+                                    jewel_item, jewel_count, jewel_condition, user_id)
+    -- The same bracket rule as the count: "STUD-2 (BROKEN)" is a STUD, two of
+    -- them, marked BROKEN - not a jewel called "STUD-2 (BROKEN".
+    SELECT CB.company_id, CB.jewel_material_type, CB.bill_number, p.n,
+           NULLIF(trim(regexp_replace(regexp_replace(trim(p.piece), '\s*\([^()]*\)$', ''),
+                                      '-[0-9]+$', '')), ''),
+           COALESCE(NULLIF(substring(regexp_replace(trim(p.piece), '\s*\([^()]*\)$', '')
+                                     FROM '-([0-9]+)$'), '')::int, 1),
+           NULLIF(trim(substring(trim(p.piece) FROM '\(([^()]*)\)$')), ''),
+           'SETUP'
+      FROM company_billing CB,
+           unnest(regexp_split_to_array(CB.items, ',')) WITH ORDINALITY AS p(piece, n)
+     WHERE CB.items IS NOT NULL AND trim(CB.items) <> '' AND trim(p.piece) <> ''
+    ON CONFLICT (company_id, jewel_material_type, bill_number, line_no) DO NOTHING;
+    GET DIAGNOSTICS v_lines = ROW_COUNT;
+
+    -- V2 attached the capture trigger to every table that existed when the
+    -- agent was installed. These two did not exist then, so they are attached
+    -- here or they would never reach the cloud.
+    FOREACH v_tab IN ARRAY ARRAY['company_bill_items', 'jewel_conditions'] LOOP
+        IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'sync_capture') THEN
+            EXECUTE format('DROP TRIGGER IF EXISTS trg_sync_%I ON %I', v_tab, v_tab);
+            EXECUTE format('CREATE TRIGGER trg_sync_%I AFTER INSERT OR UPDATE OR DELETE ON %I '
+                        || 'FOR EACH ROW EXECUTE FUNCTION sync_capture()', v_tab, v_tab);
+        END IF;
+    END LOOP;
+
+    PERFORM set_config('mb.jewel_lines',
+        CASE WHEN v_lines = 0 THEN 'ok - already there'
+             ELSE format('%s line(s) from the existing bills', v_lines) END, false);
+END $$;
+
+-- Off until a shop turns it on, and when it is on it binds only a bill being
+-- opened or edited NOW. Never closing, never a rebill, never an advance - or
+-- the day it was switched on, every bill opened before it could not be closed.
+DO $$
+BEGIN
+    IF to_regclass('public.company_settings') IS NOT NULL AND to_regclass('public.company') IS NOT NULL THEN
+        INSERT INTO company_settings (company_id, setting_key, setting_value)
+        SELECT C.id, 'JEWEL_LINE_DETAILS', 'N' FROM company C
+        ON CONFLICT (company_id, setting_key) DO NOTHING;
+    END IF;
+END $$;
+
+
 
 -- #####################################################################
 --  X1 to X5  -  tables the DESKTOP app needs.
@@ -990,7 +1165,9 @@ SELECT step, item, status FROM (
     (20, 'Backup folder(s) - must exist on THIS PC', current_setting('mb.backup_dirs', true)),
     (21, 'Desktop rows: company_billing',  current_setting('mb.rows_bills', true)),
     (22, 'Desktop rows: repledge_billing', current_setting('mb.rows_repledge', true)),
-    (23, 'Desktop rows: customer_details', current_setting('mb.rows_customers', true))
+    (23, 'Desktop rows: customer_details', current_setting('mb.rows_customers', true)),
+    (24, 'Jewel count on every bill',  COALESCE(current_setting('mb.jewel_count', true), 'ok')),
+    (25, 'Jewels, a line each',        COALESCE(current_setting('mb.jewel_lines', true), 'ok'))
 ) AS report(step, item, status)
 ORDER BY step;
 
