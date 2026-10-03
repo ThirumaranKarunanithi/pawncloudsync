@@ -697,6 +697,62 @@ BEGIN
 END $$;
 
 
+-- S5j Cash drawers - which companies share one physical till.
+--
+--     A shop with two companies on one counter has ONE drawer between
+--     them. Today it is counted twice and reconciled twice, and the day
+--     will not close when one company has paid out money the other one's
+--     cash was sitting in: that company's own books go negative, which is
+--     a thing that cannot physically be true of a drawer.
+--
+--     Only the DAY ACCOUNT is ever shared. Bills, expenses, debits,
+--     credits, profit and every report stay with the company they belong
+--     to and are not touched by any of this.
+--
+--     A drawer can hold any number of companies; a company belongs to at
+--     most one drawer, which is what the primary key below says. A shop
+--     that never makes a drawer carries on exactly as it does now.
+CREATE TABLE IF NOT EXISTS cash_drawer (
+    drawer_id    character varying(100) NOT NULL,
+    drawer_name  character varying(200) NOT NULL,
+    status       character varying(20)  NOT NULL DEFAULT 'ACTIVE',
+    created_date timestamp without time zone NOT NULL DEFAULT now(),
+    user_id      character varying(100),
+    PRIMARY KEY (drawer_id)
+);
+
+CREATE TABLE IF NOT EXISTS cash_drawer_company (
+    -- The company is the key: one till per company, said by the table itself
+    -- rather than by the screen remembering to check.
+    company_id   character varying(100) NOT NULL,
+    drawer_id    character varying(100) NOT NULL,
+    created_date timestamp without time zone NOT NULL DEFAULT now(),
+    user_id      character varying(100),
+    PRIMARY KEY (company_id)
+);
+
+CREATE INDEX IF NOT EXISTS cash_drawer_company_drawer ON cash_drawer_company (drawer_id);
+
+DO $$
+DECLARE
+    v_tab TEXT;
+BEGIN
+    -- V2 attached the capture trigger to every table that existed when the
+    -- agent was installed; these did not exist then.
+    FOREACH v_tab IN ARRAY ARRAY['cash_drawer', 'cash_drawer_company'] LOOP
+        IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'sync_capture') THEN
+            EXECUTE format('DROP TRIGGER IF EXISTS trg_sync_%I ON %I', v_tab, v_tab);
+            EXECUTE format('CREATE TRIGGER trg_sync_%I AFTER INSERT OR UPDATE OR DELETE ON %I '
+                        || 'FOR EACH ROW EXECUTE FUNCTION sync_capture()', v_tab, v_tab);
+        END IF;
+    END LOOP;
+
+    PERFORM set_config('mb.cash_drawers',
+        (SELECT count(*) || ' drawer(s), ' || (SELECT count(*) FROM cash_drawer_company)
+                || ' company/companies mapped' FROM cash_drawer), false);
+END $$;
+
+
 -- S6  Send the history to the cloud - when, and only when, it is right to.
 --
 --     Everything is inside one block so that a "not yet" never undoes
@@ -929,6 +985,7 @@ SELECT step, item, status FROM (
     (22, 'Desktop rows: repledge_billing', current_setting('mb.rows_repledge', true)),
     (23, 'Desktop rows: customer_details', current_setting('mb.rows_customers', true)),
     (24, 'Jewel count on every bill',  COALESCE(current_setting('mb.jewel_count', true), 'ok')),
-    (25, 'Jewels, a line each',        COALESCE(current_setting('mb.jewel_lines', true), 'ok'))
+    (25, 'Jewels, a line each',        COALESCE(current_setting('mb.jewel_lines', true), 'ok')),
+    (26, 'Cash drawers',               COALESCE(current_setting('mb.cash_drawers', true), 'ok'))
 ) AS report(step, item, status)
 ORDER BY step;
