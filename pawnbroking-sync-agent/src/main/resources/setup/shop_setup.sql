@@ -759,7 +759,7 @@ DECLARE
 BEGIN
     -- V2 attached the capture trigger to every table that existed when the
     -- agent was installed; these did not exist then.
-    FOREACH v_tab IN ARRAY ARRAY['cash_drawer', 'cash_drawer_company'] LOOP
+    FOREACH v_tab IN ARRAY ARRAY['cash_drawer', 'cash_drawer_company', 'cash_drawer_day'] LOOP
         IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'sync_capture') THEN
             EXECUTE format('DROP TRIGGER IF EXISTS trg_sync_%I ON %I', v_tab, v_tab);
             EXECUTE format('CREATE TRIGGER trg_sync_%I AFTER INSERT OR UPDATE OR DELETE ON %I '

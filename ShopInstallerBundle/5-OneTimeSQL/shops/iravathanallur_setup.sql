@@ -881,13 +881,33 @@ CREATE TABLE IF NOT EXISTS cash_drawer_company (
 
 CREATE INDEX IF NOT EXISTS cash_drawer_company_drawer ON cash_drawer_company (drawer_id);
 
+-- What the drawer itself came to on a day it was closed.
+--
+-- The companies keep their own rows in company_todays_account, each with
+-- its own figures, exactly as they always have. This is the one thing
+-- those rows cannot hold: the drawer was counted ONCE, so the money that
+-- was missing from it is missing from the DRAWER and not from any one
+-- company. Writing that shortfall against a company would be saying
+-- which of them lost it, which nobody knows.
+CREATE TABLE IF NOT EXISTS cash_drawer_day (
+    drawer_id          character varying(100) NOT NULL,
+    todays_date        date                   NOT NULL,
+    combined_actual    double precision,
+    combined_available double precision,       -- what was counted in the drawer
+    combined_deficit   double precision,
+    note               character varying(500),
+    closed_date        timestamp without time zone NOT NULL DEFAULT now(),
+    user_id            character varying(100),
+    PRIMARY KEY (drawer_id, todays_date)
+);
+
 DO $$
 DECLARE
     v_tab TEXT;
 BEGIN
     -- V2 attached the capture trigger to every table that existed when the
     -- agent was installed; these did not exist then.
-    FOREACH v_tab IN ARRAY ARRAY['cash_drawer', 'cash_drawer_company'] LOOP
+    FOREACH v_tab IN ARRAY ARRAY['cash_drawer', 'cash_drawer_company', 'cash_drawer_day'] LOOP
         IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'sync_capture') THEN
             EXECUTE format('DROP TRIGGER IF EXISTS trg_sync_%I ON %I', v_tab, v_tab);
             EXECUTE format('CREATE TRIGGER trg_sync_%I AFTER INSERT OR UPDATE OR DELETE ON %I '
