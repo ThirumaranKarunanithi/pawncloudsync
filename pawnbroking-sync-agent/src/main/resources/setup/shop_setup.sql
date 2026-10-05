@@ -773,6 +773,40 @@ BEGIN
 END $$;
 
 
+-- S5k One bill number series across both metals, for the shops that want it.
+--
+--     A shop has always had two counters - gold on R8124 while silver is
+--     on RS1639. Some want one running number across the counter instead,
+--     so a day's bills read 8124, 8125, 8126 whatever the metal was. With
+--     this on, BOTH metals take their next number from the GOLD counter
+--     and both advance it.
+--
+--     Off by default, so every shop already running keeps the numbering
+--     it has. Nothing renumbers an existing bill.
+--
+--     The app will not let it be turned on while silver holds a number
+--     the gold series is going to reach, because the primary key of
+--     company_billing is (company_id, jewel_material_type, bill_number) -
+--     the metal is part of the key, so the database itself would accept
+--     the same number twice, once in each metal.
+DO $$
+BEGIN
+    IF to_regclass('public.company') IS NULL THEN
+        PERFORM set_config('mb.one_series', 'no company table - skipped', false);
+        RETURN;
+    END IF;
+
+    ALTER TABLE company ADD COLUMN IF NOT EXISTS shared_bill_number boolean NOT NULL DEFAULT false;
+
+    PERFORM set_config('mb.one_series',
+        (SELECT CASE WHEN count(*) FILTER (WHERE shared_bill_number) = 0
+                     THEN 'ok - every company numbers gold and silver apart'
+                     ELSE count(*) FILTER (WHERE shared_bill_number) || ' company/companies on one series'
+                END
+           FROM company), false);
+END $$;
+
+
 -- S6  Send the history to the cloud - when, and only when, it is right to.
 --
 --     Everything is inside one block so that a "not yet" never undoes
@@ -1006,6 +1040,7 @@ SELECT step, item, status FROM (
     (23, 'Desktop rows: customer_details', current_setting('mb.rows_customers', true)),
     (24, 'Jewel count on every bill',  COALESCE(current_setting('mb.jewel_count', true), 'ok')),
     (25, 'Jewels, a line each',        COALESCE(current_setting('mb.jewel_lines', true), 'ok')),
-    (26, 'Cash drawers',               COALESCE(current_setting('mb.cash_drawers', true), 'ok'))
+    (26, 'Cash drawers',               COALESCE(current_setting('mb.cash_drawers', true), 'ok')),
+    (27, 'Bill number series',         COALESCE(current_setting('mb.one_series', true), 'ok'))
 ) AS report(step, item, status)
 ORDER BY step;
