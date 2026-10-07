@@ -966,6 +966,24 @@ BEGIN
 END $$;
 
 
+--      Screen events said OPENED and CLOSED until 07-10-2026, which are the app's
+--      own words for a BILL being open or settled. On a bill's own history
+--      "TIRU CLOSED GOLD BILL CLOSING" read as though the bill had been closed,
+--      when the screen had only been looked at and shut. The lines already
+--      written are brought into line with the new wording; nothing else changes.
+DO $$
+DECLARE v_said INT := 0;
+BEGIN
+    IF to_regclass('public.activity_log') IS NOT NULL THEN
+        UPDATE activity_log SET action = 'SCREEN ' || action
+         WHERE action IN ('OPENED', 'CLOSED');
+        GET DIAGNOSTICS v_said = ROW_COUNT;
+        PERFORM set_config('mb.screen_words',
+            CASE WHEN v_said = 0 THEN 'ok - nothing to put right'
+                 ELSE v_said || ' line(s) reworded' END, false);
+    END IF;
+END $$;
+
 -- S5n Who wrote this row, and who changed it last.
 --  Every business table already carried a created date and a created user, and
 --  the app filled them on 52 tables out of 66. What no table carried was the
@@ -1392,6 +1410,7 @@ SELECT step, item, status FROM (
     (27, 'Bill number series',         COALESCE(current_setting('mb.one_series', true), 'ok')),
     (28, 'Cash drawer opening',        COALESCE(current_setting('mb.drawer_kick', true), 'ok')),
     (29, 'Employee activity',          COALESCE(current_setting('mb.activity', true), 'ok')),
-    (30, 'Who wrote this row',         COALESCE(current_setting('mb.who_wrote', true), 'ok'))
+    (30, 'Who wrote this row',         COALESCE(current_setting('mb.who_wrote', true), 'ok')),
+    (31, 'Screen lines reworded',      COALESCE(current_setting('mb.screen_words', true), 'ok'))
 ) AS report(step, item, status)
 ORDER BY step;
