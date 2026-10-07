@@ -1138,6 +1138,106 @@ public class DataController {
             "FROM notifications ORDER BY created_at DESC LIMIT ?", cap));
     }
 
+    /**
+     * Employee activity: what each person did at the counter, in the order they did it.
+     *
+     * <p>The same question the desktop screen answers, asked from the phone. The rows arrive here as
+     * ordinary projections of the shop's {@code activity_log}, so nothing had to be added to the cloud
+     * schema; this only knows how to ask about them in the shape the owner thinks in - a person, a screen,
+     * a kind of line, a day, a bill, or a word that appeared anywhere.
+     *
+     * <p>Newest first, because on a phone the question is nearly always "what just happened".
+     */
+    @GetMapping("/activity")
+    public List<Map<String,Object>> activity(
+            @RequestParam(name="companyId", required=false) String companyId,
+            @RequestParam(name="user",      required=false) String user,
+            @RequestParam(name="screen",    required=false) String screen,
+            @RequestParam(name="action",    required=false) String action,
+            @RequestParam(name="bill",      required=false) String bill,
+            @RequestParam(name="dateFrom",  required=false) String dateFrom,
+            @RequestParam(name="dateTo",    required=false) String dateTo,
+            @RequestParam(name="q",         required=false) String q,
+            @RequestParam(defaultValue="200") int limit) {
+
+        int cap = Math.min(Math.max(limit, 1), 500);
+        List<Object> args = new java.util.ArrayList<>();
+        StringBuilder w = new StringBuilder(
+                " WHERE table_name = 'activity_log' AND NOT deleted ");
+
+        if (notBlank(companyId)) {
+            w.append(" AND payload->>'company_id' = ? ");
+            args.add(companyId.trim());
+        }
+        // One person, however the shop knows them: the name on the screen or the sign-in name behind it.
+        if (notBlank(user)) {
+            w.append(" AND (payload->>'emp_name' = ? OR payload->>'user_id' = ?"
+                    + " OR payload->>'emp_id' = ?) ");
+            args.add(user.trim());
+            args.add(user.trim());
+            args.add(user.trim());
+        }
+        if (notBlank(screen)) {
+            w.append(" AND payload->>'screen' = ? ");
+            args.add(screen.trim());
+        }
+        if (notBlank(action)) {
+            w.append(" AND payload->>'action' = ? ");
+            args.add(action.trim());
+        }
+        if (notBlank(bill)) {
+            w.append(" AND UPPER(COALESCE(payload->>'bill_number','')) = UPPER(?) ");
+            args.add(bill.trim());
+        }
+        if (notBlank(dateFrom)) {
+            w.append(" AND (payload->>'happened_at')::timestamp >= ?::timestamp ");
+            args.add(dateFrom.trim());
+        }
+        // The day named in "to" is part of what was asked for, so the cut is the start of the next one.
+        if (notBlank(dateTo)) {
+            w.append(" AND (payload->>'happened_at')::timestamp"
+                    + " < (?::date + INTERVAL '1 day') ");
+            args.add(dateTo.trim());
+        }
+        if (notBlank(q)) {
+            w.append(" AND payload::text ILIKE ? ");
+            args.add("%" + q.trim() + "%");
+        }
+        args.add(cap);
+
+        final String sql = "SELECT row_pk, payload, last_updated_at FROM projections" + w
+                + " ORDER BY (payload->>'happened_at') DESC NULLS LAST LIMIT ?";
+        return t.inTenant(j -> rehydrate(j.queryForList(sql, args.toArray())));
+    }
+
+    /**
+     * The people and the screens that actually appear in the log, so the phone's two drop-downs never offer
+     * something that finds nothing.
+     */
+    @GetMapping("/activity/choices")
+    public Map<String,Object> activityChoices(
+            @RequestParam(name="companyId", required=false) String companyId) {
+        StringBuilder w = new StringBuilder(
+                " WHERE table_name = 'activity_log' AND NOT deleted ");
+        List<Object> args = new java.util.ArrayList<>();
+        if (notBlank(companyId)) {
+            w.append(" AND payload->>'company_id' = ? ");
+            args.add(companyId.trim());
+        }
+        final String who = "SELECT DISTINCT COALESCE(payload->>'emp_name', payload->>'user_id') AS v"
+                + " FROM projections" + w + " AND COALESCE(payload->>'emp_name',"
+                + " payload->>'user_id') IS NOT NULL ORDER BY 1";
+        final String screens = "SELECT DISTINCT payload->>'screen' AS v FROM projections" + w
+                + " AND payload->>'screen' IS NOT NULL ORDER BY 1";
+        return t.inTenant(j -> Map.of(
+                "people",  j.queryForList(who, args.toArray()).stream().map(r -> r.get("v")).toList(),
+                "screens", j.queryForList(screens, args.toArray()).stream().map(r -> r.get("v")).toList()));
+    }
+
+    private static boolean notBlank(String s) {
+        return s != null && !s.isBlank();
+    }
+
     // --- helpers ------------------------------------------------------------
     private static List<Map<String,Object>> rehydrate(List<Map<String,Object>> rows) {
         for (Map<String,Object> row : rows) rehydrateOne(row);

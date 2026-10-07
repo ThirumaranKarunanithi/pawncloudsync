@@ -866,6 +866,68 @@ BEGIN
 END $$;
 
 
+-- S5m What each person did, in the order they did it.
+--
+--     The owner wants to read a day the way it happened: signed in at
+--     9.02, opened Gold Bill Opening at 9.03, changed the Amount from
+--     50,000 to 60,000 at 9.05, saved bill R8125 at 9.07, closed the
+--     screen at 9.09.
+--
+--     EVENTS, not keystrokes. One line when a box is left with something
+--     different in it, not one per letter. A shop doing 45 bills on its
+--     busiest day writes a few thousand lines that way; keeping every
+--     keypress would be tens of thousands of times more, would be the
+--     largest table in the system by far, and would be unreadable.
+--
+--     Every line carries the bill number (or the entry's id) it belonged
+--     to, and WHO three ways - the sign-in name, the employee id behind
+--     it and the name to read - because a user can be renamed and an
+--     employee can leave, and the ids are what still make sense later.
+--
+--     Passwords are never written, not even wrong ones.
+DO $$
+DECLARE
+    v_made INT := 0;
+BEGIN
+    CREATE TABLE IF NOT EXISTS activity_log (
+        id           BIGSERIAL    PRIMARY KEY,
+        company_id   VARCHAR(100),
+        user_id      VARCHAR(100),
+        emp_id       VARCHAR(100),
+        emp_name     VARCHAR(255),
+        action       VARCHAR(40),
+        screen       VARCHAR(120),
+        bill_number  VARCHAR(100),
+        detail       VARCHAR(500),
+        happened_at  TIMESTAMP    NOT NULL DEFAULT now()
+    );
+
+    -- The two ways it is ever read: a person's day, and everything about one bill.
+    CREATE INDEX IF NOT EXISTS idx_activity_when
+        ON activity_log (company_id, happened_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_activity_who
+        ON activity_log (company_id, user_id, happened_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_activity_bill
+        ON activity_log (company_id, bill_number);
+
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                    WHERE tgname = 'trg_sync_activity_log' AND NOT tgisinternal) THEN
+        EXECUTE 'CREATE TRIGGER trg_sync_activity_log AFTER INSERT OR UPDATE OR DELETE ON activity_log '
+             || 'FOR EACH ROW EXECUTE FUNCTION sync_capture()';
+        v_made := 1;
+    END IF;
+
+    -- A year on the shop's own PC. The cloud keeps its own, shorter, window.
+    DELETE FROM activity_log WHERE happened_at < now() - INTERVAL '1 year';
+
+    PERFORM set_config('mb.activity',
+        (SELECT CASE WHEN count(*) = 0 THEN 'ok - nothing recorded yet'
+                     ELSE count(*) || ' line(s), oldest ' || to_char(min(happened_at), 'DD-MM-YYYY')
+                END
+           FROM activity_log), false);
+END $$;
+
+
 -- S6  Send the history to the cloud - when, and only when, it is right to.
 --
 --     Everything is inside one block so that a "not yet" never undoes
@@ -1101,6 +1163,7 @@ SELECT step, item, status FROM (
     (25, 'Jewels, a line each',        COALESCE(current_setting('mb.jewel_lines', true), 'ok')),
     (26, 'Cash drawers',               COALESCE(current_setting('mb.cash_drawers', true), 'ok')),
     (27, 'Bill number series',         COALESCE(current_setting('mb.one_series', true), 'ok')),
-    (28, 'Cash drawer opening',        COALESCE(current_setting('mb.drawer_kick', true), 'ok'))
+    (28, 'Cash drawer opening',        COALESCE(current_setting('mb.drawer_kick', true), 'ok')),
+    (29, 'Employee activity',          COALESCE(current_setting('mb.activity', true), 'ok'))
 ) AS report(step, item, status)
 ORDER BY step;
