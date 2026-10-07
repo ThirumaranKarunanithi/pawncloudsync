@@ -807,6 +807,65 @@ BEGIN
 END $$;
 
 
+-- S5l The cash drawer that opens itself, and a note of every time it did.
+--
+--     The drawer is wired into the POS receipt printer and opens when the
+--     printer pulses it. Most printers can be set to pulse on every job,
+--     and that is how it has been working - which made the drawer's
+--     timing the RECEIPT's timing. Once receipts moved to printing after
+--     the bill was saved, the drawer began opening after the cash had
+--     already been needed.
+--
+--     So the app opens it itself, at the moment somebody reaches for the
+--     money. These two tables hold which printer it is wired to, how
+--     hard to pulse it, when it may open - and, so the day's count means
+--     something, every time it did open and who opened it.
+--
+--     Off until a shop sets it up. A shop with no drawer sees none of it.
+DO $$
+DECLARE
+    v_tab  TEXT;
+    v_made INT := 0;
+BEGIN
+    CREATE TABLE IF NOT EXISTS company_cash_drawer_hardware (
+        company_id    VARCHAR(100) NOT NULL PRIMARY KEY REFERENCES company(id),
+        drawer_on     BOOLEAN      NOT NULL DEFAULT false,
+        printer_name  VARCHAR(255),
+        drawer_pin    INTEGER      NOT NULL DEFAULT 1,     -- 1 = pin 2, 2 = pin 5
+        pulse_ms      INTEGER      NOT NULL DEFAULT 100,
+        moments       VARCHAR(255),                        -- DENOMINATION,DAY_COUNT,BUTTON
+        created_date  TIMESTAMP    NOT NULL DEFAULT now(),
+        user_id       VARCHAR(100)
+    );
+
+    CREATE TABLE IF NOT EXISTS cash_drawer_opening (
+        company_id    VARCHAR(100) NOT NULL REFERENCES company(id),
+        opened_at     TIMESTAMP    NOT NULL DEFAULT now(),
+        user_id       VARCHAR(100),
+        reason        VARCHAR(255)
+    );
+    CREATE INDEX IF NOT EXISTS idx_cash_drawer_opening_day
+        ON cash_drawer_opening (company_id, opened_at);
+
+    -- Both go to the cloud like every other table the shops keep.
+    FOREACH v_tab IN ARRAY ARRAY['company_cash_drawer_hardware', 'cash_drawer_opening'] LOOP
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                        WHERE tgname = 'trg_sync_' || v_tab AND NOT tgisinternal) THEN
+            EXECUTE format('CREATE TRIGGER trg_sync_%I AFTER INSERT OR UPDATE OR DELETE ON %I '
+                        || 'FOR EACH ROW EXECUTE FUNCTION sync_capture()', v_tab, v_tab);
+            v_made := v_made + 1;
+        END IF;
+    END LOOP;
+
+    PERFORM set_config('mb.drawer_kick',
+        (SELECT CASE WHEN count(*) FILTER (WHERE drawer_on) = 0
+                     THEN 'ok - no shop has turned the drawer on'
+                     ELSE count(*) FILTER (WHERE drawer_on) || ' company/companies opening the drawer'
+                END
+           FROM company_cash_drawer_hardware), false);
+END $$;
+
+
 -- S6  Send the history to the cloud - when, and only when, it is right to.
 --
 --     Everything is inside one block so that a "not yet" never undoes
@@ -1041,6 +1100,7 @@ SELECT step, item, status FROM (
     (24, 'Jewel count on every bill',  COALESCE(current_setting('mb.jewel_count', true), 'ok')),
     (25, 'Jewels, a line each',        COALESCE(current_setting('mb.jewel_lines', true), 'ok')),
     (26, 'Cash drawers',               COALESCE(current_setting('mb.cash_drawers', true), 'ok')),
-    (27, 'Bill number series',         COALESCE(current_setting('mb.one_series', true), 'ok'))
+    (27, 'Bill number series',         COALESCE(current_setting('mb.one_series', true), 'ok')),
+    (28, 'Cash drawer opening',        COALESCE(current_setting('mb.drawer_kick', true), 'ok'))
 ) AS report(step, item, status)
 ORDER BY step;
