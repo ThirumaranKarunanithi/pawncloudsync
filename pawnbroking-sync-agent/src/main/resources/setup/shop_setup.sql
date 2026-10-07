@@ -917,8 +917,27 @@ BEGIN
         v_made := 1;
     END IF;
 
-    -- A year on the shop's own PC. The cloud keeps its own, shorter, window.
+    -- How long to keep it, and what to keep, are the shop's own (Company Module -> Employee Activity).
+    -- A busy counter writes a few thousand lines a day; a year of that is a bigger table than the bills.
+    -- Until a shop chooses, it is a year and everything - which is what it was before anybody was asked.
+    CREATE TABLE IF NOT EXISTS company_activity_settings (
+        company_id      VARCHAR(100) PRIMARY KEY,
+        keep_days       INTEGER      NOT NULL DEFAULT 365,   -- 0 = keep everything
+        record_typed    BOOLEAN      NOT NULL DEFAULT TRUE,
+        record_screens  BOOLEAN      NOT NULL DEFAULT TRUE,
+        record_presses  BOOLEAN      NOT NULL DEFAULT TRUE
+    );
+
+    -- The app throws the old lines away itself, by each company's own setting; this only clears what was
+    -- kept before there was a setting, so an existing shop does not carry two years of it into the new rule.
     DELETE FROM activity_log WHERE happened_at < now() - INTERVAL '1 year';
+
+    -- The main screen's search box is called txtBillNumber, so until 07-10-2026 every line recorded while a
+    -- number sat in it was marked as being ABOUT that bill - opening another screen, picking a company. A
+    -- bill's history filled up with things that had nothing to do with it. The lines are kept; only the bill
+    -- number comes off them, because it was never true.
+    UPDATE activity_log SET bill_number = NULL
+     WHERE bill_number IS NOT NULL AND upper(COALESCE(screen, '')) LIKE 'MAIN SCREEN%';
 
     PERFORM set_config('mb.activity',
         (SELECT CASE WHEN count(*) = 0 THEN 'ok - nothing recorded yet'
