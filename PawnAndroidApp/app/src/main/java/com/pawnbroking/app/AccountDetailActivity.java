@@ -32,16 +32,16 @@ public class AccountDetailActivity extends AppCompatActivity {
 
     private String companyId, companyName, date, type, title;
 
-    // Maps detail type → {materialType, billNumberColumnIndex}
-    // Used to make rows tappable and open BillingActivity
+    // Maps detail type → {materialType, billNumberColumnIndex}.
+    // Bill No is column 1 in every drill-down table (column 0 is the row #).
     private static final Map<String, String[]> BILL_NAV = new HashMap<>();
     static {
         BILL_NAV.put("GOLD_OPENING",   new String[]{"GOLD",   "1"});
         BILL_NAV.put("SILVER_OPENING", new String[]{"SILVER", "1"});
         BILL_NAV.put("GOLD_CLOSING",   new String[]{"GOLD",   "1"});
         BILL_NAV.put("SILVER_CLOSING", new String[]{"SILVER", "1"});
-        BILL_NAV.put("GOLD_ADVANCE",   new String[]{"GOLD",   "2"});
-        BILL_NAV.put("SILVER_ADVANCE", new String[]{"SILVER", "2"});
+        BILL_NAV.put("GOLD_ADVANCE",   new String[]{"GOLD",   "1"});
+        BILL_NAV.put("SILVER_ADVANCE", new String[]{"SILVER", "1"});
     }
 
     @Override

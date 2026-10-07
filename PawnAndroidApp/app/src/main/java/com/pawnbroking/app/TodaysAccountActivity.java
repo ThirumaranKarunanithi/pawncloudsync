@@ -41,28 +41,37 @@ public class TodaysAccountActivity extends AppCompatActivity {
     private TextView tvPreDate, tvPreActual, tvPreAvailable, tvPreDeficit, tvPreNote;
     private TextView tvActualBalance, tvAvailableBalance, tvDeficit, tvTodaysNote;
     private TextView tvTotalDebit, tvTotalCredit;
+    private TextView tvGoldPf, tvSilverPf, tvTotalPf;
     private View layoutStatus;
     private TextView tvAccountStatus;
 
     private String companyId, companyName;
     private String selectedDate;
+    /** The L-marker date (last closed-account day) — drives Previous Day. */
+    private String lastLDate;
+    /** Cached pre-day balance from the L row — used to derive Today's Balance
+     *  when the selected (L+1) date has no own row yet. */
+    private double cachedPreActual, cachedPreAvailable, cachedPreDeficit;
     private final NumberFormat fmt = NumberFormat.getNumberInstance(new Locale("en", "IN"));
     private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
     private final SimpleDateFormat displaySdf = new SimpleDateFormat("dd MMM yyyy", Locale.getDefault());
 
-    // Maps operation name → detail type key for drill-down
+    // Maps operation name → detail type key for drill-down. Keys must match
+    // the cloud's row names EXACTLY (uppercased) — the cloud emits e.g.
+    // "GOLD BILL ADVANCE AMOUNT" (with the word BILL), so the key has to
+    // match that, not the shorter "GOLD ADVANCE AMOUNT".
     private static final Map<String, String> DETAIL_TYPES = new LinkedHashMap<>();
     static {
-        DETAIL_TYPES.put("GOLD BILL OPENING",     "GOLD_OPENING");
-        DETAIL_TYPES.put("GOLD ADVANCE AMOUNT",   "GOLD_ADVANCE");
-        DETAIL_TYPES.put("GOLD BILL CLOSING",     "GOLD_CLOSING");
-        DETAIL_TYPES.put("SILVER BILL OPENING",   "SILVER_OPENING");
-        DETAIL_TYPES.put("SILVER ADVANCE AMOUNT", "SILVER_ADVANCE");
-        DETAIL_TYPES.put("SILVER BILL CLOSING",   "SILVER_CLOSING");
-        DETAIL_TYPES.put("REPLEDGE BILL OPENING", "REPLEDGE_OPENING");
-        DETAIL_TYPES.put("REPLEDGE BILL CLOSING", "REPLEDGE_CLOSING");
-        DETAIL_TYPES.put("EXPENSES",              "EXPENSES");
-        DETAIL_TYPES.put("INCOMES",               "INCOMES");
+        DETAIL_TYPES.put("GOLD BILL OPENING",          "GOLD_OPENING");
+        DETAIL_TYPES.put("GOLD BILL ADVANCE AMOUNT",   "GOLD_ADVANCE");
+        DETAIL_TYPES.put("GOLD BILL CLOSING",          "GOLD_CLOSING");
+        DETAIL_TYPES.put("SILVER BILL OPENING",        "SILVER_OPENING");
+        DETAIL_TYPES.put("SILVER BILL ADVANCE AMOUNT", "SILVER_ADVANCE");
+        DETAIL_TYPES.put("SILVER BILL CLOSING",        "SILVER_CLOSING");
+        DETAIL_TYPES.put("REPLEDGE BILL OPENING",      "REPLEDGE_OPENING");
+        DETAIL_TYPES.put("REPLEDGE BILL CLOSING",      "REPLEDGE_CLOSING");
+        DETAIL_TYPES.put("EXPENSES",                   "EXPENSES");
+        DETAIL_TYPES.put("INCOMES",                    "INCOMES");
     }
 
     @Override
@@ -109,6 +118,9 @@ public class TodaysAccountActivity extends AppCompatActivity {
 
         tvTotalDebit    = findViewById(R.id.tvTotalDebit);
         tvTotalCredit   = findViewById(R.id.tvTotalCredit);
+        tvGoldPf        = findViewById(R.id.tvGoldPf);
+        tvSilverPf      = findViewById(R.id.tvSilverPf);
+        tvTotalPf       = findViewById(R.id.tvTotalPf);
         layoutStatus    = findViewById(R.id.layoutStatus);
         tvAccountStatus = findViewById(R.id.tvAccountStatus);
 
@@ -128,18 +140,34 @@ public class TodaysAccountActivity extends AppCompatActivity {
         ApiService.getLastAccountDate(companyId, new ApiService.Callback<String>() {
             @Override public void onSuccess(String isoDate) {
                 runOnUiThread(() -> {
+                    // Desktop convention: when the last L-marker (last
+                    // closed day) is D, default the screen to D+1 — i.e.
+                    // "today is the next un-closed business day". D goes
+                    // into the Previous Day card.
                     try {
-                        Date d = sdf.parse(isoDate);
-                        if (d != null) {
-                            selectedDate = isoDate;
-                            tvSelectedDate.setText(displaySdf.format(d));
+                        Date dL = sdf.parse(isoDate);
+                        if (dL != null) {
+                            lastLDate = isoDate;
+                            Calendar c = Calendar.getInstance();
+                            c.setTime(dL);
+                            c.add(Calendar.DAY_OF_MONTH, 1);
+                            selectedDate = sdf.format(c.getTime());
+                            tvSelectedDate.setText(displaySdf.format(c.getTime()));
                         }
                     } catch (Exception ignored) {}
                     load();
                 });
             }
             @Override public void onError(String msg) {
-                runOnUiThread(() -> load()); // fall back to today
+                // Make the failure visible — silent fallback to today was
+                // masking a real problem (empty network response, JWT issue,
+                // cloud not yet redeployed, etc.). Now you see exactly why.
+                runOnUiThread(() -> {
+                    android.util.Log.w("TodaysAcct", "last-date lookup failed: " + msg);
+                    Toast.makeText(TodaysAccountActivity.this,
+                        "Last date lookup: " + msg, Toast.LENGTH_LONG).show();
+                    load();
+                });
             }
         });
     }
@@ -164,69 +192,121 @@ public class TodaysAccountActivity extends AppCompatActivity {
         progressBar.setVisibility(View.VISIBLE);
         layoutContent.setVisibility(View.GONE);
 
-        ApiService.getTodaysAccount(companyId, selectedDate, new ApiService.Callback<JSONObject>() {
-            @Override public void onSuccess(JSONObject data) {
+        // Two parallel fetches:
+        //   1. Previous Day card uses the L-marker row (selectedDate - 1 day,
+        //      i.e. the last closed account day). If no L row is known yet,
+        //      we fall back to the selected date itself.
+        //   2. Today's card + operations + Pf bar all key off selectedDate.
+        final String preDate = lastLDate != null ? lastLDate : prevDay(selectedDate);
+        ApiService.getTodaysAccount(companyId, preDate, new ApiService.Callback<JSONObject>() {
+            @Override public void onSuccess(JSONObject preRow) {
                 runOnUiThread(() -> {
                     progressBar.setVisibility(View.GONE);
                     layoutContent.setVisibility(View.VISIBLE);
-                    bind(data);
+                    bindPrevious(preRow);
+                    // After the pre-row populates cached balances, ops load
+                    // computes Today's Balance = pre + credits - debits.
+                    loadOperations();
                 });
             }
             @Override public void onError(String message) {
                 runOnUiThread(() -> {
                     progressBar.setVisibility(View.GONE);
-                    Toast.makeText(TodaysAccountActivity.this, "Error: " + message, Toast.LENGTH_LONG).show();
+                    layoutContent.setVisibility(View.VISIBLE);
+                    android.util.Log.w("TodaysAcct", "pre-row load failed: " + message);
+                    bindPrevious(new JSONObject()); // zero out, still load ops
+                    loadOperations();
                 });
             }
         });
     }
 
-    private void bind(JSONObject data) {
-        // Previous day balance
-        String preDate = data.optString("preDate", "");
+    /** Returns date - 1 day in ISO yyyy-MM-dd form. */
+    private String prevDay(String iso) {
+        if (iso == null || iso.isEmpty()) return "";
+        try {
+            Calendar c = Calendar.getInstance();
+            c.setTime(sdf.parse(iso));
+            c.add(Calendar.DAY_OF_MONTH, -1);
+            return sdf.format(c.getTime());
+        } catch (Exception e) { return iso; }
+    }
+
+    /** Asks the cloud for per-op debit/credit/count + Pf bar, then derives
+     *  Today's Balance from pre-balance + totalCredit − totalDebit. */
+    private void loadOperations() {
+        ApiService.getTodaysAccountOps(companyId, selectedDate,
+            new ApiService.Callback<JSONObject>() {
+                @Override public void onSuccess(JSONObject data) {
+                    runOnUiThread(() -> {
+                        JSONArray ops = data.optJSONArray("operations");
+                        buildOperationsTable(ops);
+                        double td = data.optDouble("totalDebit",  0);
+                        double tc = data.optDouble("totalCredit", 0);
+                        double goldPf   = data.optDouble("goldPf",   0);
+                        double silverPf = data.optDouble("silverPf", 0);
+                        double totalPf  = data.optDouble("totalPf",  0);
+
+                        tvTotalDebit.setText ("₹ " + fmt.format(td));
+                        tvTotalCredit.setText("₹ " + fmt.format(tc));
+                        tvGoldPf.setText  ("₹ " + fmt.format(goldPf));
+                        tvSilverPf.setText("₹ " + fmt.format(silverPf));
+                        tvTotalPf.setText ("₹ " + fmt.format(totalPf));
+
+                        // Desktop derivation: today's actual = pre actual +
+                        // credits − debits. Same for available; deficit
+                        // carries forward unless the user clears it.
+                        double actual    = cachedPreActual    + tc - td;
+                        double available = cachedPreAvailable + tc - td;
+                        double deficit   = cachedPreDeficit;
+                        tvActualBalance.setText    ("₹ " + fmt.format(actual));
+                        tvAvailableBalance.setText ("₹ " + fmt.format(available));
+                        tvDeficit.setText          ("₹ " + fmt.format(deficit));
+                        tvDeficit.setTextColor(deficit == 0
+                                ? Color.parseColor("#4CAF50") : Color.parseColor("#F44336"));
+
+                        // No L row yet for the selected (L+1) date → OPEN.
+                        layoutStatus.setVisibility(View.VISIBLE);
+                        tvAccountStatus.setText("OPEN");
+                        tvAccountStatus.setTextColor(Color.parseColor("#FF9800"));
+                    });
+                }
+                @Override public void onError(String message) {
+                    runOnUiThread(() -> android.util.Log.w("TodaysAcct",
+                        "operations load failed: " + message));
+                }
+            });
+    }
+
+    /**
+     * Renders only the Previous Day card from the L-marker row. Today's
+     * Balance + Pf strip are filled in by {@link #loadOperations()} because
+     * they need the operations totals to derive correctly.
+     */
+    private void bindPrevious(JSONObject data) {
+        String preDate = data.optString("preDate", lastLDate == null ? "" : lastLDate);
+        // For the L-marker row, the "todays_*" fields are actually the
+        // closing balances of that day — which become the OPENING balances
+        // for the next (selected) day's Previous Day card.
+        double preActual    = data.optDouble("actualBalance",    0);
+        double preAvailable = data.optDouble("availableBalance", 0);
+        double preDeficit   = data.optDouble("deficit",          0);
+        // Cache so the ops callback can derive today's balance from these.
+        cachedPreActual    = preActual;
+        cachedPreAvailable = preAvailable;
+        cachedPreDeficit   = preDeficit;
+
+        // If preDate is empty, fall back to the row's own todays_date.
+        if (preDate.isEmpty()) preDate = data.optString("date", "");
         tvPreDate.setText(preDate.isEmpty() ? "—" : preDate);
-        tvPreActual.setText("₹ " + fmt.format(data.optDouble("preActualBalance", 0)));
-        tvPreAvailable.setText("₹ " + fmt.format(data.optDouble("preAvailableBalance", 0)));
-        double preDeficit = data.optDouble("preDeficit", 0);
+        tvPreActual.setText("₹ " + fmt.format(preActual));
+        tvPreAvailable.setText("₹ " + fmt.format(preAvailable));
         tvPreDeficit.setText("₹ " + fmt.format(preDeficit));
         tvPreDeficit.setTextColor(preDeficit == 0
                 ? Color.parseColor("#4CAF50") : Color.parseColor("#F44336"));
-        String preNote = data.optString("preNote", "");
+        String preNote = data.optString("todaysNote", "");
         tvPreNote.setText(preNote.isEmpty() ? "" : preNote);
         tvPreNote.setVisibility(preNote.isEmpty() ? View.GONE : View.VISIBLE);
-
-        // Today's balance
-        double actualBalance    = data.optDouble("actualBalance", 0);
-        double availableBalance = data.optDouble("availableBalance", 0);
-        double deficit          = data.optDouble("deficit", 0);
-        tvActualBalance.setText("₹ " + fmt.format(actualBalance));
-        tvAvailableBalance.setText("₹ " + fmt.format(availableBalance));
-        tvDeficit.setText("₹ " + fmt.format(deficit));
-        tvDeficit.setTextColor(deficit == 0
-                ? Color.parseColor("#4CAF50") : Color.parseColor("#F44336"));
-        String todaysNote = data.optString("todaysNote", "");
-        tvTodaysNote.setText(todaysNote.isEmpty() ? "" : todaysNote);
-        tvTodaysNote.setVisibility(todaysNote.isEmpty() ? View.GONE : View.VISIBLE);
-
-        // Totals
-        tvTotalDebit.setText("₹ " + fmt.format(data.optDouble("totalDebit", 0)));
-        tvTotalCredit.setText("₹ " + fmt.format(data.optDouble("totalCredit", 0)));
-
-        // Account status badge (desktop save-mode logic)
-        String status = data.optString("accountStatus", "");
-        if (!status.isEmpty() && !"UNKNOWN".equals(status)) {
-            layoutStatus.setVisibility(View.VISIBLE);
-            boolean yetToClose = "YET TO CLOSE".equals(status);
-            tvAccountStatus.setText(status);
-            tvAccountStatus.setTextColor(yetToClose
-                    ? Color.parseColor("#FF9800")   // orange  — not yet saved
-                    : Color.parseColor("#4CAF50"));  // green   — already saved/closed
-        } else {
-            layoutStatus.setVisibility(View.GONE);
-        }
-
-        // Operations table
-        buildOperationsTable(data.optJSONArray("operations"));
     }
 
     private void buildOperationsTable(JSONArray ops) {
@@ -235,7 +315,9 @@ public class TodaysAccountActivity extends AppCompatActivity {
 
         if (ops == null) return;
 
-        // Section divider label above table
+        // Render EVERY row the cloud returns (always 10 — matches desktop).
+        // Zeros render as "0.0" instead of "—" so the grid reads like the
+        // desktop screen exactly.
         for (int i = 0; i < ops.length(); i++) {
             JSONObject op = ops.optJSONObject(i);
             if (op == null) continue;
@@ -244,49 +326,54 @@ public class TodaysAccountActivity extends AppCompatActivity {
             long   count  = op.optLong("count", 0);
             double debit  = op.optDouble("debit", 0);
             double credit = op.optDouble("credit", 0);
+            String combo  = op.optString("combo", "");
             final String detailType = DETAIL_TYPES.get(name);
 
-            // Alternate row background
+            // Alternate row background — desktop uses a similar zebra stripe.
             int rowBg = (i % 2 == 0) ? Color.parseColor("#1E2A4A") : Color.parseColor("#16213E");
 
-            // Main row
             TableRow row = new TableRow(this);
             row.setBackgroundColor(rowBg);
             row.setPadding(0, dp(2), 0, dp(2));
 
-            // Name cell (shows tap hint if detail exists)
             TextView tvName = new TextView(this);
             tvName.setText(name + (detailType != null ? " ›" : ""));
             tvName.setTextColor(detailType != null
                     ? Color.parseColor("#64B5F6") : Color.WHITE);
             tvName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-            tvName.setPadding(dp(8), dp(3), dp(8), dp(3));
+            tvName.setTypeface(null, android.graphics.Typeface.BOLD);
+            tvName.setPadding(dp(8), dp(6), dp(8), dp(6));
             TableRow.LayoutParams flexLp = new TableRow.LayoutParams(
-                    0, TableRow.LayoutParams.WRAP_CONTENT, 1f);
+                    TableRow.LayoutParams.WRAP_CONTENT,
+                    TableRow.LayoutParams.WRAP_CONTENT);
+            flexLp.column = 0;
             tvName.setLayoutParams(flexLp);
             row.addView(tvName);
 
-            row.addView(makeCell(
-                    count > 0 ? String.valueOf(count) : "—",
-                    Color.parseColor("#AAAAAA"), dp(50), Gravity.CENTER));
-            row.addView(makeCell(
-                    debit > 0 ? "₹" + fmtShort(debit) : "—",
-                    Color.parseColor("#EF9A9A"), dp(80), Gravity.END));
-            row.addView(makeCell(
-                    credit > 0 ? "₹" + fmtShort(credit) : "—",
-                    Color.parseColor("#A5D6A7"), dp(80), Gravity.END));
+            row.addView(makeCell(fmtNum(count),
+                    Color.parseColor("#CCCCCC"), dp(50), Gravity.CENTER));
+            row.addView(makeCell("₹" + fmtShort(debit),
+                    debit > 0 ? Color.parseColor("#EF9A9A") : Color.parseColor("#666666"),
+                    dp(80), Gravity.END));
+            row.addView(makeCell("₹" + fmtShort(credit),
+                    credit > 0 ? Color.parseColor("#A5D6A7") : Color.parseColor("#666666"),
+                    dp(80), Gravity.END));
+            row.addView(makeCell(combo,
+                    Color.parseColor("#90A4AE"), dp(220), Gravity.START));
 
-            // Tap to drill-down
             if (detailType != null) {
                 final String finalName = name;
                 row.setOnClickListener(v -> openDetail(detailType, finalName));
                 row.setForeground(getDrawable(android.R.drawable.list_selector_background));
             }
-
             tableOperations.addView(row);
-
-            // (detail sub-rows removed — tap the row to see drill-down details)
         }
+    }
+
+    /** Indian-format the count: "7" → "7", desktop shows "7.0" but we keep
+     *  it integer-only since fractional counts are nonsensical. */
+    private String fmtNum(long n) {
+        return n == 0 ? "0" : String.valueOf(n);
     }
 
     private void openDetail(String type, String name) {

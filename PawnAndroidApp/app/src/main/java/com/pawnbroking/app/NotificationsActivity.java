@@ -1,5 +1,7 @@
 package com.pawnbroking.app;
 
+import com.pawnbroking.app.util.DateFmt;
+
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -119,7 +121,7 @@ public class NotificationsActivity extends AppCompatActivity {
             h.tvTitle.setText(o.optString("title", ""));
             h.tvBody.setText(o.optString("body", ""));
             String when = o.optString("created_at", "");
-            if (when.length() >= 16) when = when.substring(0, 16).replace('T', ' ');
+            when = DateFmt.stamp(when);
             h.tvWhen.setText(when);
             // Tap a bill notification → open BillingActivity. For other
             // tables just no-op (nothing meaningful to drill into).

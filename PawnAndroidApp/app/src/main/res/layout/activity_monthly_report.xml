@@ -43,6 +43,66 @@
             android:textSize="12sp" />
     </LinearLayout>
 
+    <!-- View toggle: Table | Bar | Line | Pie -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_card"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="8dp">
+
+        <Button android:id="@+id/btnViewTable"
+            android:layout_width="0dp" android:layout_height="34dp" android:layout_weight="1"
+            android:layout_marginEnd="3dp" android:backgroundTint="@color/gold"
+            android:text="Table" android:textColor="#0D1B2A" android:textSize="11sp"
+            android:textStyle="bold" android:paddingStart="0dp" android:paddingEnd="0dp" />
+        <Button android:id="@+id/btnViewBar"
+            android:layout_width="0dp" android:layout_height="34dp" android:layout_weight="1"
+            android:layout_marginEnd="3dp" android:backgroundTint="#1E2A4A"
+            android:text="Bar" android:textColor="#AAAAAA" android:textSize="11sp"
+            android:paddingStart="0dp" android:paddingEnd="0dp" />
+        <Button android:id="@+id/btnViewLine"
+            android:layout_width="0dp" android:layout_height="34dp" android:layout_weight="1"
+            android:layout_marginEnd="3dp" android:backgroundTint="#1E2A4A"
+            android:text="Line" android:textColor="#AAAAAA" android:textSize="11sp"
+            android:paddingStart="0dp" android:paddingEnd="0dp" />
+        <Button android:id="@+id/btnViewPie"
+            android:layout_width="0dp" android:layout_height="34dp" android:layout_weight="1"
+            android:backgroundTint="#1E2A4A"
+            android:text="Pie" android:textColor="#AAAAAA" android:textSize="11sp"
+            android:paddingStart="0dp" android:paddingEnd="0dp" />
+    </LinearLayout>
+
+    <!-- Chart container (hidden until a chart view is chosen) -->
+    <LinearLayout
+        android:id="@+id/layoutChart"
+        android:layout_width="match_parent"
+        android:layout_height="320dp"
+        android:orientation="vertical"
+        android:padding="8dp"
+        android:visibility="gone">
+
+        <TextView android:id="@+id/tvChartTitle"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:gravity="center" android:textColor="@color/gold"
+            android:textSize="13sp" android:textStyle="bold" android:paddingBottom="4dp" />
+
+        <com.github.mikephil.charting.charts.BarChart
+            android:id="@+id/misBarChart"
+            android:layout_width="match_parent" android:layout_height="0dp"
+            android:layout_weight="1" android:visibility="gone" />
+        <com.github.mikephil.charting.charts.LineChart
+            android:id="@+id/misLineChart"
+            android:layout_width="match_parent" android:layout_height="0dp"
+            android:layout_weight="1" android:visibility="gone" />
+        <com.github.mikephil.charting.charts.PieChart
+            android:id="@+id/misPieChart"
+            android:layout_width="match_parent" android:layout_height="0dp"
+            android:layout_weight="1" android:visibility="gone" />
+    </LinearLayout>
+
     <ProgressBar
         android:id="@+id/progressBar"
         android:layout_width="wrap_content"
@@ -282,6 +342,7 @@
 
     <!-- Data table: horizontal + vertical scroll -->
     <HorizontalScrollView
+        android:id="@+id/layoutTableScroll"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:scrollbars="horizontal">

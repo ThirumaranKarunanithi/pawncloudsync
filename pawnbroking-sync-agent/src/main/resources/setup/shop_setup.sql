@@ -932,6 +932,25 @@ BEGIN
     -- kept before there was a setting, so an existing shop does not carry two years of it into the new rule.
     DELETE FROM activity_log WHERE happened_at < now() - INTERVAL '1 year';
 
+    -- The screens that take money in and out were called Income and Expenses, but each holds two kinds:
+    -- money in is INCOME or LIABILITY, money out is EXPENSE or ASSET. A loan taken is money in and not
+    -- income; a safe bought is money out and not an expense. They are Money In and Money Out now.
+    --
+    -- The Role Module saves a role's rights BY SCREEN NAME, so without this every shop's staff would
+    -- quietly lose their rights to these six screens the day the new app was installed.
+    IF to_regclass('public.role_detail') IS NOT NULL THEN
+        UPDATE role_detail SET screen_name = replace(replace(screen_name, ' EXPENSES', ' MONEY OUT'),
+                                                     ' INCOME', ' MONEY IN')
+         WHERE screen_name IN ('COMPANY INCOME', 'COMPANY EXPENSES', 'EMPLOYEE INCOME',
+                               'EMPLOYEE EXPENSES', 'RE-PLEDGE INCOME', 'RE-PLEDGE EXPENSES');
+    END IF;
+    IF to_regclass('public.screens') IS NOT NULL THEN
+        UPDATE screens SET screen_name = replace(replace(screen_name, ' EXPENSES', ' MONEY OUT'),
+                                                 ' INCOME', ' MONEY IN')
+         WHERE screen_name IN ('COMPANY INCOME', 'COMPANY EXPENSES', 'EMPLOYEE INCOME',
+                               'EMPLOYEE EXPENSES', 'RE-PLEDGE INCOME', 'RE-PLEDGE EXPENSES');
+    END IF;
+
     -- The main screen's search box is called txtBillNumber, so until 07-10-2026 every line recorded while a
     -- number sat in it was marked as being ABOUT that bill - opening another screen, picking a company. A
     -- bill's history filled up with things that had nothing to do with it. The lines are kept; only the bill
@@ -946,6 +965,195 @@ BEGIN
            FROM activity_log), false);
 END $$;
 
+
+-- S5n Who wrote this row, and who changed it last.
+--  Every business table already carried a created date and a created user, and
+--  the app filled them on 52 tables out of 66. What no table carried was the
+--  other half: who changed the row afterwards. Two tables had the columns,
+--  and one of those two filled the date on all 7,234 rows and the user on
+--  none of them.
+--
+--  Filling them from the app would mean editing 63 INSERTs and 95 UPDATEs in
+--  the full app and as many again in the lite one - about 320 statements that
+--  move money, each one a chance to break a save that works today, and every
+--  screen written afterwards would have to remember. So the database does it.
+--  A row written by any screen, by the mobile sync, or by hand in pgAdmin
+--  carries the right names either way.
+--
+--  It fires BEFORE the row is written, which matters: sync_capture is an AFTER
+--  trigger, so the stamped values are the ones that reach the cloud. The cloud
+--  keeps payloads as jsonb in projections, so the two new columns arrive as two
+--  new keys and need nothing done to them there.
+--
+--  Nothing the app already sets is overwritten. On an insert the trigger only
+--  fills a created column the statement left empty, so the 107 places that
+--  pass CommonConstants.USERID keep winning. On an update it sets the last-
+--  changed pair and touches nothing else.
+-- ===========================================================================
+
+-- ---------------------------------------------------------------------------
+--  Who is signed in. The app sets this on its connection; sync_capture has
+--  read app.shop_id the same way for years. Unset - a hand edit in pgAdmin,
+--  or the sync agent - leaves the user columns alone rather than blanking a
+--  name that is already there.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.magizhchi_who() RETURNS text
+LANGUAGE sql STABLE AS $$
+    SELECT nullif(btrim(coalesce(current_setting('pawn.user_id', true), '')), '')
+$$;
+
+COMMENT ON FUNCTION public.magizhchi_who() IS
+    'The signed-in user, as the app put it on this connection; NULL if nobody said.';
+
+-- ---------------------------------------------------------------------------
+--  The stamp itself. One function for every table: it looks at the row it was
+--  handed rather than at a list of tables, so a table added later is covered
+--  the moment the trigger is put on it.
+--
+--  The row goes out to jsonb and back. That is what lets one function serve
+--  sixty tables, and it round-trips the awkward types - material_type, gender,
+--  interest_type, repledge_status, the numerics and the dates all come back as
+--  themselves.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.magizhchi_stamp_who() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE
+    row_json jsonb := to_jsonb(NEW);
+    patch    jsonb := '{}'::jsonb;
+    who      text  := public.magizhchi_who();
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        -- Only what the statement left empty. A screen that names the user wins.
+        IF row_json ? 'created_date' AND row_json->>'created_date' IS NULL THEN
+            patch := patch || jsonb_build_object('created_date', now());
+        END IF;
+        IF row_json ? 'created_at' AND row_json->>'created_at' IS NULL THEN
+            patch := patch || jsonb_build_object('created_at', now());
+        END IF;
+        IF who IS NOT NULL THEN
+            IF row_json ? 'created_user_id'
+               AND nullif(btrim(coalesce(row_json->>'created_user_id', '')), '') IS NULL THEN
+                patch := patch || jsonb_build_object('created_user_id', who);
+            END IF;
+            -- On most tables the creator is spelt user_id. It is only ever filled
+            -- here when the insert left it blank, so the two status toggles that
+            -- write it on purpose are unaffected.
+            IF row_json ? 'user_id'
+               AND nullif(btrim(coalesce(row_json->>'user_id', '')), '') IS NULL THEN
+                patch := patch || jsonb_build_object('user_id', who);
+            END IF;
+        END IF;
+    ELSE
+        IF row_json ? 'last_updated_date' THEN
+            patch := patch || jsonb_build_object('last_updated_date', now());
+        END IF;
+        IF who IS NOT NULL AND row_json ? 'last_updated_user_id' THEN
+            patch := patch || jsonb_build_object('last_updated_user_id', who);
+        END IF;
+    END IF;
+
+    IF patch <> '{}'::jsonb THEN
+        NEW := jsonb_populate_record(NEW, row_json || patch);
+    END IF;
+    RETURN NEW;
+END $$;
+
+COMMENT ON FUNCTION public.magizhchi_stamp_who() IS
+    'Fills the created pair when a statement leaves it empty, and the last-changed pair on every update.';
+
+-- ---------------------------------------------------------------------------
+--  The columns, and the trigger, on every business table.
+--
+--  The sync plumbing is left out: sync_outbox is a 300,000-row queue that is
+--  written and emptied by the agent, and the two upload tables are its
+--  bookkeeping. Nobody asks who changed a queue entry.
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE
+    t        text;
+    added    int := 0;
+    hooked   int := 0;
+    filled   int := 0;
+    n        bigint;
+BEGIN
+    FOR t IN
+        SELECT c.relname
+          FROM pg_class c
+          JOIN pg_namespace ns ON ns.oid = c.relnamespace
+         WHERE ns.nspname = 'public'
+           AND c.relkind = 'r'
+           AND c.relname NOT LIKE 'sync\_%'
+           AND c.relname NOT IN ('kit_notes')
+         ORDER BY c.relname
+    LOOP
+        -- the last-changed pair, on every table
+        IF NOT EXISTS (SELECT 1 FROM pg_attribute
+                        WHERE attrelid = ('public.' || quote_ident(t))::regclass
+                          AND attname = 'last_updated_user_id' AND NOT attisdropped) THEN
+            EXECUTE format('ALTER TABLE public.%I ADD COLUMN last_updated_user_id varchar(100)', t);
+            added := added + 1;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_attribute
+                        WHERE attrelid = ('public.' || quote_ident(t))::regclass
+                          AND attname = 'last_updated_date' AND NOT attisdropped) THEN
+            EXECUTE format('ALTER TABLE public.%I ADD COLUMN last_updated_date timestamp without time zone', t);
+            added := added + 1;
+        END IF;
+
+        -- a created pair for the twelve tables that never had one. customer_details,
+        -- company_settings, role_detail and screens are all written by screens, and
+        -- none of them could say by whom.
+        IF NOT EXISTS (SELECT 1 FROM pg_attribute
+                        WHERE attrelid = ('public.' || quote_ident(t))::regclass
+                          AND attname IN ('created_date', 'created_at') AND NOT attisdropped) THEN
+            EXECUTE format('ALTER TABLE public.%I ADD COLUMN created_date timestamp without time zone', t);
+            added := added + 1;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_attribute
+                        WHERE attrelid = ('public.' || quote_ident(t))::regclass
+                          AND attname IN ('created_user_id', 'user_id') AND NOT attisdropped) THEN
+            EXECUTE format('ALTER TABLE public.%I ADD COLUMN created_user_id varchar(100)', t);
+            added := added + 1;
+        END IF;
+
+        -- the trigger. Dropped and remade so a re-run cannot leave two.
+        EXECUTE format('DROP TRIGGER IF EXISTS trg_stamp_who_%s ON public.%I', t, t);
+        EXECUTE format('CREATE TRIGGER trg_stamp_who_%s BEFORE INSERT OR UPDATE ON public.%I '
+                       'FOR EACH ROW EXECUTE FUNCTION public.magizhchi_stamp_who()', t, t);
+        hooked := hooked + 1;
+    END LOOP;
+
+    -- The rows already there keep their own history: a row changed before today
+    -- has no honest last-changed name, and inventing one would be worse than the
+    -- blank. Only the created date of rows whose insert never set it is filled,
+    -- and only where the row can date itself from a column beside it.
+    IF EXISTS (SELECT 1 FROM pg_attribute
+                WHERE attrelid = 'public.repledge'::regclass
+                  AND attname = 'started_date' AND NOT attisdropped) THEN
+        UPDATE public.repledge SET created_date = started_date
+         WHERE created_date IS NULL AND started_date IS NOT NULL;
+        GET DIAGNOSTICS n = ROW_COUNT;
+        filled := filled + n;
+    END IF;
+
+    -- The exe prints this as step 30. It is set OUT HERE, not inside the block below: that block's
+    -- handler rolls back when kit_notes is absent - which is every time the exe runs this file - and it
+    -- would take the setting back out with it. That is exactly how step 30 came out blank the first time.
+    PERFORM set_config('mb.who_wrote',
+        format('%s table(s) stamped by the database', hooked), false);
+
+    -- kit_notes only exists while the kit script is running, and this file is
+    -- also run on its own. The note goes in its OWN block: an exception handler
+    -- around the whole loop would undo every column it had just added.
+    BEGIN
+    INSERT INTO public.kit_notes VALUES (4, 'who wrote this row',
+            format('%s column(s) added, %s table(s) stamped by the database, %s created date(s) dated from the row',
+                   added, hooked, filled));
+    EXCEPTION WHEN undefined_table THEN
+        RAISE NOTICE 'who wrote this row: % column(s) added, % table(s) stamped, % date(s) filled',
+            added, hooked, filled;
+    END;
+END $$;
 
 -- S6  Send the history to the cloud - when, and only when, it is right to.
 --
@@ -1183,6 +1391,7 @@ SELECT step, item, status FROM (
     (26, 'Cash drawers',               COALESCE(current_setting('mb.cash_drawers', true), 'ok')),
     (27, 'Bill number series',         COALESCE(current_setting('mb.one_series', true), 'ok')),
     (28, 'Cash drawer opening',        COALESCE(current_setting('mb.drawer_kick', true), 'ok')),
-    (29, 'Employee activity',          COALESCE(current_setting('mb.activity', true), 'ok'))
+    (29, 'Employee activity',          COALESCE(current_setting('mb.activity', true), 'ok')),
+    (30, 'Who wrote this row',         COALESCE(current_setting('mb.who_wrote', true), 'ok'))
 ) AS report(step, item, status)
 ORDER BY step;

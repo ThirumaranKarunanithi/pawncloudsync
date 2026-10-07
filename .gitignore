@@ -23,3 +23,14 @@ local.properties
 .vscode/
 Thumbs.db
 desktop.ini
+
+# Added 07-10-2026. These were sitting untracked and would have gone in with a
+# "commit everything": 707 MB of installed copies, 693 MB of desktop installers,
+# a 29 MB mobile bundle and a 15 MB release build. This repo is PUBLIC.
+installed copies/
+ShopInstallerBundle/4-MobileApp/
+ShopInstallerBundle/2-DesktopApp/
+pawnbroking-android/app/release/
+
+# A Firebase config holds an api_key. It must not be published.
+google-services.json

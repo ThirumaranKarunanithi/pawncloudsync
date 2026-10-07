@@ -21,7 +21,8 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".LoginActivity" android:exported="false" />
+        <activity android:name=".LoginActivity"      android:exported="false" />
+        <activity android:name=".ShopPickerActivity" android:exported="false" />
         <activity android:name=".HomeActivity" android:exported="false" />
         <activity android:name=".BillsActivity" android:exported="false" />
         <activity android:name=".BillDetailActivity" android:exported="false" />
@@ -30,10 +31,24 @@
         <activity android:name=".StockDetailsActivity"   android:exported="false" />
         <activity android:name=".MonthlyReportActivity"  android:exported="false" />
         <activity android:name=".TrialBalanceActivity"   android:exported="false" />
+        <activity android:name=".EmployeeActivityActivity" android:exported="false" />
         <activity android:name=".CustomersActivity"      android:exported="false" />
         <activity android:name=".SettingsActivity"        android:exported="false" />
         <activity android:name=".BillingActivity"          android:exported="false" />
         <activity android:name=".NotificationsActivity"    android:exported="false" />
+        <activity android:name=".BackupFilesActivity"      android:exported="false" />
+
+        <!-- Lets the user share a downloaded backup out to Drive/WhatsApp/etc.
+             without exposing the app's private storage. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 

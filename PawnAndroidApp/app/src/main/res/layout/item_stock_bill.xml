@@ -42,7 +42,7 @@
         android:layout_marginTop="2dp"
         android:textColor="@color/white54" android:textSize="12sp" />
 
-    <!-- Row 4: Amount / Interest / Weight -->
+    <!-- Row 4: Capital / Weight / Opening Date  (Interest removed per request) -->
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
         android:layout_marginTop="6dp" android:orientation="horizontal">
 
@@ -57,15 +57,6 @@
 
         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
             android:layout_weight="1" android:orientation="vertical">
-            <TextView android:text="Interest" android:textColor="@color/white54" android:textSize="10sp"
-                android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-            <TextView android:id="@+id/tvInterest"
-                android:textColor="@color/green" android:textSize="13sp" android:textStyle="bold"
-                android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-        </LinearLayout>
-
-        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-            android:layout_weight="1" android:orientation="vertical">
             <TextView android:text="Weight (g)" android:textColor="@color/white54" android:textSize="10sp"
                 android:layout_width="wrap_content" android:layout_height="wrap_content"/>
             <TextView android:id="@+id/tvWeight"
@@ -74,7 +65,7 @@
         </LinearLayout>
 
         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
-            android:layout_weight="1" android:orientation="vertical">
+            android:layout_weight="1.2" android:orientation="vertical">
             <TextView android:text="Opening Date" android:textColor="@color/white54" android:textSize="10sp"
                 android:layout_width="wrap_content" android:layout_height="wrap_content"/>
             <TextView android:id="@+id/tvDate"
@@ -82,5 +73,11 @@
                 android:layout_width="wrap_content" android:layout_height="wrap_content"/>
         </LinearLayout>
     </LinearLayout>
+
+    <!-- Kept hidden so the adapter's tvInterest setter never NPEs even
+         though the view is no longer shown to the user. -->
+    <TextView android:id="@+id/tvInterest"
+        android:layout_width="0dp" android:layout_height="0dp"
+        android:visibility="gone" />
 
 </LinearLayout>

@@ -1,16 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
+    <!-- Only the bell stays as a visible action; everything else collapses
+         into the 3-dot overflow on the right. -->
     <item android:id="@+id/action_notifications"
         android:title="Notifications"
         app:actionLayout="@layout/action_view_bell"
         app:showAsAction="always" />
+    <item android:id="@+id/action_switch_shop"
+        android:title="Switch Shop"
+        app:showAsAction="never" />
+    <item android:id="@+id/action_backups"
+        android:title="Backups"
+        app:showAsAction="never" />
     <item android:id="@+id/action_settings"
         android:title="Settings"
         android:icon="@android:drawable/ic_menu_preferences"
-        app:showAsAction="always" />
+        app:showAsAction="never" />
     <item android:id="@+id/action_logout"
         android:title="Logout"
         android:icon="@android:drawable/ic_menu_close_clear_cancel"
-        app:showAsAction="always" />
+        app:showAsAction="never" />
 </menu>

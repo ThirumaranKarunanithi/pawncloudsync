@@ -1,5 +1,7 @@
 package com.pawnbroking.app;
 
+import com.pawnbroking.app.util.DateFmt;
+
 import android.app.Dialog;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
@@ -262,6 +264,17 @@ public class BillingActivity extends AppCompatActivity {
     }
 
     private void searchBill() {
+        searchBill(true);
+    }
+
+    /**
+     * @param allowOtherMaterial when true, a "not found" on the current
+     *        GOLD/SILVER tab automatically retries the OTHER material and
+     *        flips the tab if it's found there. This makes opening a bill
+     *        from Stock Details land on the right tab even when the launch
+     *        material was missing/wrong.
+     */
+    private void searchBill(boolean allowOtherMaterial) {
         String billNo = etBillNumber.getText().toString().trim();
         if (billNo.isEmpty()) {
             Toast.makeText(this, "Enter a bill number", Toast.LENGTH_SHORT).show();
@@ -271,15 +284,31 @@ public class BillingActivity extends AppCompatActivity {
         btnSearchBill.setText("…");
         layoutBillDetails.setVisibility(View.GONE);
 
-        ApiService.findBill(companyId, billNo, selectedMaterialType, new ApiService.Callback<JSONObject>() {
+        final String triedMaterial = selectedMaterialType;
+        ApiService.findBill(companyId, billNo, triedMaterial, new ApiService.Callback<JSONObject>() {
             @Override public void onSuccess(JSONObject r) {
                 runOnUiThread(() -> {
                     btnSearchBill.setEnabled(true);
                     btnSearchBill.setText("SEARCH");
+                    // Switch the tab to match the bill we actually found.
+                    String foundMat = r.optString("jewel_material_type",
+                                       r.optString("material_type", ""));
+                    if (!foundMat.isEmpty() && !foundMat.equalsIgnoreCase(selectedMaterialType))
+                        selectMaterial(foundMat.toUpperCase());
                     populateFromBill(r);
                 });
             }
             @Override public void onError(String msg) {
+                // Auto-retry the other material once before giving up.
+                if (allowOtherMaterial) {
+                    String other = "GOLD".equals(triedMaterial) ? "SILVER" : "GOLD";
+                    runOnUiThread(() -> {
+                        selectMaterial(other);
+                        etBillNumber.setText(billNo);
+                        searchBill(false);   // one retry, no further bouncing
+                    });
+                    return;
+                }
                 runOnUiThread(() -> {
                     btnSearchBill.setEnabled(true);
                     btnSearchBill.setText("SEARCH");
@@ -299,7 +328,7 @@ public class BillingActivity extends AppCompatActivity {
 
         String createdAt = r.optString("created_date", "");
         if (!createdAt.isEmpty() && !"null".equals(createdAt)) {
-            tvCreatedAt.setText(createdAt);
+            tvCreatedAt.setText(DateFmt.stamp(createdAt));
             tvCreatedBy.setText(r.optString("created_user_id", ""));
             layoutCreatedInfo.setVisibility(View.VISIBLE);
         } else {
@@ -545,15 +574,46 @@ public class BillingActivity extends AppCompatActivity {
         return ddMmYyyy;
     }
 
-    /** Returns months elapsed from DD-MM-YYYY opening date to today (ceiling, minimum 1) */
-    private long calcMonthsElapsed(String ddMmYyyy) {
+    /**
+     * Returns months elapsed from the opening date to today (ceiling, min 1).
+     * Accepts BOTH formats the app sees:
+     *   • ISO  "YYYY-MM-DD"  (cloud projection payloads)  — first part is 4 digits
+     *   • Desktop "DD-MM-YYYY"                            — last  part is 4 digits
+     * Previously it assumed DD-MM-YYYY only, so an ISO date like 2025-07-04
+     * was parsed as year 4 → ~24,000 bogus months.
+     */
+    private long calcMonthsElapsed(String dateStr) {
         try {
-            String[] p = ddMmYyyy.split("-");
+            if (dateStr == null) return 1;
+            // Strip any time component ("2025-07-04T10:00" → "2025-07-04").
+            String d = dateStr.trim();
+            int tIdx = d.indexOf('T');
+            if (tIdx > 0) d = d.substring(0, tIdx);
+            int spIdx = d.indexOf(' ');
+            if (spIdx > 0) d = d.substring(0, spIdx);
+
+            String[] p = d.split("-");
             if (p.length != 3) return 1;
+
+            int year, month, day;
+            if (p[0].length() == 4) {           // ISO  YYYY-MM-DD
+                year  = Integer.parseInt(p[0]);
+                month = Integer.parseInt(p[1]);
+                day   = Integer.parseInt(p[2]);
+            } else {                            // Desktop  DD-MM-YYYY
+                day   = Integer.parseInt(p[0]);
+                month = Integer.parseInt(p[1]);
+                year  = Integer.parseInt(p[2]);
+            }
+            // Sanity guard — a nonsensical year means bad data; don't compute
+            // millions of months, just fall back to 1.
+            if (year < 1900 || year > 2200) return 1;
+
             java.util.Calendar open = java.util.Calendar.getInstance();
-            open.set(Integer.parseInt(p[2]), Integer.parseInt(p[1]) - 1, Integer.parseInt(p[0]));
+            open.set(year, month - 1, day, 0, 0, 0);
             java.util.Calendar now = java.util.Calendar.getInstance();
             long days = (now.getTimeInMillis() - open.getTimeInMillis()) / (1000L * 60 * 60 * 24);
+            if (days < 0) days = 0;
             return Math.max(1, (long) Math.ceil(days / 30.0));
         } catch (Exception e) {
             return 1;

@@ -203,7 +203,7 @@
                         android:layout_height="wrap_content"
                         android:stretchColumns="0">
 
-                        <!-- Header row -->
+                        <!-- Header row — Operation | Count | Debits | Credits | Combo -->
                         <TableRow android:background="#0D000000" android:padding="6dp">
                             <TextView android:text="Operation"
                                 android:textColor="@color/gold" android:textSize="11sp"
@@ -212,14 +212,18 @@
                                 android:textColor="@color/gold" android:textSize="11sp"
                                 android:textStyle="bold" android:padding="8dp"
                                 android:gravity="center" android:minWidth="50dp" />
-                            <TextView android:text="Debit"
+                            <TextView android:text="Debits"
                                 android:textColor="@color/gold" android:textSize="11sp"
                                 android:textStyle="bold" android:padding="8dp"
                                 android:gravity="end" android:minWidth="80dp" />
-                            <TextView android:text="Credit"
+                            <TextView android:text="Credits"
                                 android:textColor="@color/gold" android:textSize="11sp"
                                 android:textStyle="bold" android:padding="8dp"
                                 android:gravity="end" android:minWidth="80dp" />
+                            <TextView android:text="Combo"
+                                android:textColor="@color/gold" android:textSize="11sp"
+                                android:textStyle="bold" android:padding="8dp"
+                                android:gravity="start" android:minWidth="220dp" />
                         </TableRow>
 
                     </TableLayout>
@@ -252,6 +256,42 @@
                                 android:layout_width="wrap_content" android:layout_height="wrap_content"
                                 android:textColor="#A5D6A7" android:textSize="12sp" android:textStyle="bold" />
                         </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Profit (Pf) bar — matches the desktop's green strip -->
+                <View android:layout_width="match_parent" android:layout_height="1dp"
+                    android:background="#33FFFFFF" />
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:padding="12dp"
+                    android:background="#1E2A4A">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:text="Gold Pf"
+                            android:textColor="@color/white54" android:textSize="10sp"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView android:id="@+id/tvGoldPf"
+                            android:textColor="#FFD54F" android:textSize="13sp" android:textStyle="bold"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                    </LinearLayout>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:text="Silver Pf"
+                            android:textColor="@color/white54" android:textSize="10sp"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView android:id="@+id/tvSilverPf"
+                            android:textColor="#B0BEC5" android:textSize="13sp" android:textStyle="bold"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                    </LinearLayout>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:orientation="vertical">
+                        <TextView android:text="Total Pf"
+                            android:textColor="@color/white54" android:textSize="10sp"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView android:id="@+id/tvTotalPf"
+                            android:textColor="#A5D6A7" android:textSize="13sp" android:textStyle="bold"
+                            android:layout_width="wrap_content" android:layout_height="wrap_content" />
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>

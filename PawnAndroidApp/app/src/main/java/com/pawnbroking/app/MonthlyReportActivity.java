@@ -13,27 +13,48 @@ import androidx.appcompat.widget.Toolbar;
 
 import com.pawnbroking.app.services.ApiService;
 
+import com.github.mikephil.charting.charts.BarChart;
+import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.charts.PieChart;
+import com.github.mikephil.charting.components.Description;
+import com.github.mikephil.charting.components.Legend;
+import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.data.BarData;
+import com.github.mikephil.charting.data.BarDataSet;
+import com.github.mikephil.charting.data.BarEntry;
+import com.github.mikephil.charting.data.Entry;
+import com.github.mikephil.charting.data.LineData;
+import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.data.PieData;
+import com.github.mikephil.charting.data.PieDataSet;
+import com.github.mikephil.charting.data.PieEntry;
+import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
+import com.github.mikephil.charting.formatter.ValueFormatter;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
- * MIS Report — exact replica of desktop MISReportController.
+ * MIS Report — full 16-column desktop layout, one row per (month, jewel
+ * type). Mirrors the user's desktop MIS SQL exactly.
  *
- * 10 columns (as in desktop AllDetailsBean):
- *  Month | Open# | Open Amt | Redeem# | Redeem Amt | Profit |
- *  Stock# (cumulative) | Stock Amt (cumulative) | Earned# | Earned Amt
+ * Columns:
+ *  Month | Type |
+ *  Pawn # | Pawn Amt | Redeem # | Redeem Amt | Interest |
+ *  Repl # | Repl Amt | Repl Rdm # | Repl Rdm Amt | Repl Intr |
+ *  Repl Stk # | Repl Stk Amt | Stock # | Stock Amt
  *
- * Tap a row to toggle its selection. Mode buttons (All / Selected / Deselected)
- * control which rows feed the Summary card at the top.
+ * Tap a row to toggle its selection; the Summary card and mode buttons
+ * (All / Selected / Deselected) total the chosen rows.
  */
 public class MonthlyReportActivity extends AppCompatActivity {
-
-    // ── Views ─────────────────────────────────────────────────────────────────
 
     private ProgressBar progressBar;
     private TableLayout tableMonthly;
@@ -47,42 +68,58 @@ public class MonthlyReportActivity extends AppCompatActivity {
     private Button btnAll, btnSelected, btnDeselected;
     private Button btnSelectAll, btnDeselectAll;
 
+    // View toggle (Table / Bar / Line / Pie) + chart views
+    private Button btnViewTable, btnViewBar, btnViewLine, btnViewPie;
+    private View   layoutChart, layoutTableScroll;
+    private TextView tvChartTitle;
+    private BarChart  misBarChart;
+    private LineChart misLineChart;
+    private PieChart  misPieChart;
+    private String viewMode = "TABLE"; // TABLE | BAR | LINE | PIE
+
     // ── Data ──────────────────────────────────────────────────────────────────
 
     private static class MisRow {
-        String month;
-        long   pawnBills, redeemBills, stockBills, earnedBills;
-        double pawnAmt, redeemAmt, profit, stockAmt, earnedAmt;
+        String month, jwlType;
+        long   pawnBills, redeemBills, repledgeBills, repledgeRedeemBills,
+               repledgeStockBills, stockBills;
+        double pawnAmt, redeemAmt, interest,
+               repledgeAmt, repledgeRedeemAmt, repledgeInterest,
+               repledgeStockAmt, stockAmt;
         boolean selected = true;
-        TableRow tableRow; // reference so we can repaint on tap
+        TableRow tableRow;
     }
 
     private final List<MisRow> rows = new ArrayList<>();
     private String mode = "ALL"; // ALL | SELECTED | DESELECTED
     private String companyId, companyName;
 
-    // ── Column config ─────────────────────────────────────────────────────────
+    // ── Column config (16 columns) ─────────────────────────────────────────────
 
-    // Header labels (10 columns matching desktop)
     private static final String[] HEADERS = {
-        "Month", "Open\n#", "Open\nAmt", "Redeem\n#", "Redeem\nAmt",
-        "Profit", "Stock\n#", "Stock\nAmt", "Earned\n#", "Earned\nAmt"
+        "Month", "Type",
+        "Pawn\n#", "Pawn\nAmt", "Redeem\n#", "Redeem\nAmt", "Interest",
+        "Repl\n#", "Repl\nAmt", "ReplRdm\n#", "ReplRdm\nAmt", "Repl\nIntr",
+        "ReplStk\n#", "ReplStk\nAmt", "Stock\n#", "Stock\nAmt"
     };
-    // Minimum column widths in dp
     private static final int[] COL_WIDTHS_DP = {
-        72, 44, 72, 44, 72, 72, 44, 72, 44, 72
+        70, 50,
+        46, 74, 50, 74, 74,
+        46, 74, 56, 74, 70,
+        56, 76, 50, 78
     };
 
     // ── Colours ───────────────────────────────────────────────────────────────
     private static final int COL_BLUE   = Color.parseColor("#64B5F6");
     private static final int COL_GREEN  = Color.parseColor("#A5D6A7");
+    private static final int COL_ORANGE = Color.parseColor("#FFB74D");
     private static final int COL_WHITE  = Color.WHITE;
     private static final int COL_GOLD   = Color.parseColor("#E6B800");
     private static final int COL_GREY   = Color.parseColor("#AAAAAA");
     private static final int BG_HEADER  = Color.parseColor("#1E2A4A");
     private static final int BG_EVEN    = Color.parseColor("#16213E");
     private static final int BG_ODD     = Color.parseColor("#1A2744");
-    private static final int BG_SELECTED= Color.parseColor("#1B3A5C"); // highlight
+    private static final int BG_SELECTED= Color.parseColor("#1B3A5C");
     private static final int BG_TOTALS  = Color.parseColor("#1E2A4A");
 
     private final NumberFormat fmt = NumberFormat.getNumberInstance(new Locale("en", "IN"));
@@ -145,6 +182,23 @@ public class MonthlyReportActivity extends AppCompatActivity {
         btnSelectAll.setOnClickListener(v   -> selectAll(true));
         btnDeselectAll.setOnClickListener(v -> selectAll(false));
 
+        // View toggle
+        btnViewTable = findViewById(R.id.btnViewTable);
+        btnViewBar   = findViewById(R.id.btnViewBar);
+        btnViewLine  = findViewById(R.id.btnViewLine);
+        btnViewPie   = findViewById(R.id.btnViewPie);
+        layoutChart        = findViewById(R.id.layoutChart);
+        layoutTableScroll  = findViewById(R.id.layoutTableScroll);
+        tvChartTitle = findViewById(R.id.tvChartTitle);
+        misBarChart  = findViewById(R.id.misBarChart);
+        misLineChart = findViewById(R.id.misLineChart);
+        misPieChart  = findViewById(R.id.misPieChart);
+
+        btnViewTable.setOnClickListener(v -> setViewMode("TABLE"));
+        btnViewBar.setOnClickListener(v   -> setViewMode("BAR"));
+        btnViewLine.setOnClickListener(v  -> setViewMode("LINE"));
+        btnViewPie.setOnClickListener(v   -> setViewMode("PIE"));
+
         load();
     }
 
@@ -157,7 +211,7 @@ public class MonthlyReportActivity extends AppCompatActivity {
         layoutControls.setVisibility(View.GONE);
         layoutSummary.setVisibility(View.GONE);
 
-        ApiService.getMonthlyReport(companyId, new ApiService.Callback<JSONObject>() {
+        ApiService.getMisReport(companyId, new ApiService.Callback<JSONObject>() {
             @Override public void onSuccess(JSONObject data) {
                 runOnUiThread(() -> {
                     progressBar.setVisibility(View.GONE);
@@ -174,38 +228,40 @@ public class MonthlyReportActivity extends AppCompatActivity {
         });
     }
 
-    // ── Bind data ─────────────────────────────────────────────────────────────
+    // ── Bind ───────────────────────────────────────────────────────────────────
 
     private void bind(JSONObject data) {
-        JSONArray months = data.optJSONArray("months");
-        int total        = data.optInt("total", 0);
-        tvRowCount.setText(total + " months");
+        JSONArray arr = data.optJSONArray("rows");
+        int total     = data.optInt("total", 0);
+        tvRowCount.setText(total + " rows");
 
-        if (months == null || months.length() == 0) return;
+        if (arr == null || arr.length() == 0) return;
 
-        // Build MisRow list
-        for (int i = 0; i < months.length(); i++) {
-            JSONObject m = months.optJSONObject(i);
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject m = arr.optJSONObject(i);
             if (m == null) continue;
             MisRow r = new MisRow();
-            r.month       = m.optString("month", "");
-            r.pawnBills   = m.optLong("pawnBills",    0);
-            r.pawnAmt     = m.optDouble("pawnAmount",  0);
-            r.redeemBills = m.optLong("redeemBills",  0);
-            r.redeemAmt   = m.optDouble("redeemAmount",0);
-            r.profit      = m.optDouble("profit",      0);
-            r.stockBills  = m.optLong("stockBills",   0);
-            r.stockAmt    = m.optDouble("stockAmount", 0);
-            r.earnedBills = m.optLong("earnedBills",  0);
-            r.earnedAmt   = m.optDouble("earnedAmount",0);
-            r.selected    = true;
+            r.month               = m.optString("month", "");
+            r.jwlType             = m.optString("jwlType", "");
+            r.pawnBills           = m.optLong  ("pawnBills",            0);
+            r.pawnAmt             = m.optDouble("pawnAmount",           0);
+            r.redeemBills         = m.optLong  ("redeemBills",          0);
+            r.redeemAmt           = m.optDouble("redeemAmount",         0);
+            r.interest            = m.optDouble("interest",             0);
+            r.repledgeBills       = m.optLong  ("repledgeBills",        0);
+            r.repledgeAmt         = m.optDouble("repledgeAmount",       0);
+            r.repledgeRedeemBills = m.optLong  ("repledgeRedeemBills",  0);
+            r.repledgeRedeemAmt   = m.optDouble("repledgeRedeemAmount", 0);
+            r.repledgeInterest    = m.optDouble("repledgeInterest",     0);
+            r.repledgeStockBills  = m.optLong  ("repledgeStockBills",   0);
+            r.repledgeStockAmt    = m.optDouble("repledgeStockAmount",  0);
+            r.stockBills          = m.optLong  ("stockBills",           0);
+            r.stockAmt            = m.optDouble("stockAmount",          0);
+            r.selected            = true;
             rows.add(r);
         }
 
-        // Column header row
         tableMonthly.addView(buildHeaderRow());
-
-        // Data rows
         for (int i = 0; i < rows.size(); i++) {
             MisRow r = rows.get(i);
             TableRow tr = buildDataRow(r, i);
@@ -214,47 +270,34 @@ public class MonthlyReportActivity extends AppCompatActivity {
             tr.setOnClickListener(v -> onRowTap(idx));
             tableMonthly.addView(tr);
         }
-
-        // Divider + totals row
         tableMonthly.addView(buildDivider());
         tableMonthly.addView(buildTotalsRow());
 
-        // Show UI
         layoutControls.setVisibility(View.VISIBLE);
         layoutSummary.setVisibility(View.VISIBLE);
         refreshSummary();
         refreshModeButtons();
     }
 
-    // ── Row tap (toggle selection) ─────────────────────────────────────────────
+    // ── Row tap ─────────────────────────────────────────────────────────────────
 
     private void onRowTap(int idx) {
         MisRow r = rows.get(idx);
         r.selected = !r.selected;
-        int bg = r.selected ? BG_SELECTED : (idx % 2 == 0 ? BG_EVEN : BG_ODD);
-        r.tableRow.setBackgroundColor(bg);
+        r.tableRow.setBackgroundColor(r.selected ? BG_SELECTED : (idx % 2 == 0 ? BG_EVEN : BG_ODD));
         refreshSummary();
     }
-
-    // ── Select All / Deselect All ─────────────────────────────────────────────
 
     private void selectAll(boolean select) {
         for (int i = 0; i < rows.size(); i++) {
             MisRow r = rows.get(i);
             r.selected = select;
-            int bg = select ? BG_SELECTED : (i % 2 == 0 ? BG_EVEN : BG_ODD);
-            r.tableRow.setBackgroundColor(bg);
+            r.tableRow.setBackgroundColor(select ? BG_SELECTED : (i % 2 == 0 ? BG_EVEN : BG_ODD));
         }
         refreshSummary();
     }
 
-    // ── Mode switch ───────────────────────────────────────────────────────────
-
-    private void setMode(String newMode) {
-        mode = newMode;
-        refreshModeButtons();
-        refreshSummary();
-    }
+    private void setMode(String newMode) { mode = newMode; refreshModeButtons(); refreshSummary(); }
 
     private void refreshModeButtons() {
         btnAll.setTextColor(       "ALL".equals(mode)        ? COL_GOLD : COL_GREY);
@@ -262,12 +305,14 @@ public class MonthlyReportActivity extends AppCompatActivity {
         btnDeselected.setTextColor("DESELECTED".equals(mode) ? COL_GOLD : COL_GREY);
     }
 
-    // ── Summary recalculation (mirrors desktop setCompanyHeaderValues) ────────
+    // ── Summary (reuses the existing 10 summary fields; maps the most useful
+    //     of the 16 columns onto them) ─────────────────────────────────────────
 
     private void refreshSummary() {
         long months = 0;
-        long pawnBills = 0, redeemBills = 0, stockBills = 0, earnedBills = 0;
-        double pawnAmt = 0, redeemAmt = 0, profit = 0, stockAmt = 0, earnedAmt = 0;
+        long pawnBills = 0, redeemBills = 0, earnedBills = 0;
+        double pawnAmt = 0, redeemAmt = 0, interest = 0, earnedAmt = 0;
+        long lastStockBills = 0; double lastStockAmt = 0;
 
         for (MisRow r : rows) {
             boolean include = "ALL".equals(mode)
@@ -277,25 +322,27 @@ public class MonthlyReportActivity extends AppCompatActivity {
                 months++;
                 pawnBills   += r.pawnBills;   pawnAmt   += r.pawnAmt;
                 redeemBills += r.redeemBills; redeemAmt += r.redeemAmt;
-                profit      += r.profit;
-                stockBills  += r.stockBills;  stockAmt  += r.stockAmt;
-                earnedBills += r.earnedBills; earnedAmt += r.earnedAmt;
+                interest    += r.interest;
+                earnedBills += (r.pawnBills - r.redeemBills);
+                earnedAmt   += (r.pawnAmt   - r.redeemAmt);
+                lastStockBills = r.stockBills;   // cumulative — last wins
+                lastStockAmt   = r.stockAmt;
             }
         }
 
-        tvSummaryMonths.setText("(" + months + " month" + (months != 1 ? "s" : "") + ")");
+        tvSummaryMonths.setText("(" + months + " row" + (months != 1 ? "s" : "") + ")");
         tvSumPawnBills.setText(String.valueOf(pawnBills));
-        tvSumPawnAmt.setText("₹" + shortFmt(pawnAmt));
+        tvSumPawnAmt.setText("₹" + fmt.format(pawnAmt));
         tvSumRedeemBills.setText(String.valueOf(redeemBills));
-        tvSumRedeemAmt.setText("₹" + shortFmt(redeemAmt));
-        tvSumProfit.setText("₹" + shortFmt(profit));
-        tvSumStockBills.setText(String.valueOf(stockBills));
-        tvSumStockAmt.setText("₹" + shortFmt(stockAmt));
+        tvSumRedeemAmt.setText("₹" + fmt.format(redeemAmt));
+        tvSumProfit.setText("₹" + fmt.format(interest));
+        tvSumStockBills.setText(String.valueOf(lastStockBills));
+        tvSumStockAmt.setText("₹" + fmt.format(lastStockAmt));
         tvSumEarnedBills.setText(String.valueOf(earnedBills));
-        tvSumEarnedAmt.setText("₹" + shortFmt(earnedAmt));
+        tvSumEarnedAmt.setText("₹" + fmt.format(earnedAmt));
     }
 
-    // ── Table row builders ────────────────────────────────────────────────────
+    // ── Builders ─────────────────────────────────────────────────────────────────
 
     private TableRow buildHeaderRow() {
         TableRow tr = new TableRow(this);
@@ -304,10 +351,10 @@ public class MonthlyReportActivity extends AppCompatActivity {
             TextView tv = new TextView(this);
             tv.setText(HEADERS[j]);
             tv.setTextColor(COL_GOLD);
-            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9);
             tv.setTypeface(null, Typeface.BOLD);
             tv.setGravity(j == 0 ? Gravity.START : Gravity.CENTER);
-            tv.setPadding(dp(8), dp(6), dp(8), dp(6));
+            tv.setPadding(dp(6), dp(6), dp(6), dp(6));
             tv.setMinWidth(dp(COL_WIDTHS_DP[j]));
             tr.addView(tv);
         }
@@ -319,37 +366,27 @@ public class MonthlyReportActivity extends AppCompatActivity {
         tr.setBackgroundColor(r.selected ? BG_SELECTED : (idx % 2 == 0 ? BG_EVEN : BG_ODD));
 
         String[] vals = {
-            r.month,
-            String.valueOf(r.pawnBills),  shortFmt(r.pawnAmt),
-            String.valueOf(r.redeemBills),shortFmt(r.redeemAmt),
-            shortFmt(r.profit),
-            String.valueOf(r.stockBills), shortFmt(r.stockAmt),
-            String.valueOf(r.earnedBills),shortFmt(r.earnedAmt)
+            r.month, r.jwlType,
+            n(r.pawnBills),           a(r.pawnAmt),
+            n(r.redeemBills),         a(r.redeemAmt),
+            a(r.interest),
+            n(r.repledgeBills),       a(r.repledgeAmt),
+            n(r.repledgeRedeemBills), a(r.repledgeRedeemAmt),
+            a(r.repledgeInterest),
+            n(r.repledgeStockBills),  a(r.repledgeStockAmt),
+            n(r.stockBills),          a(r.stockAmt)
         };
 
         for (int j = 0; j < vals.length; j++) {
             TextView tv = new TextView(this);
             tv.setText(vals[j]);
-            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-            tv.setPadding(dp(8), dp(5), dp(8), dp(5));
+            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+            tv.setPadding(dp(6), dp(5), dp(6), dp(5));
             tv.setMinWidth(dp(COL_WIDTHS_DP[j]));
-
-            if (j == 0) {
-                tv.setTextColor(COL_GOLD);
-                tv.setTypeface(null, Typeface.BOLD);
-                tv.setGravity(Gravity.START);
-            } else if (j == 5) {
-                // Profit — green
-                tv.setTextColor(COL_GREEN);
-                tv.setGravity(Gravity.END);
-            } else if (j == 1 || j == 3 || j == 6 || j == 8) {
-                // Count columns — blue
-                tv.setTextColor(COL_BLUE);
-                tv.setGravity(Gravity.END);
-            } else {
-                tv.setTextColor(COL_WHITE);
-                tv.setGravity(Gravity.END);
-            }
+            tv.setTextColor(colorFor(j));
+            if (j == 0) { tv.setTypeface(null, Typeface.BOLD); tv.setGravity(Gravity.START); }
+            else if (j == 1) { tv.setGravity(Gravity.CENTER); }
+            else { tv.setGravity(Gravity.END); }
             tr.addView(tv);
         }
         return tr;
@@ -359,41 +396,59 @@ public class MonthlyReportActivity extends AppCompatActivity {
         TableRow tr = new TableRow(this);
         tr.setBackgroundColor(BG_TOTALS);
 
-        // Compute totals across ALL rows
-        long   pawnBills = 0, redeemBills = 0, earnedBills = 0;
-        double pawnAmt = 0, redeemAmt = 0, profit = 0, earnedAmt = 0;
-        // stock: use last row's cumulative value (that's what makes sense for cumulative stock)
-        long   lastStockBills = rows.isEmpty() ? 0 : rows.get(rows.size()-1).stockBills;
-        double lastStockAmt   = rows.isEmpty() ? 0 : rows.get(rows.size()-1).stockAmt;
-        // Actually for totals row we sum the individual monthly earned (= total opened - total closed)
+        long pawnBills=0, redeemBills=0, replBills=0, replRdmBills=0;
+        double pawnAmt=0, redeemAmt=0, interest=0, replAmt=0, replRdmAmt=0, replIntr=0;
+        long lastStockBills=0, lastReplStockBills=0;
+        double lastStockAmt=0, lastReplStockAmt=0;
         for (MisRow r : rows) {
-            pawnBills   += r.pawnBills;   pawnAmt   += r.pawnAmt;
-            redeemBills += r.redeemBills; redeemAmt += r.redeemAmt;
-            profit      += r.profit;
-            earnedBills += r.earnedBills; earnedAmt += r.earnedAmt;
+            pawnBills+=r.pawnBills;   pawnAmt+=r.pawnAmt;
+            redeemBills+=r.redeemBills; redeemAmt+=r.redeemAmt;
+            interest+=r.interest;
+            replBills+=r.repledgeBills; replAmt+=r.repledgeAmt;
+            replRdmBills+=r.repledgeRedeemBills; replRdmAmt+=r.repledgeRedeemAmt;
+            replIntr+=r.repledgeInterest;
+            lastStockBills=r.stockBills; lastStockAmt=r.stockAmt;
+            lastReplStockBills=r.repledgeStockBills; lastReplStockAmt=r.repledgeStockAmt;
         }
 
         String[] vals = {
-            "TOTAL",
-            String.valueOf(pawnBills),   shortFmt(pawnAmt),
-            String.valueOf(redeemBills), shortFmt(redeemAmt),
-            shortFmt(profit),
-            String.valueOf(lastStockBills), shortFmt(lastStockAmt),
-            String.valueOf(earnedBills), shortFmt(earnedAmt)
+            "TOTAL", "",
+            n(pawnBills),    a(pawnAmt),
+            n(redeemBills),  a(redeemAmt),
+            a(interest),
+            n(replBills),    a(replAmt),
+            n(replRdmBills), a(replRdmAmt),
+            a(replIntr),
+            n(lastReplStockBills), a(lastReplStockAmt),
+            n(lastStockBills),     a(lastStockAmt)
         };
 
         for (int j = 0; j < vals.length; j++) {
             TextView tv = new TextView(this);
             tv.setText(vals[j]);
-            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-            tv.setPadding(dp(8), dp(6), dp(8), dp(6));
+            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+            tv.setPadding(dp(6), dp(6), dp(6), dp(6));
             tv.setTypeface(null, Typeface.BOLD);
             tv.setMinWidth(dp(COL_WIDTHS_DP[j]));
-            tv.setTextColor(j == 0 ? COL_GOLD : j == 5 ? COL_GREEN : COL_WHITE);
-            tv.setGravity(j == 0 ? Gravity.START : Gravity.END);
+            tv.setTextColor(j == 0 ? COL_GOLD : colorFor(j));
+            tv.setGravity(j == 0 ? Gravity.START : j == 1 ? Gravity.CENTER : Gravity.END);
             tr.addView(tv);
         }
         return tr;
+    }
+
+    /** Column colour scheme: counts blue, interest green, repledge orange. */
+    private int colorFor(int j) {
+        switch (j) {
+            case 0: return COL_GOLD;                         // Month
+            case 1: return COL_WHITE;                        // Type
+            case 2: case 4: return COL_BLUE;                 // pawn#, redeem#
+            case 6: return COL_GREEN;                        // interest
+            case 7: case 9: case 12: case 14: return COL_BLUE; // repl#, replRdm#, replStk#, stock#
+            case 11: return COL_GREEN;                       // repl interest
+            case 8: case 10: case 13: return COL_ORANGE;     // repledge amounts
+            default: return COL_WHITE;                       // plain amounts
+        }
     }
 
     private View buildDivider() {
@@ -404,11 +459,166 @@ public class MonthlyReportActivity extends AppCompatActivity {
         return v;
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── View mode (Table / Bar / Line / Pie) ───────────────────────────────────
 
-    private String shortFmt(double v) {
-        return fmt.format(v);
+    private void setViewMode(String m) {
+        viewMode = m;
+        int gold = COL_GOLD, dark = Color.parseColor("#0D1B2A");
+        int inactive = Color.parseColor("#1E2A4A"), grey = COL_GREY;
+        Button[] btns = { btnViewTable, btnViewBar, btnViewLine, btnViewPie };
+        String[] keys = { "TABLE", "BAR", "LINE", "PIE" };
+        for (int i = 0; i < btns.length; i++) {
+            boolean on = keys[i].equals(m);
+            btns[i].setBackgroundTintList(android.content.res.ColorStateList.valueOf(on ? gold : inactive));
+            btns[i].setTextColor(on ? dark : grey);
+        }
+
+        boolean isTable = "TABLE".equals(m);
+        layoutTableScroll.setVisibility(isTable ? View.VISIBLE : View.GONE);
+        layoutChart.setVisibility(isTable ? View.GONE : View.VISIBLE);
+        misBarChart.setVisibility("BAR".equals(m)  ? View.VISIBLE : View.GONE);
+        misLineChart.setVisibility("LINE".equals(m) ? View.VISIBLE : View.GONE);
+        misPieChart.setVisibility("PIE".equals(m)  ? View.VISIBLE : View.GONE);
+
+        if (rows.isEmpty()) return;
+        switch (m) {
+            case "BAR":  buildBarChart();  break;
+            case "LINE": buildLineChart(); break;
+            case "PIE":  buildPieChart();  break;
+            default: /* table already populated */ break;
+        }
     }
+
+    /** One bar group per month: Pawn vs Redeem amount (gold+silver merged). */
+    private void buildBarChart() {
+        tvChartTitle.setText("Pawn vs Redeem Amount (by month)");
+        // Merge the GOLD+SILVER rows for the same month into one bucket.
+        Map<String,double[]> byMonth = new LinkedHashMap<>(); // month → {pawn, redeem}
+        // rows are newest-first; reverse for left-to-right time order.
+        for (int i = rows.size() - 1; i >= 0; i--) {
+            MisRow r = rows.get(i);
+            double[] v = byMonth.computeIfAbsent(r.month, k -> new double[2]);
+            v[0] += r.pawnAmt; v[1] += r.redeemAmt;
+        }
+        List<String> labels = new ArrayList<>();
+        List<BarEntry> pawn = new ArrayList<>(), redeem = new ArrayList<>();
+        int idx = 0;
+        for (Map.Entry<String,double[]> e : byMonth.entrySet()) {
+            labels.add(e.getKey());
+            pawn.add(new BarEntry(idx, (float) e.getValue()[0]));
+            redeem.add(new BarEntry(idx, (float) e.getValue()[1]));
+            idx++;
+        }
+        BarDataSet dsP = new BarDataSet(pawn,   "Pawn");
+        dsP.setColor(0xFFE6B800); dsP.setValueTextColor(0xFFFFFFFF); dsP.setValueTextSize(8);
+        BarDataSet dsR = new BarDataSet(redeem, "Redeem");
+        dsR.setColor(0xFF42A5F5); dsR.setValueTextColor(0xFFFFFFFF); dsR.setValueTextSize(8);
+        BarData bd = new BarData(dsP, dsR);
+        float groupSpace = 0.3f, barSpace = 0.05f, barWidth = 0.3f;
+        bd.setBarWidth(barWidth);
+        styleChart(misBarChart);
+        misBarChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
+        misBarChart.getXAxis().setCenterAxisLabels(true);
+        misBarChart.getXAxis().setAxisMinimum(0f);
+        misBarChart.getXAxis().setAxisMaximum(labels.size());
+        misBarChart.getXAxis().setLabelCount(labels.size());
+        misBarChart.setData(bd);
+        if (labels.size() > 0) misBarChart.groupBars(0f, groupSpace, barSpace);
+        misBarChart.animateY(400);
+        misBarChart.invalidate();
+    }
+
+    /** Two lines over months: cumulative Stock Amount + cumulative Repledge Stock. */
+    private void buildLineChart() {
+        tvChartTitle.setText("Stock Amount Trend (cumulative)");
+        Map<String,double[]> byMonth = new LinkedHashMap<>(); // month → {stock, replStock}
+        for (int i = rows.size() - 1; i >= 0; i--) {
+            MisRow r = rows.get(i);
+            // cumulative columns: take the max seen for the month (gold row carries repl)
+            double[] v = byMonth.computeIfAbsent(r.month, k -> new double[2]);
+            v[0] = Math.max(v[0], r.stockAmt);
+            v[1] = Math.max(v[1], r.repledgeStockAmt);
+        }
+        List<String> labels = new ArrayList<>();
+        List<Entry> stock = new ArrayList<>(), repl = new ArrayList<>();
+        int idx = 0;
+        for (Map.Entry<String,double[]> e : byMonth.entrySet()) {
+            labels.add(e.getKey());
+            stock.add(new Entry(idx, (float) e.getValue()[0]));
+            repl.add(new Entry(idx, (float) e.getValue()[1]));
+            idx++;
+        }
+        LineDataSet dsS = new LineDataSet(stock, "Stock Amount");
+        dsS.setColor(0xFF9C27B0); dsS.setCircleColor(0xFF9C27B0); dsS.setLineWidth(2f);
+        dsS.setValueTextColor(0xFFFFFFFF); dsS.setValueTextSize(8);
+        LineDataSet dsR = new LineDataSet(repl, "Repledge Stock");
+        dsR.setColor(0xFFE6B800); dsR.setCircleColor(0xFFE6B800); dsR.setLineWidth(2f);
+        dsR.setValueTextColor(0xFFFFFFFF); dsR.setValueTextSize(8);
+        styleChart(misLineChart);
+        misLineChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
+        misLineChart.getXAxis().setLabelCount(labels.size(), false);
+        misLineChart.setData(new LineData(dsS, dsR));
+        misLineChart.animateY(400);
+        misLineChart.invalidate();
+    }
+
+    /** Pie of total Pawn Amount: Gold vs Silver share across all months. */
+    private void buildPieChart() {
+        tvChartTitle.setText("Pawn Amount Share — Gold vs Silver");
+        double gold = 0, silver = 0;
+        for (MisRow r : rows) {
+            if ("GOLD".equalsIgnoreCase(r.jwlType))   gold   += r.pawnAmt;
+            if ("SILVER".equalsIgnoreCase(r.jwlType)) silver += r.pawnAmt;
+        }
+        List<PieEntry> entries = new ArrayList<>();
+        if (gold   > 0) entries.add(new PieEntry((float) gold,   "Gold"));
+        if (silver > 0) entries.add(new PieEntry((float) silver, "Silver"));
+        PieDataSet ds = new PieDataSet(entries, "");
+        ds.setColors(0xFFE6B800, 0xFF42A5F5);
+        ds.setValueTextColor(0xFF0D1B2A); ds.setValueTextSize(12f);
+        ds.setSliceSpace(2f);
+        PieData pd = new PieData(ds);
+        pd.setValueFormatter(new ValueFormatter() {
+            @Override public String getFormattedValue(float v) { return "₹" + fmt.format(v); }
+        });
+        misPieChart.setData(pd);
+        misPieChart.getDescription().setEnabled(false);
+        misPieChart.setEntryLabelColor(0xFF0D1B2A);
+        misPieChart.setHoleColor(0x00000000);
+        misPieChart.setHoleRadius(45f);
+        misPieChart.setTransparentCircleRadius(48f);
+        misPieChart.getLegend().setTextColor(0xFFFFFFFF);
+        misPieChart.setCenterText("Pawn\nGold vs Silver");
+        misPieChart.setCenterTextColor(0xFFAAAAAA);
+        misPieChart.animateY(400);
+        misPieChart.invalidate();
+    }
+
+    /** Common dark-theme styling for the bar/line charts. */
+    private void styleChart(com.github.mikephil.charting.charts.BarLineChartBase<?> chart) {
+        Description d = new Description(); d.setText("");
+        chart.setDescription(d);
+        chart.setNoDataText("No data");
+        chart.setDrawGridBackground(false);
+        chart.setScaleEnabled(false);
+        chart.getLegend().setTextColor(0xFFFFFFFF);
+        XAxis x = chart.getXAxis();
+        x.setPosition(XAxis.XAxisPosition.BOTTOM);
+        x.setTextColor(0xFFFFFFFF);
+        x.setLabelRotationAngle(-40f);
+        x.setGranularity(1f);
+        x.setDrawGridLines(false);
+        chart.getAxisLeft().setTextColor(0xFFFFFFFF);
+        chart.getAxisLeft().setValueFormatter(new ValueFormatter() {
+            @Override public String getFormattedValue(float v) { return fmt.format(v); }
+        });
+        chart.getAxisRight().setEnabled(false);
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────────────────────
+
+    private String n(long v) { return fmt.format(v); }
+    private String a(double v) { return fmt.format(v); }
 
     private int dp(int val) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, val,

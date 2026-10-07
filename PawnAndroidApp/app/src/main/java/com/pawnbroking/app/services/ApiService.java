@@ -1305,6 +1305,57 @@ public class ApiService {
         cb.onError("Trial balance is not yet exposed by the cloud API.");
     }
 
+    // ── Employee activity ───────────────────────────────────────────────────
+
+    /**
+     * What each person did at the counter, newest first.
+     *
+     * <p>Every argument but the company is optional; leaving one out means "any". The cloud does the
+     * narrowing, so the phone is never sent a day it is not going to show.
+     */
+    public static void getActivity(String companyId, String user, String screen, String action,
+                                   String bill, String from, String to, String search,
+                                   int limit, Callback<JSONArray> cb) {
+        EXEC.execute(() -> {
+            try {
+                HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/activity").newBuilder()
+                    .addQueryParameter("limit", String.valueOf(limit <= 0 ? 200 : limit));
+                addIf(b, "companyId", companyId);
+                addIf(b, "user",      user);
+                addIf(b, "screen",    screen);
+                addIf(b, "action",    action);
+                addIf(b, "bill",      bill);
+                addIf(b, "dateFrom",  from);
+                addIf(b, "dateTo",    to);
+                addIf(b, "q",         search);
+                try (Response res = CLIENT.newCall(authed(b.build()).get().build()).execute()) {
+                    String raw = res.body() != null ? res.body().string() : "[]";
+                    checkStatus(res, raw);
+                    cb.onSuccess(new JSONArray(raw));
+                }
+            } catch (Exception e) { cb.onError(e.getMessage()); }
+        });
+    }
+
+    /** The people and screens that actually appear, for the two drop-downs. */
+    public static void getActivityChoices(String companyId, Callback<JSONObject> cb) {
+        EXEC.execute(() -> {
+            try {
+                HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/activity/choices").newBuilder();
+                addIf(b, "companyId", companyId);
+                try (Response res = CLIENT.newCall(authed(b.build()).get().build()).execute()) {
+                    String raw = res.body() != null ? res.body().string() : "{}";
+                    checkStatus(res, raw);
+                    cb.onSuccess(new JSONObject(raw));
+                }
+            } catch (Exception e) { cb.onError(e.getMessage()); }
+        });
+    }
+
+    private static void addIf(HttpUrl.Builder b, String name, String value) {
+        if (value != null && !value.trim().isEmpty()) b.addQueryParameter(name, value.trim());
+    }
+
     // ── Billing (write-side lives on the desktop) ────────────────────────────
 
     public static void findBill(String companyId, String billNumber, String materialType,
@@ -1336,6 +1387,80 @@ public class ApiService {
     // ── Notifications ─────────────────────────────────────────────────────────
 
     /** Fetches the latest cloud notifications (newest first). */
+    // ── Backup files ──────────────────────────────────────────────────────────
+
+    /** Backups are 100MB+; a fixed read timeout would kill a slow-but-alive
+     *  transfer, so this client has none. Progress is bounded by the worker's
+     *  own constraints instead. */
+    private static final OkHttpClient DOWNLOAD_CLIENT = new OkHttpClient.Builder()
+            .connectTimeout(java.time.Duration.ofSeconds(20))
+            .readTimeout   (java.time.Duration.ZERO)
+            .writeTimeout  (java.time.Duration.ofSeconds(60))
+            .retryOnConnectionFailure(true)
+            .build();
+
+    /** Lists the shop's backup files, newest first (metadata only). */
+    public static void listBackups(int limit, Callback<JSONArray> cb) {
+        EXEC.execute(() -> {
+            try {
+                cb.onSuccess(listBackupsSync(limit));
+            } catch (Exception e) { cb.onError(e.getMessage()); }
+        });
+    }
+
+    /** Blocking variant — safe to call from a WorkManager worker thread. */
+    public static JSONArray listBackupsSync(int limit) throws Exception {
+        HttpUrl url = HttpUrl.parse(AppConfig.BACKUP_LIST).newBuilder()
+            .addQueryParameter("limit", String.valueOf(Math.max(limit, 1)))
+            .build();
+        try (Response res = CLIENT.newCall(authed(url).get().build()).execute()) {
+            String raw = res.body() != null ? res.body().string() : "[]";
+            checkStatus(res, raw);
+            return new JSONArray(raw);
+        }
+    }
+
+    /**
+     * Downloads one backup file to {@code dest}, streaming straight to disk so
+     * a 100MB+ dump never sits in the app's heap. Writes to a ".part" file and
+     * renames on success, so an interrupted download can never be mistaken for
+     * a complete backup. Blocking — call from a background thread.
+     */
+    public static java.io.File downloadBackupSync(String companyId, String relativePath,
+                                                  String fileName, java.io.File dest) throws Exception {
+        HttpUrl.Builder ub = HttpUrl.parse(AppConfig.BACKUP_DOWNLOAD).newBuilder()
+            .addQueryParameter("companyId", companyId)
+            .addQueryParameter("fileName",  fileName);
+        if (relativePath != null && !relativePath.isEmpty())
+            ub.addQueryParameter("relativePath", relativePath);
+
+        java.io.File part = new java.io.File(dest.getAbsolutePath() + ".part");
+        if (part.exists() && !part.delete())
+            throw new java.io.IOException("cannot clear stale part file");
+
+        try (Response res = DOWNLOAD_CLIENT.newCall(authed(ub.build()).get().build()).execute()) {
+            if (!res.isSuccessful())
+                throw new java.io.IOException("download failed: HTTP " + res.code());
+            if (res.body() == null) throw new java.io.IOException("empty response body");
+            java.io.File parent = part.getParentFile();
+            if (parent != null && !parent.exists() && !parent.mkdirs())
+                throw new java.io.IOException("cannot create backup dir");
+            try (java.io.InputStream in = res.body().byteStream();
+                 java.io.OutputStream out = new java.io.FileOutputStream(part)) {
+                byte[] buf = new byte[64 * 1024];
+                int n;
+                while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
+                out.flush();
+            }
+        } catch (Exception e) {
+            part.delete();          // never leave a half file behind
+            throw e;
+        }
+        if (dest.exists() && !dest.delete()) { part.delete(); throw new java.io.IOException("cannot replace existing file"); }
+        if (!part.renameTo(dest))   { part.delete(); throw new java.io.IOException("cannot finalise download"); }
+        return dest;
+    }
+
     public static void getNotifications(int limit, Callback<JSONArray> cb) {
         EXEC.execute(() -> {
             try {

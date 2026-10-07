@@ -1,5 +1,7 @@
 package com.pawnbroking.app;
 
+import com.pawnbroking.app.util.DateFmt;
+
 import android.graphics.Color;
 import android.os.Bundle;
 import android.util.TypedValue;
@@ -148,7 +150,7 @@ public class BillDetailActivity extends AppCompatActivity {
         addRow(sectionDates, "Expected Close", coalesce(b.optString("accepted_closing_date_str", null), b.optString("accepted_closing_date", null)));
         addRow(sectionDates, "Closing Date",   coalesce(b.optString("closing_date_str", null), b.optString("closing_date", null)));
         addRow(sectionDates, "Created By",     val(b.opt("created_user_id")));
-        addRow(sectionDates, "Created At",     coalesce(b.optString("created_date_str", null), b.optString("created_date", null)));
+        addRow(sectionDates, "Created At",     DateFmt.stamp(coalesce(b.optString("created_date_str", null), b.optString("created_date", null))));
 
         // Closing
         if (!"OPENED".equals(status)) {

@@ -19,6 +19,10 @@ public class AppConfig {
     public static final String LOGIN              = BASE_URL + "/v1/auth/mobile";
     public static final String BOX_SEND_OTP       = BASE_URL + "/v1/auth/box/send-otp";
     public static final String BOX_VERIFY         = BASE_URL + "/v1/auth/box/verify";
+    public static final String BOX_SELECT_SHOP    = BASE_URL + "/v1/auth/box/select-shop";
+    public static final String BOX_MY_SHOPS       = BASE_URL + "/v1/auth/box/my-shops";
+    public static final String BOX_SET_PASSWORD   = BASE_URL + "/v1/auth/box/set-password";
+    public static final String BOX_PASSWORD_LOGIN = BASE_URL + "/v1/auth/box/password-login";
     public static final String DEVICES            = BASE_URL + "/v1/devices";
 
     // ── Generic projection data API ───────────────────────────────────────────
@@ -41,6 +45,17 @@ public class AppConfig {
     /** Bill image proxy. Cloud-api fetches the bytes from Magizhchi Share
      *  using the per-tenant mbk_ token and streams them back. */
     public static final String BILL_IMAGE = BASE_URL + "/v1/bills/image";
+
+    // ── Backup files (off-site copies of the shop's backup folder) ────────────
+    /** Metadata list, newest first. */
+    public static final String BACKUP_LIST     = BASE_URL + "/v1/files/backup/list";
+    /** Streamed bytes for one backup file. */
+    public static final String BACKUP_DOWNLOAD = BASE_URL + "/v1/files/backup/download";
+
+    /** How many downloaded backups to keep on the phone. Older local copies
+     *  are pruned only AFTER a newer one has downloaded successfully, so the
+     *  device always retains several restore points. */
+    public static final int BACKUP_KEEP_LOCAL = 3;
 
     public static String billImageUrl(String companyId, String materialType,
                                        String billNumber, String imageName) {

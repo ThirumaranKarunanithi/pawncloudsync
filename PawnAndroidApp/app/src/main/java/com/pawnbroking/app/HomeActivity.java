@@ -67,6 +67,14 @@ public class HomeActivity extends AppCompatActivity {
 
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        // Show the active shop as the toolbar subtitle so it's always clear
+        // WHICH shop's records are on screen — the universal single-app model
+        // means this changes per logged-in user / Switch Shop selection.
+        String activeShop = ApiService.getCurrentShopId(this);
+        if (getSupportActionBar() != null && activeShop != null && !activeShop.isEmpty()) {
+            getSupportActionBar().setSubtitle(capitalizeShop(activeShop));
+        }
+        toolbar.setSubtitleTextColor(0xFFB0BEC5);
 
         spinnerCompany  = findViewById(R.id.spinnerCompany);
         progressCompany = findViewById(R.id.progressCompany);
@@ -82,8 +90,13 @@ public class HomeActivity extends AppCompatActivity {
         findViewById(R.id.btnTodaysAccount).setOnClickListener(v  -> open(TodaysAccountActivity.class));
         findViewById(R.id.btnBilling).setOnClickListener(v        -> open(BillingActivity.class));
         findViewById(R.id.btnMonthlyReport).setOnClickListener(v  -> open(MonthlyReportActivity.class));
+        findViewById(R.id.btnEmployeeActivity).setOnClickListener(v -> open(EmployeeActivityActivity.class));
 
         loadCompanies();
+
+        // Daily Wi-Fi fetch of the newest backup so a restore point is already
+        // on the phone before anyone needs it. KEEP policy — safe every start.
+        com.pawnbroking.app.services.BackupSyncWorker.schedule(this);
     }
 
     @Override
@@ -104,8 +117,22 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.action_notifications) { openNotifications(); return true; }
+        if (item.getItemId() == R.id.action_backups) {
+            startActivity(new Intent(this, BackupFilesActivity.class));
+            return true;
+        }
         if (item.getItemId() == R.id.action_settings) {
             startActivity(new Intent(this, SettingsActivity.class));
+            return true;
+        }
+        if (item.getItemId() == R.id.action_switch_shop) {
+            // Picker fetches the user's shops via /my-shops (using the live
+            // access token) and re-mints a JWT for the chosen shop.
+            Intent i = new Intent(this, ShopPickerActivity.class);
+            i.putExtra(ShopPickerActivity.EXTRA_SWITCH_MODE, true);
+            i.putExtra(ShopPickerActivity.EXTRA_EMAIL,
+                       ApiService.getSavedEmployeeName(this));
+            startActivity(i);
             return true;
         }
         if (item.getItemId() == R.id.action_logout) {
@@ -117,6 +144,12 @@ public class HomeActivity extends AppCompatActivity {
 
     private void openNotifications() {
         startActivity(new Intent(this, NotificationsActivity.class));
+    }
+
+    /** "alwarpuram" → "Alwarpuram" for the toolbar subtitle. */
+    private String capitalizeShop(String s) {
+        if (s == null || s.isEmpty()) return s;
+        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 
     @Override protected void onResume() {
@@ -208,6 +241,7 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     private void logout() {
+        com.pawnbroking.app.services.BackupSyncWorker.cancel(this);
         ApiService.logout(this);
         startActivity(new Intent(this, LoginActivity.class));
         finish();
@@ -309,13 +343,25 @@ public class HomeActivity extends AppCompatActivity {
         return ds;
     }
 
-    /** "2026-04" → "APR-2026". */
-    private static String formatMonth(String iso) {
-        if (iso == null || iso.length() < 7) return iso == null ? "" : iso;
-        String[] names = {"JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"};
-        try {
-            int mo = Integer.parseInt(iso.substring(5, 7));
-            return names[mo - 1] + "-" + iso.substring(0, 4);
-        } catch (Exception e) { return iso; }
+    /**
+     * Normalises the month label for the X-axis. The cloud's monthly-report
+     * already returns it pre-formatted as "APR-2026", so we use it as-is.
+     * Only if we ever get a raw ISO "2026-04" do we convert it. This avoids
+     * the earlier bug where "APR-2026" was mis-parsed into "FEB-APR-".
+     */
+    private static String formatMonth(String label) {
+        if (label == null || label.isEmpty()) return "";
+        // Already "MON-YYYY" (a letter in the first char) → use as-is.
+        if (Character.isLetter(label.charAt(0))) return label;
+        // Raw ISO "YYYY-MM" → convert to "MON-YYYY".
+        if (label.length() >= 7 && label.charAt(4) == '-') {
+            String[] names = {"JAN","FEB","MAR","APR","MAY","JUN",
+                              "JUL","AUG","SEP","OCT","NOV","DEC"};
+            try {
+                int mo = Integer.parseInt(label.substring(5, 7));
+                return names[mo - 1] + "-" + label.substring(0, 4);
+            } catch (Exception ignored) {}
+        }
+        return label;
     }
 }

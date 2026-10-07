@@ -635,7 +635,10 @@ public class StockDetailsActivity extends AppCompatActivity {
                 h.tvWeight.setText(String.format("%.2f", b.optDouble("gross_weight", 0)));
             }
 
-            String mat = b.optString("material_type", "");
+            // The projection column is `jewel_material_type` (GOLD/SILVER).
+            // Fall back to the legacy `material_type` alias just in case.
+            String mat = b.optString("jewel_material_type",
+                          b.optString("material_type", ""));
             h.tvMaterial.setText(mat);
             h.tvMaterial.setTextColor("GOLD".equalsIgnoreCase(mat)
                 ? Color.parseColor("#E6B800") : Color.parseColor("#AAAAAA"));
@@ -655,8 +658,15 @@ public class StockDetailsActivity extends AppCompatActivity {
             final String billNo = isRepledge
                 ? b.optString("company_bill_number", "")
                 : b.optString("bill_number", "");
+            // Effectively-final copy of the material for the click lambda;
+            // also resolve the bill's REAL material from its own payload so
+            // the Billing screen opens on the correct GOLD/SILVER tab even
+            // for repledge rows (look up the parent company bill's material).
+            final String matForNav = mat.isEmpty()
+                ? b.optString("jewel_material_type", b.optString("material_type", ""))
+                : mat;
             h.itemView.setForeground(getDrawable(android.R.drawable.list_selector_background));
-            h.itemView.setOnClickListener(v -> { if (!billNo.isEmpty()) openBill(billNo, mat); });
+            h.itemView.setOnClickListener(v -> { if (!billNo.isEmpty()) openBill(billNo, matForNav); });
         }
 
         @Override public int getItemCount() { return bills.size(); }
