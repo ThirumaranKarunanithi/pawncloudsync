@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.pawnbroking.app.services.ApiService;
+import com.pawnbroking.app.util.Royal;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -23,6 +24,7 @@ import java.util.Locale;
 
 public class TrialBalanceActivity extends AppCompatActivity {
 
+    private Royal royal;
     private ProgressBar progressBar;
     private LinearLayout layoutContent, llIncome, llExpense, llAsset, llLiability;
     private TextView tvCompanyName, tvFrom, tvTo;
@@ -38,6 +40,7 @@ public class TrialBalanceActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_trial_balance);
+        royal = new Royal(this);
 
         fmt.setMinimumFractionDigits(2);
         fmt.setMaximumFractionDigits(2);
@@ -145,10 +148,10 @@ public class TrialBalanceActivity extends AppCompatActivity {
         llAsset.removeAllViews();
         llLiability.removeAllViews();
 
-        fillSection(llIncome,    data.optJSONArray("income"),    Color.parseColor("#A5D6A7"));
-        fillSection(llExpense,   data.optJSONArray("expense"),   Color.parseColor("#EF9A9A"));
-        fillSection(llAsset,     data.optJSONArray("asset"),     Color.parseColor("#90CAF9"));
-        fillSection(llLiability, data.optJSONArray("liability"), Color.parseColor("#E6B800"));
+        fillSection(llIncome,    data.optJSONArray("income"),    royal.emerald);
+        fillSection(llExpense,   data.optJSONArray("expense"),   royal.ruby);
+        fillSection(llAsset,     data.optJSONArray("asset"),     royal.navy);
+        fillSection(llLiability, data.optJSONArray("liability"), royal.violet);
 
         tvTotalIncome.setText("₹ " + fmt.format(data.optDouble("totalIncome",  0)));
         tvTotalExpense.setText("₹ " + fmt.format(data.optDouble("totalExpense", 0)));
@@ -173,7 +176,7 @@ public class TrialBalanceActivity extends AppCompatActivity {
 
             TextView tvName = new TextView(this);
             tvName.setText(item.optString("name", ""));
-            tvName.setTextColor(Color.parseColor("#CCCCCC"));
+            tvName.setTextColor(royal.inkBody);
             tvName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
@@ -182,7 +185,7 @@ public class TrialBalanceActivity extends AppCompatActivity {
 
             TextView tvAmt = new TextView(this);
             tvAmt.setText("₹ " + fmt.format(amount));
-            tvAmt.setTextColor(amount < 0 ? Color.parseColor("#EF9A9A") : valueColor);
+            tvAmt.setTextColor(amount < 0 ? royal.ruby : valueColor);
             tvAmt.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
             tvAmt.setTypeface(null, Typeface.BOLD);
             row.addView(tvAmt);

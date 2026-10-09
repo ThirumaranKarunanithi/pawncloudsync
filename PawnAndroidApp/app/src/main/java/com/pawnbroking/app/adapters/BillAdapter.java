@@ -1,6 +1,5 @@
 package com.pawnbroking.app.adapters;
 
-import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -11,6 +10,8 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.pawnbroking.app.R;
 import com.pawnbroking.app.models.Bill;
+import com.pawnbroking.app.util.Royal;
+import com.pawnbroking.app.util.StatusPill;
 
 import java.text.NumberFormat;
 import java.util.List;
@@ -22,6 +23,8 @@ public class BillAdapter extends RecyclerView.Adapter<BillAdapter.VH> {
 
     private final List<Bill> bills;
     private final OnBillClick listener;
+    /** Built on first bind — an adapter has no Context until then. */
+    private Royal royal;
     private final NumberFormat fmt = NumberFormat.getNumberInstance(new Locale("en", "IN"));
 
     public BillAdapter(List<Bill> bills, OnBillClick listener) {
@@ -52,18 +55,15 @@ public class BillAdapter extends RecyclerView.Adapter<BillAdapter.VH> {
         h.tvDate.setVisibility(b.openingDate != null ? View.VISIBLE : View.GONE);
         h.tvMaterial.setText(b.materialType);
 
-        int goldColor  = b.isGold() ? Color.parseColor("#E6B800") : Color.parseColor("#AAAAAA");
-        h.tvMaterial.setTextColor(goldColor);
-        h.tvBillNo.setTextColor(goldColor);
+        if (royal == null) royal = new Royal(h.itemView.getContext());
 
-        int statusColor;
-        switch (b.status) {
-            case "OPENED": statusColor = Color.parseColor("#4CAF50"); break;
-            case "CLOSED": statusColor = Color.parseColor("#FF9800"); break;
-            default:       statusColor = Color.parseColor("#2196F3"); break;
-        }
+        // The metal tints its own tag; the bill number stays ink so the
+        // number itself is the thing you read first.
+        h.tvMaterial.setTextColor(royal.metal(b.isGold()));
+        h.tvBillNo.setTextColor(royal.ink);
+
         h.tvStatus.setText(b.status);
-        h.tvStatus.setTextColor(statusColor);
+        StatusPill.paint(h.tvStatus, b.status);
 
         h.itemView.setOnClickListener(v -> listener.onClick(b));
     }

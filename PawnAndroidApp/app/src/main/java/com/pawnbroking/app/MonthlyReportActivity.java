@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.pawnbroking.app.services.ApiService;
+import com.pawnbroking.app.util.Royal;
 
 import com.github.mikephil.charting.charts.BarChart;
 import com.github.mikephil.charting.charts.LineChart;
@@ -110,17 +111,19 @@ public class MonthlyReportActivity extends AppCompatActivity {
     };
 
     // ── Colours ───────────────────────────────────────────────────────────────
-    private static final int COL_BLUE   = Color.parseColor("#64B5F6");
-    private static final int COL_GREEN  = Color.parseColor("#A5D6A7");
-    private static final int COL_ORANGE = Color.parseColor("#FFB74D");
-    private static final int COL_WHITE  = Color.WHITE;
-    private static final int COL_GOLD   = Color.parseColor("#E6B800");
-    private static final int COL_GREY   = Color.parseColor("#AAAAAA");
-    private static final int BG_HEADER  = Color.parseColor("#1E2A4A");
-    private static final int BG_EVEN    = Color.parseColor("#16213E");
-    private static final int BG_ODD     = Color.parseColor("#1A2744");
-    private static final int BG_SELECTED= Color.parseColor("#1B3A5C");
-    private static final int BG_TOTALS  = Color.parseColor("#1E2A4A");
+    // Resolved in onCreate, not held as static hex. These were eleven
+    // Color.parseColor constants carrying the old navy scheme, which is
+    // why this table went on rendering dark after the app went light.
+    // Row backgrounds are drawables now (bg_table_row), so each row
+    // carries its own hairline instead of a zebra stripe.
+    private Royal royal;
+    private int colHead;      // a header cell, sitting on wine
+    private int colMonth;     // the Month cell, and the TOTAL label
+    private int colCount;     // a count of bills
+    private int colAmount;    // a plain amount
+    private int colEarned;    // interest earned
+    private int colRepledge;  // a repledge amount
+    private int colMute;      // an inactive mode button
 
     private final NumberFormat fmt = NumberFormat.getNumberInstance(new Locale("en", "IN"));
 
@@ -133,6 +136,15 @@ public class MonthlyReportActivity extends AppCompatActivity {
 
         fmt.setMinimumFractionDigits(0);
         fmt.setMaximumFractionDigits(0);
+
+        royal       = new Royal(this);
+        colHead     = royal.onWineTitle;
+        colMonth    = royal.wine;
+        colCount    = royal.inkSoft;
+        colAmount   = royal.ink;
+        colEarned   = royal.emerald;
+        colRepledge = royal.violet;
+        colMute     = royal.inkMute;
 
         companyId   = getIntent().getStringExtra("companyId");
         companyName = getIntent().getStringExtra("companyName");
@@ -284,7 +296,7 @@ public class MonthlyReportActivity extends AppCompatActivity {
     private void onRowTap(int idx) {
         MisRow r = rows.get(idx);
         r.selected = !r.selected;
-        r.tableRow.setBackgroundColor(r.selected ? BG_SELECTED : (idx % 2 == 0 ? BG_EVEN : BG_ODD));
+        paintRow(r.tableRow, r.selected);
         refreshSummary();
     }
 
@@ -292,7 +304,7 @@ public class MonthlyReportActivity extends AppCompatActivity {
         for (int i = 0; i < rows.size(); i++) {
             MisRow r = rows.get(i);
             r.selected = select;
-            r.tableRow.setBackgroundColor(select ? BG_SELECTED : (i % 2 == 0 ? BG_EVEN : BG_ODD));
+            paintRow(r.tableRow, select);
         }
         refreshSummary();
     }
@@ -300,9 +312,9 @@ public class MonthlyReportActivity extends AppCompatActivity {
     private void setMode(String newMode) { mode = newMode; refreshModeButtons(); refreshSummary(); }
 
     private void refreshModeButtons() {
-        btnAll.setTextColor(       "ALL".equals(mode)        ? COL_GOLD : COL_GREY);
-        btnSelected.setTextColor(  "SELECTED".equals(mode)   ? COL_GOLD : COL_GREY);
-        btnDeselected.setTextColor("DESELECTED".equals(mode) ? COL_GOLD : COL_GREY);
+        btnAll.setTextColor(       "ALL".equals(mode)        ? colMonth : colMute);
+        btnSelected.setTextColor(  "SELECTED".equals(mode)   ? colMonth : colMute);
+        btnDeselected.setTextColor("DESELECTED".equals(mode) ? colMonth : colMute);
     }
 
     // ── Summary (reuses the existing 10 summary fields; maps the most useful
@@ -344,13 +356,22 @@ public class MonthlyReportActivity extends AppCompatActivity {
 
     // ── Builders ─────────────────────────────────────────────────────────────────
 
+    /**
+     * A row is parchment with a hairline under it; the picked one takes a
+     * gold wash. No zebra stripe — the rule does the separating.
+     */
+    private void paintRow(View row, boolean selected) {
+        row.setBackgroundResource(selected
+                ? R.drawable.bg_table_row_selected : R.drawable.bg_table_row);
+    }
+
     private TableRow buildHeaderRow() {
         TableRow tr = new TableRow(this);
-        tr.setBackgroundColor(BG_HEADER);
+        tr.setBackgroundColor(royal.wine);
         for (int j = 0; j < HEADERS.length; j++) {
             TextView tv = new TextView(this);
             tv.setText(HEADERS[j]);
-            tv.setTextColor(COL_GOLD);
+            tv.setTextColor(colHead);
             tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9);
             tv.setTypeface(null, Typeface.BOLD);
             tv.setGravity(j == 0 ? Gravity.START : Gravity.CENTER);
@@ -363,7 +384,7 @@ public class MonthlyReportActivity extends AppCompatActivity {
 
     private TableRow buildDataRow(MisRow r, int idx) {
         TableRow tr = new TableRow(this);
-        tr.setBackgroundColor(r.selected ? BG_SELECTED : (idx % 2 == 0 ? BG_EVEN : BG_ODD));
+        paintRow(tr, r.selected);
 
         String[] vals = {
             r.month, r.jwlType,
@@ -394,7 +415,7 @@ public class MonthlyReportActivity extends AppCompatActivity {
 
     private TableRow buildTotalsRow() {
         TableRow tr = new TableRow(this);
-        tr.setBackgroundColor(BG_TOTALS);
+        tr.setBackgroundResource(R.drawable.bg_table_total);
 
         long pawnBills=0, redeemBills=0, replBills=0, replRdmBills=0;
         double pawnAmt=0, redeemAmt=0, interest=0, replAmt=0, replRdmAmt=0, replIntr=0;
@@ -430,24 +451,24 @@ public class MonthlyReportActivity extends AppCompatActivity {
             tv.setPadding(dp(6), dp(6), dp(6), dp(6));
             tv.setTypeface(null, Typeface.BOLD);
             tv.setMinWidth(dp(COL_WIDTHS_DP[j]));
-            tv.setTextColor(j == 0 ? COL_GOLD : colorFor(j));
+            tv.setTextColor(j == 0 ? colMonth : colorFor(j));
             tv.setGravity(j == 0 ? Gravity.START : j == 1 ? Gravity.CENTER : Gravity.END);
             tr.addView(tv);
         }
         return tr;
     }
 
-    /** Column colour scheme: counts blue, interest green, repledge orange. */
+    /** Counts read quiet, money reads ink, interest green, repledge violet. */
     private int colorFor(int j) {
         switch (j) {
-            case 0: return COL_GOLD;                         // Month
-            case 1: return COL_WHITE;                        // Type
-            case 2: case 4: return COL_BLUE;                 // pawn#, redeem#
-            case 6: return COL_GREEN;                        // interest
-            case 7: case 9: case 12: case 14: return COL_BLUE; // repl#, replRdm#, replStk#, stock#
-            case 11: return COL_GREEN;                       // repl interest
-            case 8: case 10: case 13: return COL_ORANGE;     // repledge amounts
-            default: return COL_WHITE;                       // plain amounts
+            case 0: return colMonth;                          // Month
+            case 1: return colAmount;                         // Type
+            case 2: case 4: return colCount;                  // pawn#, redeem#
+            case 6: return colEarned;                         // interest
+            case 7: case 9: case 12: case 14: return colCount; // repl#, replRdm#, replStk#, stock#
+            case 11: return colEarned;                        // repl interest
+            case 8: case 10: case 13: return colRepledge;     // repledge amounts
+            default: return colAmount;                        // plain amounts
         }
     }
 
@@ -455,7 +476,7 @@ public class MonthlyReportActivity extends AppCompatActivity {
         View v = new View(this);
         v.setLayoutParams(new TableLayout.LayoutParams(
             TableLayout.LayoutParams.MATCH_PARENT, dp(1)));
-        v.setBackgroundColor(Color.parseColor("#44FFFFFF"));
+        v.setBackgroundColor(royal.line);
         return v;
     }
 
@@ -463,14 +484,15 @@ public class MonthlyReportActivity extends AppCompatActivity {
 
     private void setViewMode(String m) {
         viewMode = m;
-        int gold = COL_GOLD, dark = Color.parseColor("#0D1B2A");
-        int inactive = Color.parseColor("#1E2A4A"), grey = COL_GREY;
+        // A segmented control: the chosen one is wine, the rest are the
+        // parchment strip it sits on.
         Button[] btns = { btnViewTable, btnViewBar, btnViewLine, btnViewPie };
         String[] keys = { "TABLE", "BAR", "LINE", "PIE" };
         for (int i = 0; i < btns.length; i++) {
             boolean on = keys[i].equals(m);
-            btns[i].setBackgroundTintList(android.content.res.ColorStateList.valueOf(on ? gold : inactive));
-            btns[i].setTextColor(on ? dark : grey);
+            btns[i].setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                    on ? royal.wine : royal.strip));
+            btns[i].setTextColor(on ? royal.onWine : royal.inkBody);
         }
 
         boolean isTable = "TABLE".equals(m);
@@ -510,9 +532,9 @@ public class MonthlyReportActivity extends AppCompatActivity {
             idx++;
         }
         BarDataSet dsP = new BarDataSet(pawn,   "Pawn");
-        dsP.setColor(0xFFE6B800); dsP.setValueTextColor(0xFFFFFFFF); dsP.setValueTextSize(8);
+        dsP.setColor(royal.goldRule); dsP.setValueTextColor(royal.inkSoft); dsP.setValueTextSize(8);
         BarDataSet dsR = new BarDataSet(redeem, "Redeem");
-        dsR.setColor(0xFF42A5F5); dsR.setValueTextColor(0xFFFFFFFF); dsR.setValueTextSize(8);
+        dsR.setColor(royal.navy); dsR.setValueTextColor(royal.inkSoft); dsR.setValueTextSize(8);
         BarData bd = new BarData(dsP, dsR);
         float groupSpace = 0.3f, barSpace = 0.05f, barWidth = 0.3f;
         bd.setBarWidth(barWidth);
@@ -549,11 +571,11 @@ public class MonthlyReportActivity extends AppCompatActivity {
             idx++;
         }
         LineDataSet dsS = new LineDataSet(stock, "Stock Amount");
-        dsS.setColor(0xFF9C27B0); dsS.setCircleColor(0xFF9C27B0); dsS.setLineWidth(2f);
-        dsS.setValueTextColor(0xFFFFFFFF); dsS.setValueTextSize(8);
+        dsS.setColor(royal.violet); dsS.setCircleColor(royal.violet); dsS.setLineWidth(2f);
+        dsS.setValueTextColor(royal.inkSoft); dsS.setValueTextSize(8);
         LineDataSet dsR = new LineDataSet(repl, "Repledge Stock");
-        dsR.setColor(0xFFE6B800); dsR.setCircleColor(0xFFE6B800); dsR.setLineWidth(2f);
-        dsR.setValueTextColor(0xFFFFFFFF); dsR.setValueTextSize(8);
+        dsR.setColor(royal.goldRule); dsR.setCircleColor(royal.goldRule); dsR.setLineWidth(2f);
+        dsR.setValueTextColor(royal.inkSoft); dsR.setValueTextSize(8);
         styleChart(misLineChart);
         misLineChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
         misLineChart.getXAxis().setLabelCount(labels.size(), false);
@@ -574,8 +596,8 @@ public class MonthlyReportActivity extends AppCompatActivity {
         if (gold   > 0) entries.add(new PieEntry((float) gold,   "Gold"));
         if (silver > 0) entries.add(new PieEntry((float) silver, "Silver"));
         PieDataSet ds = new PieDataSet(entries, "");
-        ds.setColors(0xFFE6B800, 0xFF42A5F5);
-        ds.setValueTextColor(0xFF0D1B2A); ds.setValueTextSize(12f);
+        ds.setColors(royal.goldRule, royal.navy);
+        ds.setValueTextColor(royal.onWine); ds.setValueTextSize(12f);
         ds.setSliceSpace(2f);
         PieData pd = new PieData(ds);
         pd.setValueFormatter(new ValueFormatter() {
@@ -583,13 +605,13 @@ public class MonthlyReportActivity extends AppCompatActivity {
         });
         misPieChart.setData(pd);
         misPieChart.getDescription().setEnabled(false);
-        misPieChart.setEntryLabelColor(0xFF0D1B2A);
+        misPieChart.setEntryLabelColor(royal.onWine);
         misPieChart.setHoleColor(0x00000000);
         misPieChart.setHoleRadius(45f);
         misPieChart.setTransparentCircleRadius(48f);
-        misPieChart.getLegend().setTextColor(0xFFFFFFFF);
+        misPieChart.getLegend().setTextColor(royal.ink);
         misPieChart.setCenterText("Pawn\nGold vs Silver");
-        misPieChart.setCenterTextColor(0xFFAAAAAA);
+        misPieChart.setCenterTextColor(royal.inkMute);
         misPieChart.animateY(400);
         misPieChart.invalidate();
     }
@@ -601,14 +623,14 @@ public class MonthlyReportActivity extends AppCompatActivity {
         chart.setNoDataText("No data");
         chart.setDrawGridBackground(false);
         chart.setScaleEnabled(false);
-        chart.getLegend().setTextColor(0xFFFFFFFF);
+        chart.getLegend().setTextColor(royal.ink);
         XAxis x = chart.getXAxis();
         x.setPosition(XAxis.XAxisPosition.BOTTOM);
-        x.setTextColor(0xFFFFFFFF);
+        x.setTextColor(royal.inkMute);
         x.setLabelRotationAngle(-40f);
         x.setGranularity(1f);
         x.setDrawGridLines(false);
-        chart.getAxisLeft().setTextColor(0xFFFFFFFF);
+        chart.getAxisLeft().setTextColor(royal.inkMute);
         chart.getAxisLeft().setValueFormatter(new ValueFormatter() {
             @Override public String getFormattedValue(float v) { return fmt.format(v); }
         });

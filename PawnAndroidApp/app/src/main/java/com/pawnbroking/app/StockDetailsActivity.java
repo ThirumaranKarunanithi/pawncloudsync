@@ -21,6 +21,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.pawnbroking.app.services.ApiService;
+import com.pawnbroking.app.util.Royal;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -52,6 +53,7 @@ public class StockDetailsActivity extends AppCompatActivity {
     private String pendingFilterType = FILTER_COMP_DATE;
 
     // ── Views ──────────────────────────────────────────────────────────────────
+    private Royal royal;
     private ProgressBar progressBar;
     private RecyclerView recyclerView;
     private TextView tvCompanyName, tvSummaryCount, tvSummaryAmount, tvSummaryInterest;
@@ -89,6 +91,7 @@ public class StockDetailsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_stock_details);
+        royal = new Royal(this);
 
         fmt.setMinimumFractionDigits(2);
         fmt.setMaximumFractionDigits(2);
@@ -233,9 +236,9 @@ public class StockDetailsActivity extends AppCompatActivity {
         // Build ListView once
         ListView lv = new ListView(this);
         lv.setAdapter(customerListAdapter);
-        lv.setDivider(new ColorDrawable(Color.parseColor("#2A3854")));
+        lv.setDivider(new ColorDrawable(royal.line));
         lv.setDividerHeight(dp(1));
-        lv.setBackgroundColor(Color.parseColor("#0D1B2A"));
+        lv.setBackgroundColor(royal.surface);
         lv.setOnItemClickListener((parent, view, pos, id) -> {
             if (pos < customerSuggestions.size()) {
                 String name = customerSuggestions.get(pos).optString("customer_name", "");
@@ -253,7 +256,7 @@ public class StockDetailsActivity extends AppCompatActivity {
             etNameInput.getWidth(),
             dp(280),
             false);
-        customerPopup.setBackgroundDrawable(new ColorDrawable(Color.parseColor("#0D1B2A")));
+        customerPopup.setBackgroundDrawable(new ColorDrawable(royal.surface));
         customerPopup.setOutsideTouchable(true);
         customerPopup.setElevation(12f);
         customerPopup.setOnDismissListener(() -> customerPopup = null);
@@ -277,7 +280,7 @@ public class StockDetailsActivity extends AppCompatActivity {
             LinearLayout row = new LinearLayout(StockDetailsActivity.this);
             row.setOrientation(LinearLayout.VERTICAL);
             row.setPadding(dp(14), dp(10), dp(14), dp(10));
-            row.setBackgroundColor(Color.parseColor("#0D1B2A"));
+            row.setBackgroundColor(royal.surface);
 
             JSONObject c     = customerSuggestions.get(pos);
             String id        = c.optString("customer_id",   "").trim();
@@ -299,7 +302,7 @@ public class StockDetailsActivity extends AppCompatActivity {
 
             TextView tvLine1 = new TextView(StockDetailsActivity.this);
             tvLine1.setText(l1.toString());
-            tvLine1.setTextColor(Color.parseColor("#E6B800"));
+            tvLine1.setTextColor(royal.wine);
             tvLine1.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
             tvLine1.setTypeface(null, Typeface.BOLD);
             row.addView(tvLine1);
@@ -312,7 +315,7 @@ public class StockDetailsActivity extends AppCompatActivity {
             if (!addrParts.isEmpty()) {
                 TextView tvAddr = new TextView(StockDetailsActivity.this);
                 tvAddr.setText(String.join(", ", addrParts));
-                tvAddr.setTextColor(Color.parseColor("#CCCCCC"));
+                tvAddr.setTextColor(royal.inkBody);
                 tvAddr.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
                 tvAddr.setPadding(0, dp(2), 0, 0);
                 row.addView(tvAddr);
@@ -329,7 +332,7 @@ public class StockDetailsActivity extends AppCompatActivity {
                 }
                 TextView tvCity = new TextView(StockDetailsActivity.this);
                 tvCity.setText(l3.toString());
-                tvCity.setTextColor(Color.parseColor("#AAAAAA"));
+                tvCity.setTextColor(royal.inkMute);
                 tvCity.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
                 tvCity.setPadding(0, dp(2), 0, 0);
                 row.addView(tvCity);
@@ -342,8 +345,10 @@ public class StockDetailsActivity extends AppCompatActivity {
     // ── Mode switching ─────────────────────────────────────────────────────────
     private void setMode(ViewMode mode) {
         currentMode = mode;
-        int gold = Color.parseColor("#E6B800"), dark = Color.parseColor("#0D1B2A");
-        int inactive = Color.parseColor("#1E2A4A"), grey = Color.parseColor("#AAAAAA");
+        // A segmented control: the chosen mode is wine, the rest are the
+        // parchment strip they sit on.
+        int gold = royal.wine, dark = royal.onWine;
+        int inactive = royal.strip, grey = royal.inkBody;
 
         btnModeCompany.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
             mode == ViewMode.COMPANY_ALONE  ? gold : inactive));
@@ -480,8 +485,8 @@ public class StockDetailsActivity extends AppCompatActivity {
         chip.setOrientation(LinearLayout.HORIZONTAL);
         chip.setGravity(Gravity.CENTER_VERTICAL);
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(Color.parseColor("#1E2A4A"));
-        bg.setStroke(dp(1), Color.parseColor("#E6B800"));
+        bg.setColor(royal.goldWash);
+        bg.setStroke(dp(1), royal.goldWashLine);
         bg.setCornerRadius(dp(14));
         chip.setBackground(bg);
         chip.setPadding(dp(10), dp(3), dp(6), dp(3));
@@ -492,13 +497,13 @@ public class StockDetailsActivity extends AppCompatActivity {
 
         TextView tvLabel = new TextView(this);
         tvLabel.setText(f.label);
-        tvLabel.setTextColor(Color.WHITE);
+        tvLabel.setTextColor(royal.wine);
         tvLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
         chip.addView(tvLabel);
 
         TextView tvX = new TextView(this);
         tvX.setText("  ×");
-        tvX.setTextColor(Color.parseColor("#E6B800"));
+        tvX.setTextColor(royal.wine);
         tvX.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         tvX.setOnClickListener(v -> { activeFilters.remove(f); refreshChips(); load(); });
         chip.addView(tvX);
@@ -641,17 +646,17 @@ public class StockDetailsActivity extends AppCompatActivity {
                           b.optString("material_type", ""));
             h.tvMaterial.setText(mat);
             h.tvMaterial.setTextColor("GOLD".equalsIgnoreCase(mat)
-                ? Color.parseColor("#E6B800") : Color.parseColor("#AAAAAA"));
+                ? royal.goldInk : royal.navy);
 
             String status = b.optString("status", "");
             h.tvStatus.setText(status);
             int sc;
             switch (status.toUpperCase()) {
-                case "OPENED":   sc = Color.parseColor("#4CAF50"); break;
-                case "LOCKED":   sc = Color.parseColor("#FF9800"); break;
-                case "GIVEN":    sc = Color.parseColor("#2196F3"); break;
-                case "SUSPENSE": sc = Color.parseColor("#9C27B0"); break;
-                default:         sc = Color.parseColor("#AAAAAA"); break;
+                case "OPENED":   sc = royal.emerald;  break;
+                case "LOCKED":   sc = royal.amber;    break;
+                case "GIVEN":    sc = royal.violet;   break;
+                case "SUSPENSE": sc = royal.violet;   break;
+                default:         sc = royal.inkMute;  break;
             }
             h.tvStatus.setTextColor(sc);
 

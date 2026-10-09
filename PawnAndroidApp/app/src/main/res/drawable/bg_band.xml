@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The wine band AND its gold rule as one background, so no screen can
+     forget the rule. Apply to the Toolbar wrapper, not the Toolbar. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/gold_rule" />
+        </shape>
+    </item>
+    <item android:bottom="@dimen/gold_rule_h">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/wine" />
+        </shape>
+    </item>
+</layer-list>

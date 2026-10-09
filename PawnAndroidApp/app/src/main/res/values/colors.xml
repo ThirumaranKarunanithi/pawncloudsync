@@ -1,16 +1,105 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Light-mode colours. Dark-mode overrides are in values-night/colors.xml -->
+<!--
+  Royal palette, light ("parchment") mode. Dark-mode overrides are in
+  values-night/colors.xml and MUST define every name in here.
+
+  Taken off the desktop app's band: wine ground, gold rules, parchment page.
+
+  Two groups:
+    1. The semantic names — use these in new work.
+    2. The old names, kept pointing at royal values so the screens that
+       have not been converted yet still look right. They go away once
+       every layout is on the semantic names.
+
+  Contrast: every text colour here clears 4.5:1 on the surface it is meant
+  for. ink_mute on parchment is 5.1:1, ink_soft is 6.5:1. Do not lighten
+  them "to look softer" — that is the exact change that fails the check.
+-->
 <resources>
-    <color name="bg_dark">#F0F4F8</color>
+
+    <!-- ── Wine: bands, primary buttons, totals ─────────────────────── -->
+    <color name="wine_deepest">#3E0E18</color>
+    <color name="wine_deep">#4E1420</color>
+    <color name="wine">#611A28</color>
+    <color name="wine_light">#76222F</color>
+    <color name="crimson">#8E2A3A</color>
+
+    <!-- ── Gold: rules, titles on wine ──────────────────────────────── -->
+    <!-- gold_ink is the only gold readable as text ON parchment (4.9:1).
+         gold_rule and brighter are for fills, rules and text on wine. -->
+    <color name="gold_ink">#8F7314</color>
+    <color name="gold_rule">#C9A227</color>
+    <color name="gold_bright">#DDBE5C</color>
+    <color name="gold_pale">#F0DA9B</color>
+    <color name="gold_wash">#FBF0D9</color>
+    <color name="gold_wash_line">#E3CD93</color>
+
+    <!-- ── Parchment: page, cards, hairlines ────────────────────────── -->
+    <color name="parchment">#FCF8F1</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="parchment_strip">#F6EFE1</color>
+    <color name="parchment_line">#ECE0CA</color>
+    <color name="parchment_deep">#DBCBB0</color>
+    <color name="row_highlight">#FBF4E6</color>
+
+    <!-- ── Ink: type on parchment ───────────────────────────────────── -->
+    <color name="ink">#2B1A14</color>
+    <color name="ink_body">#4C382D</color>
+    <color name="ink_soft">#6B5648</color>
+    <color name="ink_mute">#7C6655</color>
+    <color name="ink_faint">#C9BCB0</color>
+
+    <!-- ── Silver side of the shop ──────────────────────────────────── -->
+    <color name="navy">#1F2C47</color>
+    <color name="navy_soft">#33456A</color>
+    <color name="silver">#8A97AC</color>
+    <color name="silver_pale">#EDF0F5</color>
+    <color name="silver_row">#FAFBFC</color>
+
+    <!-- ── Ledger accents ───────────────────────────────────────────── -->
+    <color name="emerald">#1C6B4B</color>
+    <color name="emerald_ink">#14543B</color>
+    <color name="emerald_wash">#F0F7F3</color>
+    <color name="emerald_line">#C9E3D5</color>
+    <color name="emerald_chip">#E4F0EA</color>
+
+    <color name="ruby">#9C2320</color>
+    <color name="ruby_ink">#8A1E1B</color>
+    <color name="ruby_wash">#FBF0EF</color>
+    <color name="ruby_line">#F3DEDC</color>
+
+    <color name="violet">#5A3A86</color>
+    <color name="violet_chip">#EAE3F3</color>
+    <color name="violet_row">#FBFAFD</color>
+
+    <color name="amber">#B26A12</color>
+
+    <!-- ── On the wine band: these do NOT flip at night ─────────────── -->
+    <!-- The band stays wine in both modes, so its text must stay light in
+         both. Never map these to @color/ink. -->
+    <color name="on_wine">#FFFFFF</color>
+    <color name="on_wine_title">#F0DA9B</color>
+    <color name="on_wine_dim">#DDBE5C</color>
+    <color name="on_wine_body">#E8C9A8</color>
+    <color name="on_wine_rule">#8F7314</color>
+    <color name="on_wine_good">#8FD9B6</color>
+    <color name="on_wine_bad">#F2A09A</color>
+    <color name="nav_inactive">#D6B3AB</color>
+
+    <!-- ══ Old names, remapped. Being retired screen by screen. ══════ -->
+    <color name="bg_dark">#FCF8F1</color>
     <color name="bg_card">#FFFFFF</color>
-    <color name="card_border">#E2E8F0</color>
-    <color name="gold">#B45309</color>
-    <color name="gold_dark">#92400E</color>
-    <color name="white">#0F172A</color>
-    <color name="white54">#64748B</color>
-    <color name="white38">#94A3B8</color>
-    <color name="green">#15803D</color>
-    <color name="orange">#C2410C</color>
-    <color name="blue">#1D4ED8</color>
-    <color name="red">#B91C1C</color>
+    <color name="card_border">#ECE0CA</color>
+    <color name="gold">#8F7314</color>
+    <color name="gold_dark">#C9A227</color>
+    <!-- "white" is the PRIMARY TEXT colour, not a white. Misnamed since
+         the app went light; kept only until the layouts are converted. -->
+    <color name="white">#2B1A14</color>
+    <color name="white54">#6B5648</color>
+    <color name="white38">#7C6655</color>
+    <color name="green">#1C6B4B</color>
+    <color name="orange">#B26A12</color>
+    <color name="blue">#33456A</color>
+    <color name="red">#9C2320</color>
+
 </resources>

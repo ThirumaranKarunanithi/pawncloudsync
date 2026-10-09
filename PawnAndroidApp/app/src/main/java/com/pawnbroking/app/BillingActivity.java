@@ -248,9 +248,9 @@ public class BillingActivity extends AppCompatActivity {
         selectedMaterialType = type;
         boolean gold = "GOLD".equals(type);
         chipGold.setBackgroundResource(gold ? R.drawable.chip_selected : R.drawable.chip_unselected);
-        chipGold.setTextColor(getResources().getColor(gold ? R.color.bg_dark : R.color.gold, getTheme()));
+        chipGold.setTextColor(getResources().getColor(gold ? R.color.on_wine : R.color.ink_body, getTheme()));
         chipSilver.setBackgroundResource(gold ? R.drawable.chip_unselected : R.drawable.chip_selected);
-        chipSilver.setTextColor(getResources().getColor(gold ? R.color.gold : R.color.bg_dark, getTheme()));
+        chipSilver.setTextColor(getResources().getColor(gold ? R.color.ink_body : R.color.on_wine, getTheme()));
         layoutBillDetails.setVisibility(View.GONE);
     }
 

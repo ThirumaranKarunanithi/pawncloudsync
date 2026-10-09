@@ -17,6 +17,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.pawnbroking.app.services.ApiService;
+import com.pawnbroking.app.util.Royal;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -29,6 +30,7 @@ public class AccountDetailActivity extends AppCompatActivity {
     private ProgressBar progressBar;
     private TableLayout tableDetail;
     private TextView tvCount;
+    private Royal royal;
 
     private String companyId, companyName, date, type, title;
 
@@ -49,6 +51,7 @@ public class AccountDetailActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_account_detail);
 
+        royal       = new Royal(this);
         companyId   = getIntent().getStringExtra("companyId");
         companyName = getIntent().getStringExtra("companyName");
         date        = getIntent().getStringExtra("date");
@@ -106,7 +109,7 @@ public class AccountDetailActivity extends AppCompatActivity {
 
         // Header row
         TableRow headerRow = new TableRow(this);
-        headerRow.setBackgroundColor(Color.parseColor("#1E2A4A"));
+        headerRow.setBackgroundColor(royal.wine);
         for (int i = 0; i < headers.length(); i++) {
             headerRow.addView(makeHeader(headers.optString(i, "")));
         }
@@ -117,7 +120,7 @@ public class AccountDetailActivity extends AppCompatActivity {
         TableLayout.LayoutParams divLp = new TableLayout.LayoutParams(
                 TableLayout.LayoutParams.MATCH_PARENT, dp(1));
         div.setLayoutParams(divLp);
-        div.setBackgroundColor(Color.parseColor("#33FFFFFF"));
+        div.setBackgroundColor(royal.line);
         tableDetail.addView(div);
 
         if (rows == null) return;
@@ -133,10 +136,8 @@ public class AccountDetailActivity extends AppCompatActivity {
             if (row == null) continue;
 
             TableRow tr = new TableRow(this);
-            int bgColor = (i % 2 == 0)
-                    ? Color.parseColor("#16213E")
-                    : Color.parseColor("#1A2744");
-            tr.setBackgroundColor(bgColor);
+            // Parchment with a hairline under it, not a zebra stripe.
+            tr.setBackgroundResource(R.drawable.bg_table_row);
 
             for (int j = 0; j < row.length(); j++) {
                 String cellText = row.optString(j, "");
@@ -147,7 +148,7 @@ public class AccountDetailActivity extends AppCompatActivity {
                 catch (Exception ignored) {}
                 TextView cell = makeCell(cellText, isAmount);
                 if (isBillNoCol) {
-                    cell.setTextColor(Color.parseColor("#E6B800")); // gold
+                    cell.setTextColor(royal.wine);
                     cell.setTypeface(null, Typeface.BOLD);
                 }
                 tr.addView(cell);
@@ -178,7 +179,7 @@ public class AccountDetailActivity extends AppCompatActivity {
     private TextView makeHeader(String text) {
         TextView tv = new TextView(this);
         tv.setText(text);
-        tv.setTextColor(Color.parseColor("#E6B800"));
+        tv.setTextColor(royal.onWineTitle);
         tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         tv.setTypeface(null, Typeface.BOLD);
         tv.setPadding(dp(10), dp(8), dp(10), dp(8));
@@ -189,7 +190,7 @@ public class AccountDetailActivity extends AppCompatActivity {
     private TextView makeCell(String text, boolean rightAlign) {
         TextView tv = new TextView(this);
         tv.setText(text);
-        tv.setTextColor(Color.WHITE);
+        tv.setTextColor(royal.ink);
         tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         tv.setPadding(dp(10), dp(6), dp(10), dp(6));
         tv.setGravity(rightAlign ? Gravity.END : Gravity.START);

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Put on a card or row that opens something, so it answers the tap. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/parchment_deep">
+    <item android:drawable="@drawable/bg_card" />
+</ripple>

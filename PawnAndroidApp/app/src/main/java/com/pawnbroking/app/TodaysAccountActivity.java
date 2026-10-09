@@ -18,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.pawnbroking.app.services.ApiService;
+import com.pawnbroking.app.util.Royal;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -32,6 +33,7 @@ import java.util.Map;
 
 public class TodaysAccountActivity extends AppCompatActivity {
 
+    private Royal royal;
     private ProgressBar progressBar;
     private LinearLayout layoutContent;
     private TextView tvCompanyName, tvSelectedDate;
@@ -79,6 +81,7 @@ public class TodaysAccountActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_todays_account);
 
+        royal = new Royal(this);
         fmt.setMinimumFractionDigits(2);
         fmt.setMaximumFractionDigits(2);
 
@@ -262,13 +265,12 @@ public class TodaysAccountActivity extends AppCompatActivity {
                         tvActualBalance.setText    ("₹ " + fmt.format(actual));
                         tvAvailableBalance.setText ("₹ " + fmt.format(available));
                         tvDeficit.setText          ("₹ " + fmt.format(deficit));
-                        tvDeficit.setTextColor(deficit == 0
-                                ? Color.parseColor("#4CAF50") : Color.parseColor("#F44336"));
+                        tvDeficit.setTextColor(deficit == 0 ? royal.emerald : royal.ruby);
 
                         // No L row yet for the selected (L+1) date → OPEN.
                         layoutStatus.setVisibility(View.VISIBLE);
                         tvAccountStatus.setText("OPEN");
-                        tvAccountStatus.setTextColor(Color.parseColor("#FF9800"));
+                        tvAccountStatus.setTextColor(royal.amber);
                     });
                 }
                 @Override public void onError(String message) {
@@ -302,8 +304,7 @@ public class TodaysAccountActivity extends AppCompatActivity {
         tvPreActual.setText("₹ " + fmt.format(preActual));
         tvPreAvailable.setText("₹ " + fmt.format(preAvailable));
         tvPreDeficit.setText("₹ " + fmt.format(preDeficit));
-        tvPreDeficit.setTextColor(preDeficit == 0
-                ? Color.parseColor("#4CAF50") : Color.parseColor("#F44336"));
+        tvPreDeficit.setTextColor(preDeficit == 0 ? royal.emerald : royal.ruby);
         String preNote = data.optString("todaysNote", "");
         tvPreNote.setText(preNote.isEmpty() ? "" : preNote);
         tvPreNote.setVisibility(preNote.isEmpty() ? View.GONE : View.VISIBLE);
@@ -329,17 +330,17 @@ public class TodaysAccountActivity extends AppCompatActivity {
             String combo  = op.optString("combo", "");
             final String detailType = DETAIL_TYPES.get(name);
 
-            // Alternate row background — desktop uses a similar zebra stripe.
-            int rowBg = (i % 2 == 0) ? Color.parseColor("#1E2A4A") : Color.parseColor("#16213E");
-
+            // Parchment with a hairline under it. The old zebra stripe
+            // went when the rows stopped being dark.
             TableRow row = new TableRow(this);
-            row.setBackgroundColor(rowBg);
+            row.setBackgroundResource(R.drawable.bg_table_row);
             row.setPadding(0, dp(2), 0, dp(2));
 
             TextView tvName = new TextView(this);
             tvName.setText(name + (detailType != null ? " ›" : ""));
-            tvName.setTextColor(detailType != null
-                    ? Color.parseColor("#64B5F6") : Color.WHITE);
+            // A row that opens a drill-down is wine, like a link; the two
+            // that have no detail type (Liability, Asset) stay plain ink.
+            tvName.setTextColor(detailType != null ? royal.wine : royal.ink);
             tvName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
             tvName.setTypeface(null, android.graphics.Typeface.BOLD);
             tvName.setPadding(dp(8), dp(6), dp(8), dp(6));
@@ -351,15 +352,13 @@ public class TodaysAccountActivity extends AppCompatActivity {
             row.addView(tvName);
 
             row.addView(makeCell(fmtNum(count),
-                    Color.parseColor("#CCCCCC"), dp(50), Gravity.CENTER));
+                    royal.inkSoft, dp(50), Gravity.CENTER));
             row.addView(makeCell("₹" + fmtShort(debit),
-                    debit > 0 ? Color.parseColor("#EF9A9A") : Color.parseColor("#666666"),
-                    dp(80), Gravity.END));
+                    royal.money(debit, true), dp(80), Gravity.END));
             row.addView(makeCell("₹" + fmtShort(credit),
-                    credit > 0 ? Color.parseColor("#A5D6A7") : Color.parseColor("#666666"),
-                    dp(80), Gravity.END));
+                    royal.money(credit, false), dp(80), Gravity.END));
             row.addView(makeCell(combo,
-                    Color.parseColor("#90A4AE"), dp(220), Gravity.START));
+                    royal.inkMute, dp(220), Gravity.START));
 
             if (detailType != null) {
                 final String finalName = name;
