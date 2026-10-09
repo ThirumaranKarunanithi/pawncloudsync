@@ -1,103 +1,122 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_dark"
+    android:background="@color/parchment"
     android:orientation="vertical">
 
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/bg_card"
-        android:theme="@style/ToolbarTheme"
-        app:titleTextColor="@color/gold" />
+    <include layout="@layout/view_band" />
 
-    <!-- Search Bar -->
+    <!-- ── Search and filters, on their own white shelf ───────────── -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_margin="8dp"
-        android:background="@drawable/bg_input"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingEnd="8dp">
+        android:layout_height="wrap_content"
+        android:background="@color/surface"
+        android:orientation="vertical"
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="@dimen/sp_md"
+        android:paddingEnd="@dimen/page_pad"
+        android:paddingBottom="11dp">
 
-        <TextView
-            android:layout_width="wrap_content"
+        <LinearLayout
+            style="@style/Royal.FieldBox"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_input_sunken">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_search"
+                android:tint="@color/ink_mute" />
+
+            <EditText
+                android:id="@+id/etSearch"
+                style="@style/Royal.Field"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:hint="Bill number, name or mobile"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:textSize="@dimen/t_body" />
+        </LinearLayout>
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="🔍"
-            android:textSize="16sp" />
+            android:layout_marginTop="11dp"
+            android:scrollbars="none">
 
-        <EditText
-            android:id="@+id/etSearch"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:layout_marginStart="8dp"
-            android:background="@null"
-            android:hint="Search bill number or customer..."
-            android:textColorHint="@color/white38"
-            android:inputType="text"
-            android:textColor="@color/white"
-            android:imeOptions="actionSearch" />
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/chipAll"
+                    style="@style/Royal.Chip"
+                    android:text="ALL" />
+
+                <TextView
+                    android:id="@+id/chipGold"
+                    style="@style/Royal.Chip"
+                    android:text="GOLD" />
+
+                <TextView
+                    android:id="@+id/chipSilver"
+                    style="@style/Royal.Chip"
+                    android:text="SILVER" />
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="22dp"
+                    android:layout_marginEnd="@dimen/sp_sm"
+                    android:background="@color/parchment_line" />
+
+                <TextView
+                    android:id="@+id/chipOpened"
+                    style="@style/Royal.Chip"
+                    android:text="OPENED" />
+
+                <TextView
+                    android:id="@+id/chipClosed"
+                    style="@style/Royal.Chip"
+                    android:text="CLOSED" />
+
+                <TextView
+                    android:id="@+id/chipAllStatus"
+                    style="@style/Royal.Chip"
+                    android:text="ANY" />
+            </LinearLayout>
+        </HorizontalScrollView>
     </LinearLayout>
 
-    <!-- Filter Chips -->
-    <HorizontalScrollView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:scrollbars="none">
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:paddingBottom="8dp">
-
-            <TextView android:id="@+id/chipAll"
-                style="@style/Chip" android:text="ALL" />
-            <TextView android:id="@+id/chipGold"
-                style="@style/Chip" android:text="GOLD" />
-            <TextView android:id="@+id/chipSilver"
-                style="@style/Chip" android:text="SILVER" />
-
-            <View android:layout_width="16dp" android:layout_height="1dp"/>
-
-            <TextView android:id="@+id/chipOpened"
-                style="@style/Chip" android:text="OPENED" />
-            <TextView android:id="@+id/chipClosed"
-                style="@style/Chip" android:text="CLOSED" />
-            <TextView android:id="@+id/chipAllStatus"
-                style="@style/Chip" android:text="ALL" />
-        </LinearLayout>
-    </HorizontalScrollView>
-
-    <!-- Total bar -->
+    <!-- ── How many ───────────────────────────────────────────────── -->
     <TextView
         android:id="@+id/tvTotal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/bg_card"
-        android:padding="10dp"
+        android:background="@color/parchment_strip"
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="@dimen/sp_sm"
+        android:paddingEnd="@dimen/page_pad"
+        android:paddingBottom="@dimen/sp_sm"
         android:text="0 bills found"
-        android:textColor="@color/white54"
-        android:textSize="13sp" />
+        android:textColor="@color/ink_body"
+        android:textSize="@dimen/t_small" />
 
-    <!-- Progress -->
     <ProgressBar
         android:id="@+id/progressBar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:layout_marginTop="32dp"
-        android:indeterminateTint="@color/gold"
+        android:indeterminateTint="@color/wine"
         android:visibility="gone" />
 
-    <!-- Empty -->
     <TextView
         android:id="@+id/tvEmpty"
         android:layout_width="match_parent"
@@ -105,27 +124,30 @@
         android:gravity="center"
         android:padding="32dp"
         android:text="No bills found"
-        android:textColor="@color/white54"
+        android:textColor="@color/ink_soft"
         android:visibility="gone" />
 
-    <!-- List -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:padding="8dp"
-        android:clipToPadding="false" />
+        android:clipToPadding="false"
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="@dimen/sp_md"
+        android:paddingEnd="@dimen/page_pad"
+        android:paddingBottom="@dimen/sp_sm" />
 
-    <!-- Load More -->
     <Button
         android:id="@+id/btnLoadMore"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="8dp"
-        android:backgroundTint="@color/gold"
-        android:text="Load More"
-        android:textColor="@color/bg_dark"
+        style="@style/Royal.Button.Outline"
+        android:layout_height="@dimen/tap_min"
+        android:layout_marginStart="@dimen/page_pad"
+        android:layout_marginEnd="@dimen/page_pad"
+        android:layout_marginBottom="@dimen/sp_md"
+        android:text="LOAD MORE"
         android:visibility="gone" />
+
+    <include layout="@layout/view_bottom_nav" />
 
 </LinearLayout>

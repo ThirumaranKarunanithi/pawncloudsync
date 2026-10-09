@@ -361,4 +361,6 @@
         </ScrollView>
     </HorizontalScrollView>
 
+    <include layout="@layout/view_bottom_nav" />
+
 </LinearLayout>

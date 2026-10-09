@@ -57,6 +57,15 @@ public class BillAdapter extends RecyclerView.Adapter<BillAdapter.VH> {
 
         if (royal == null) royal = new Royal(h.itemView.getContext());
 
+        // The row's left edge is the metal, so a long list sorts gold
+        // from silver without reading a word. setBackgroundResource
+        // drops the layout's padding, so put it back.
+        int pl = h.itemView.getPaddingLeft(),  pt = h.itemView.getPaddingTop();
+        int pr = h.itemView.getPaddingRight(), pb = h.itemView.getPaddingBottom();
+        h.itemView.setBackgroundResource(b.isGold()
+                ? R.drawable.bg_row_gold : R.drawable.bg_row_silver);
+        h.itemView.setPadding(pl, pt, pr, pb);
+
         // The metal tints its own tag; the bill number stays ink so the
         // number itself is the thing you read first.
         h.tvMaterial.setTextColor(royal.metal(b.isGold()));

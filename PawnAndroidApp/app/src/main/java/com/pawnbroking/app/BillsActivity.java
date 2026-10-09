@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.pawnbroking.app.adapters.BillAdapter;
 import com.pawnbroking.app.models.Bill;
 import com.pawnbroking.app.services.ApiService;
+import com.pawnbroking.app.util.BottomNav;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -72,6 +73,8 @@ public class BillsActivity extends AppCompatActivity {
         chipOpened    = findViewById(R.id.chipOpened);
         chipClosed    = findViewById(R.id.chipClosed);
         chipAllStatus = findViewById(R.id.chipAllStatus);
+
+        BottomNav.attach(this, BottomNav.Tab.BILLS, companyId, companyName);
 
         adapter = new BillAdapter(bills, bill -> {
             Intent i = new Intent(this, BillDetailActivity.class);

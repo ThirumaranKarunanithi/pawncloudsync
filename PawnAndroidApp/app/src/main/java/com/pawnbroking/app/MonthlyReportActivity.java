@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.pawnbroking.app.services.ApiService;
+import com.pawnbroking.app.util.BottomNav;
 import com.pawnbroking.app.util.Royal;
 
 import com.github.mikephil.charting.charts.BarChart;
@@ -187,6 +188,8 @@ public class MonthlyReportActivity extends AppCompatActivity {
         btnDeselectAll = findViewById(R.id.btnDeselectAll);
 
         tvCompanyName.setText(companyName);
+
+        BottomNav.attach(this, BottomNav.Tab.REPORTS, companyId, companyName);
 
         btnAll.setOnClickListener(v        -> setMode("ALL"));
         btnSelected.setOnClickListener(v   -> setMode("SELECTED"));

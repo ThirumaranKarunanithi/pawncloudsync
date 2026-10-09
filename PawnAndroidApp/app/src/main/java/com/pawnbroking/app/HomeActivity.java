@@ -28,6 +28,7 @@ import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.github.mikephil.charting.formatter.ValueFormatter;
 import com.pawnbroking.app.models.Company;
 import com.pawnbroking.app.services.ApiService;
+import com.pawnbroking.app.util.BottomNav;
 import com.pawnbroking.app.util.Royal;
 
 import org.json.JSONArray;
@@ -214,11 +215,13 @@ public class HomeActivity extends AppCompatActivity {
                     spinnerCompany.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
                         @Override public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
                             selectedCompany = companies.get(pos);
+                            attachBar();
                             loadCharts();
                         }
                         @Override public void onNothingSelected(AdapterView<?> p) {}
                     });
                     selectedCompany = companies.get(0);
+                    attachBar();
                     layoutContent.setVisibility(View.VISIBLE);
                     loadCharts();
                 });
@@ -230,6 +233,17 @@ public class HomeActivity extends AppCompatActivity {
                 });
             }
         });
+    }
+
+    /**
+     * Re-wires the bottom bar. Called whenever the company changes, so
+     * the bar carries the company the user is actually looking at — the
+     * screens it opens all need it.
+     */
+    private void attachBar() {
+        BottomNav.attach(this, BottomNav.Tab.HOME,
+                selectedCompany == null ? null : selectedCompany.id,
+                selectedCompany == null ? null : selectedCompany.name);
     }
 
     private void open(Class<?> activityClass) {
