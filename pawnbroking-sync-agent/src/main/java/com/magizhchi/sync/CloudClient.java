@@ -41,6 +41,12 @@ public class CloudClient {
                     r.accepted   = node.path("accepted").asInt();
                     r.duplicates = node.path("duplicates").asInt();
                 } catch (Exception ignored) {}
+            } else if (r.status == 401 || r.status == 403 || r.status == 404) {
+                // Not this batch's fault. The key, the URL or the tenant is
+                // wrong, so every other batch will be refused identically and
+                // sending them to the DLQ would empty the queue into a dead
+                // table while the shop looks idle. Retryable, loudly.
+                r.configFailure = true;
             } else if ((r.status >= 400 && r.status < 500) && r.status != 408 && r.status != 429) {
                 r.permanentFailure = true;
             }
@@ -54,7 +60,10 @@ public class CloudClient {
 
     public static class Result {
         public boolean success;
+        /** A 4xx about these events. They go to the DLQ. */
         public boolean permanentFailure;
+        /** 401/403/404 — about the agent's setup, not its events. */
+        public boolean configFailure;
         public int status;
         public String body;
         public int accepted;

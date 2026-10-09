@@ -44,12 +44,20 @@ public class OutboxDrainer implements Runnable {
                     backoffMs = 1000; // success resets backoff
                 }
             } catch (Exception e) {
-                Agent.STATE.get().lastError = e.getMessage();
+                // Branches that already called recordFailure throw Reported,
+                // so the reason they wrote is not overwritten by a vaguer
+                // one from here.
+                if (!(e instanceof Reported)) {
+                    Agent.STATE.get().recordFailure(e.getMessage());
+                }
+                // Keep the queue depth honest while we are failing. Never
+                // let a problem reading it hide the problem that got us here.
+                try { refreshLag(); } catch (Exception ignored) { }
                 // If sync_outbox was wiped by a DB restore, SchemaGuard will
                 // recreate it within its check interval. Log quietly and wait.
                 String msg = e.toString();
                 if (msg.contains("relation \"sync_outbox\" does not exist")) {
-                    log.warn("sync_outbox missing — waiting for SchemaGuard to repair...");
+                    log.warn("sync_outbox missing - waiting for SchemaGuard to repair...");
                     try { Thread.sleep(5_000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
                 } else {
                     log.warn("drain failed, backing off {}ms: {}", backoffMs, msg);
@@ -98,10 +106,27 @@ public class OutboxDrainer implements Runnable {
                     up.executeUpdate();
                 }
                 c.commit();
-                Agent.STATE.get().sentTotal.addAndGet(events.size());
-                Agent.STATE.get().lastSentAt = Instant.now();
-                Agent.STATE.get().lastBatchSize.set(events.size());
+                Agent.STATE.get().recordSuccess(events.size());
                 log.info("sent {} events accepted={} duplicates={}", events.size(), r.accepted, r.duplicates);
+            } else if (r.configFailure) {
+                // The cloud refused the agent itself, not these events. Leave
+                // them queued — DLQ-ing them is how a revoked key quietly
+                // moved 71,740 good events into the dead-letter table while
+                // lag_events read zero and the shop looked idle.
+                try (PreparedStatement up = c.prepareStatement(
+                        "UPDATE sync_outbox SET last_error = ? WHERE event_id = ANY (?::uuid[])")) {
+                    String[] arr = events.findValuesAsText("event_id").toArray(new String[0]);
+                    up.setString(1, "status=" + r.status + " " + r.body);
+                    up.setArray(2, c.createArrayOf("uuid", arr));
+                    up.executeUpdate();
+                }
+                c.commit();
+                String why = "the cloud refused this agent: status=" + r.status
+                        + " - check cloud.api_key and cloud.url in sync.properties"
+                        + " (nothing will sync until it is right; the queue is being kept)";
+                Agent.STATE.get().recordFailure(why);
+                log.error("{} body={}", why, r.body);
+                throw new Reported(why);
             } else if (r.permanentFailure) {
                 // 4xx (non-429) -> DLQ
                 try (PreparedStatement dlq = c.prepareStatement(
@@ -115,8 +140,10 @@ public class OutboxDrainer implements Runnable {
                 }
                 c.commit();
                 Agent.STATE.get().dlqTotal.addAndGet(events.size());
-                log.error("permanent failure, moved {} events to DLQ. status={} body={}",
-                        events.size(), r.status, r.body);
+                String why = "the cloud rejected " + events.size() + " events as bad:"
+                        + " status=" + r.status + " - they are in sync_outbox_dlq";
+                Agent.STATE.get().recordFailure(why);
+                log.error("{} body={}", why, r.body);
             } else {
                 // transient (5xx, 429, network) -> bump attempts, retry later
                 try (PreparedStatement up = c.prepareStatement(
@@ -132,18 +159,39 @@ public class OutboxDrainer implements Runnable {
                 // reason is in r.body -- "request timed out" reads completely
                 // differently from "connection refused", and dropping it turned a
                 // one-line diagnosis into a long hunt.
-                throw new RuntimeException("transient cloud failure status=" + r.status
-                        + (r.body == null || r.body.isBlank() ? "" : " (" + r.body + ")"));
+                String why = "transient cloud failure status=" + r.status
+                        + (r.body == null || r.body.isBlank() ? "" : " (" + r.body + ")");
+                Agent.STATE.get().recordFailure(why);
+                throw new Reported(why);
             }
         }
 
-        // refresh lag
+        refreshLag();
+        return events.size();
+    }
+
+    /**
+     * How many events are still waiting. Called after a drain and again
+     * from the catch in {@link #run()}: while the cloud is refusing us
+     * the queue only grows, and that is precisely when the number is
+     * worth having. Reading it only on the happy path meant an agent
+     * that had never once succeeded reported a lag of zero.
+     */
+    private void refreshLag() throws Exception {
         try (Connection c = ds.getConnection();
              PreparedStatement ps = c.prepareStatement(
                  "SELECT count(*) FROM sync_outbox WHERE sent_at IS NULL");
              ResultSet rs = ps.executeQuery()) {
             if (rs.next()) Agent.STATE.get().lagEvents.set(rs.getLong(1));
         }
-        return events.size();
+    }
+
+    /**
+     * Thrown by a branch that has already written its own reason into
+     * AgentState. The catch in {@link #run()} re-records anything else,
+     * but leaves these alone so the specific message survives.
+     */
+    private static class Reported extends RuntimeException {
+        Reported(String message) { super(message); }
     }
 }
