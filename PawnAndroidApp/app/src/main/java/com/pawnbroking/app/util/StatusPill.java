@@ -21,6 +21,36 @@ public final class StatusPill {
 
     private StatusPill() { }
 
+    /**
+     * Paints one of the activity recorder's actions. The vocabulary is
+     * fixed by EmployeeActivityActivity.ACTIONS — keep the two in step.
+     *
+     * <p>SAVED and REFUSED are the two anyone scrolling is looking for,
+     * so they are the only ones that carry colour; the rest stay quiet
+     * and let the screen name do the work.
+     */
+    public static void paintAction(TextView tv, String action) {
+        int bg;
+        int fg;
+        switch (action == null ? "" : action.trim().toUpperCase()) {
+            case "SAVED":
+                bg = R.drawable.pill_open;    fg = R.color.emerald_ink; break;
+            case "REFUSED":
+                bg = R.drawable.pill_overdue; fg = R.color.on_wine;     break;
+            case "OPENED":
+                bg = R.drawable.pill_gold;    fg = R.color.gold_ink;    break;
+            case "SIGNED IN":
+            case "SIGNED OUT":
+                bg = R.drawable.pill_navy;    fg = R.color.navy;        break;
+            case "CLOSED":
+            case "TYPED":
+            case "PRESSED":
+            default:
+                bg = R.drawable.pill_closed;  fg = R.color.ink_body;    break;
+        }
+        apply(tv, bg, fg);
+    }
+
     public static void paint(TextView tv, String status) {
         int bg;
         int fg;
@@ -47,6 +77,10 @@ public final class StatusPill {
                 fg = R.color.ink_body;
                 break;
         }
+        apply(tv, bg, fg);
+    }
+
+    private static void apply(TextView tv, int bg, int fg) {
         // A pill needs its padding back: setBackgroundResource drops
         // whatever the layout set.
         int px = tv.getPaddingStart();

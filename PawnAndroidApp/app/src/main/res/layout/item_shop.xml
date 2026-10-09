@@ -2,28 +2,50 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/bg_card"
-    android:orientation="vertical"
-    android:padding="16dp"
-    android:layout_marginBottom="8dp"
-    android:foreground="?attr/selectableItemBackground"
-    android:clickable="true"
-    android:focusable="true">
+    android:layout_marginBottom="@dimen/sp_md"
+    android:background="@drawable/bg_tappable"
+    android:gravity="center_vertical"
+    android:minHeight="64dp"
+    android:orientation="horizontal"
+    android:paddingStart="@dimen/sp_lg"
+    android:paddingTop="@dimen/sp_md"
+    android:paddingEnd="@dimen/sp_lg"
+    android:paddingBottom="@dimen/sp_md">
 
-    <TextView
-        android:id="@+id/tvShopLabel"
-        android:layout_width="match_parent"
+    <ImageView
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:contentDescription="@null"
+        android:src="@drawable/ic_shop"
+        android:tint="@color/gold_ink" />
+
+    <LinearLayout
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:textColor="@color/gold"
-        android:textSize="16sp"
-        android:textStyle="bold" />
+        android:layout_marginStart="@dimen/sp_lg"
+        android:layout_weight="1"
+        android:orientation="vertical">
 
-    <TextView
-        android:id="@+id/tvShopId"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:textColor="@color/white54"
-        android:textSize="11sp" />
+        <TextView
+            android:id="@+id/tvShopLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/ink"
+            android:textSize="@dimen/t_lead"
+            android:textStyle="bold" />
 
+        <TextView
+            android:id="@+id/tvShopId"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/ink_mute"
+            android:textSize="@dimen/t_small" />
+    </LinearLayout>
+
+    <ImageView
+        android:layout_width="18dp"
+        android:layout_height="18dp"
+        android:contentDescription="@null"
+        android:src="@drawable/ic_chevron_right"
+        android:tint="@color/ink_mute" />
 </LinearLayout>

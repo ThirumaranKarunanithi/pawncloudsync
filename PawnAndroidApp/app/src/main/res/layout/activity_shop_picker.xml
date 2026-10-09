@@ -1,31 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_dark"
+    android:background="@color/parchment"
     android:orientation="vertical">
 
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/bg_card"
-        android:theme="@style/ToolbarTheme"
-        app:title="Select a Shop"
-        app:titleTextColor="@color/gold" />
+    <include layout="@layout/view_band" />
 
     <TextView
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginTop="20dp"
-        android:text="Your account has access to multiple shops.\nTap one to continue."
         android:gravity="center"
-        android:textColor="@color/white54"
-        android:textSize="13sp"
-        android:paddingStart="24dp"
-        android:paddingEnd="24dp" />
+        android:lineSpacingMultiplier="1.25"
+        android:paddingStart="28dp"
+        android:paddingTop="22dp"
+        android:paddingEnd="28dp"
+        android:paddingBottom="4dp"
+        android:text="Your account reaches more than one shop.\nTap the one you are working in."
+        android:textColor="@color/ink_soft"
+        android:textSize="13sp" />
 
     <ProgressBar
         android:id="@+id/progressBar"
@@ -33,18 +26,18 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:layout_marginTop="32dp"
-        android:indeterminateTint="@color/gold"
+        android:indeterminateTint="@color/wine"
         android:visibility="gone" />
 
     <TextView
         android:id="@+id/tvError"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="20dp"
+        android:layout_margin="@dimen/page_pad"
+        android:background="@drawable/bg_result_bad"
         android:padding="12dp"
-        android:background="#33F44336"
-        android:textColor="#F44336"
-        android:textSize="12sp"
+        android:textColor="@color/ruby_ink"
+        android:textSize="@dimen/t_small"
         android:visibility="gone" />
 
     <androidx.recyclerview.widget.RecyclerView
@@ -52,7 +45,9 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:padding="12dp"
-        android:clipToPadding="false" />
-
+        android:clipToPadding="false"
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="@dimen/sp_md"
+        android:paddingEnd="@dimen/page_pad"
+        android:paddingBottom="@dimen/sp_md" />
 </LinearLayout>
