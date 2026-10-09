@@ -33,6 +33,40 @@
 
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
+
+        <!-- Default every widget onto the royal faces, so a screen only
+             names a font when it wants the display one. -->
+        <item name="android:textViewStyle">@style/RoyalTextView</item>
+        <item name="android:editTextStyle">@style/RoyalEditText</item>
+        <item name="android:buttonStyle">@style/RoyalButton</item>
+        <item name="toolbarStyle">@style/RoyalToolbar</item>
+    </style>
+
+    <style name="RoyalTextView" parent="Widget.AppCompat.TextView">
+        <item name="android:fontFamily">@font/royal_sans</item>
+        <item name="fontFamily">@font/royal_sans</item>
+    </style>
+
+    <style name="RoyalEditText" parent="Widget.AppCompat.EditText">
+        <item name="android:fontFamily">@font/royal_sans</item>
+        <item name="fontFamily">@font/royal_sans</item>
+        <item name="android:textColor">@color/ink</item>
+        <item name="android:textColorHint">@color/ink_mute</item>
+    </style>
+
+    <style name="RoyalButton" parent="Widget.AppCompat.Button">
+        <item name="android:fontFamily">@font/royal_sans</item>
+        <item name="fontFamily">@font/royal_sans</item>
+    </style>
+
+    <!-- A band, wherever a screen forgets to dress one. The overflow
+         menu takes a light popup so it is readable on parchment. -->
+    <style name="RoyalToolbar" parent="Widget.MaterialComponents.Toolbar">
+        <item name="android:background">@color/wine</item>
+        <item name="titleTextAppearance">@style/ToolbarTitle</item>
+        <item name="subtitleTextAppearance">@style/ToolbarSubtitle</item>
+        <item name="android:theme">@style/ToolbarTheme</item>
+        <item name="popupTheme">@style/ThemeOverlay.MaterialComponents.Light</item>
     </style>
 
     <style name="Theme.PawnApp.NoActionBar">

@@ -13,16 +13,19 @@
 
     <!-- ══ The two typefaces ══════════════════════════════════════════
          Change the face in these two styles and the whole app follows.
-         Today they are the platform faces; swapping in a bundled
-         Playfair Display / IBM Plex Sans means editing these two lines
-         to @font/royal_display and @font/royal_sans and nothing else.
+         Both attributes are set on each: "fontFamily" is AppCompat's,
+         which is what gets read below API 26; "android:fontFamily" is
+         the platform's, read at 26 and above. Setting only one leaves
+         half the shop's phones on Roboto.
          ═══════════════════════════════════════════════════════════════ -->
     <style name="Royal.Font.Display">
-        <item name="android:fontFamily">serif</item>
+        <item name="android:fontFamily">@font/royal_display</item>
+        <item name="fontFamily">@font/royal_display</item>
     </style>
 
     <style name="Royal.Font.Body">
-        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFamily">@font/royal_sans</item>
+        <item name="fontFamily">@font/royal_sans</item>
     </style>
 
     <!-- ── Type roles ───────────────────────────────────────────────── -->
