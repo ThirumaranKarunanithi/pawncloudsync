@@ -1,106 +1,115 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  MIS Report.
+
+  The summary used to show five figures out of sixteen columns: the
+  repledge leg and the split between stock in the locker and stock at
+  the lender were in the data and nowhere on screen. They are here now
+  (total stock = locker + lender), with gross profit as interest earned
+  less repledge interest spent, which is how the desktop reads it.
+
+  The month table keeps its horizontal scroller: sixteen columns will
+  never fit a phone, and the alternative is hiding the repledge and
+  stock columns that make the report worth opening.
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_dark"
+    android:background="@color/parchment"
     android:orientation="vertical">
 
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/bg_card"
-        android:theme="@style/ToolbarTheme"
-        app:titleTextColor="@color/gold" />
+    <include layout="@layout/view_band" />
 
-    <!-- Company + count bar -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/bg_card"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp">
-
-        <TextView
-            android:id="@+id/tvCompanyName"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:textColor="@color/white"
-            android:textSize="13sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/tvRowCount"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="@color/white54"
-            android:textSize="12sp" />
-    </LinearLayout>
-
-    <!-- View toggle: Table | Bar | Line | Pie -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@color/bg_card"
-        android:orientation="horizontal"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:paddingBottom="8dp">
-
-        <Button android:id="@+id/btnViewTable"
-            android:layout_width="0dp" android:layout_height="34dp" android:layout_weight="1"
-            android:layout_marginEnd="3dp" android:backgroundTint="@color/gold"
-            android:text="Table" android:textColor="#0D1B2A" android:textSize="11sp"
-            android:textStyle="bold" android:paddingStart="0dp" android:paddingEnd="0dp" />
-        <Button android:id="@+id/btnViewBar"
-            android:layout_width="0dp" android:layout_height="34dp" android:layout_weight="1"
-            android:layout_marginEnd="3dp" android:backgroundTint="#1E2A4A"
-            android:text="Bar" android:textColor="#AAAAAA" android:textSize="11sp"
-            android:paddingStart="0dp" android:paddingEnd="0dp" />
-        <Button android:id="@+id/btnViewLine"
-            android:layout_width="0dp" android:layout_height="34dp" android:layout_weight="1"
-            android:layout_marginEnd="3dp" android:backgroundTint="#1E2A4A"
-            android:text="Line" android:textColor="#AAAAAA" android:textSize="11sp"
-            android:paddingStart="0dp" android:paddingEnd="0dp" />
-        <Button android:id="@+id/btnViewPie"
-            android:layout_width="0dp" android:layout_height="34dp" android:layout_weight="1"
-            android:backgroundTint="#1E2A4A"
-            android:text="Pie" android:textColor="#AAAAAA" android:textSize="11sp"
-            android:paddingStart="0dp" android:paddingEnd="0dp" />
-    </LinearLayout>
-
-    <!-- Chart container (hidden until a chart view is chosen) -->
-    <LinearLayout
-        android:id="@+id/layoutChart"
-        android:layout_width="match_parent"
-        android:layout_height="320dp"
+        android:background="@color/surface"
         android:orientation="vertical"
-        android:padding="8dp"
-        android:visibility="gone">
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="10dp"
+        android:paddingEnd="@dimen/page_pad"
+        android:paddingBottom="@dimen/sp_md">
 
-        <TextView android:id="@+id/tvChartTitle"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:gravity="center" android:textColor="@color/gold"
-            android:textSize="13sp" android:textStyle="bold" android:paddingBottom="4dp" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <com.github.mikephil.charting.charts.BarChart
-            android:id="@+id/misBarChart"
-            android:layout_width="match_parent" android:layout_height="0dp"
-            android:layout_weight="1" android:visibility="gone" />
-        <com.github.mikephil.charting.charts.LineChart
-            android:id="@+id/misLineChart"
-            android:layout_width="match_parent" android:layout_height="0dp"
-            android:layout_weight="1" android:visibility="gone" />
-        <com.github.mikephil.charting.charts.PieChart
-            android:id="@+id/misPieChart"
-            android:layout_width="match_parent" android:layout_height="0dp"
-            android:layout_weight="1" android:visibility="gone" />
+            <TextView
+                android:id="@+id/tvCompanyName"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="@color/ink"
+                android:textSize="@dimen/t_body"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvRowCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/sp_sm"
+                android:textColor="@color/ink_mute"
+                android:textSize="@dimen/t_small" />
+        </LinearLayout>
+
+        <!-- Table / Bar / Line / Pie. Buttons: the activity tints them. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_seg_track"
+            android:orientation="horizontal"
+            android:padding="3dp">
+
+            <Button
+                android:id="@+id/btnViewTable"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_seg_active"
+                android:stateListAnimator="@null"
+                android:text="TABLE"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnViewBar"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_marginStart="3dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_seg_active"
+                android:stateListAnimator="@null"
+                android:text="BAR"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnViewLine"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_marginStart="3dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_seg_active"
+                android:stateListAnimator="@null"
+                android:text="LINE"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnViewPie"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_marginStart="3dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_seg_active"
+                android:stateListAnimator="@null"
+                android:text="PIE"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
 
     <ProgressBar
@@ -108,259 +117,317 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:layout_marginTop="48dp"
-        android:indeterminateTint="@color/gold"
+        android:layout_marginTop="32dp"
+        android:indeterminateTint="@color/wine"
         android:visibility="gone" />
 
-    <!-- Controls: two rows -->
-    <LinearLayout
-        android:id="@+id/layoutControls"
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@color/bg_card"
-        android:orientation="vertical"
-        android:visibility="gone">
-
-        <!-- Row 1: Select All | Deselect All -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:paddingTop="6dp"
-            android:paddingBottom="2dp">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Rows:"
-                android:textColor="@color/white54"
-                android:textSize="12sp" />
-
-            <Button
-                android:id="@+id/btnSelectAll"
-                android:layout_width="wrap_content"
-                android:layout_height="32dp"
-                android:text="Select All"
-                android:textSize="11sp"
-                android:paddingStart="14dp"
-                android:paddingEnd="14dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:textColor="@color/gold"
-                android:layout_marginEnd="8dp" />
-
-            <Button
-                android:id="@+id/btnDeselectAll"
-                android:layout_width="wrap_content"
-                android:layout_height="32dp"
-                android:text="Deselect All"
-                android:textSize="11sp"
-                android:paddingStart="14dp"
-                android:paddingEnd="14dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:textColor="@color/white54" />
-        </LinearLayout>
-
-        <!-- Divider -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginStart="12dp"
-            android:layout_marginEnd="12dp"
-            android:background="#22FFFFFF" />
-
-        <!-- Row 2: Summary mode — All | Selected | Deselected -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:paddingTop="2dp"
-            android:paddingBottom="6dp">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Summary:"
-                android:textColor="@color/white54"
-                android:textSize="12sp" />
-
-            <Button
-                android:id="@+id/btnAll"
-                android:layout_width="wrap_content"
-                android:layout_height="32dp"
-                android:text="All"
-                android:textSize="11sp"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:textColor="@color/gold"
-                android:layout_marginEnd="6dp" />
-
-            <Button
-                android:id="@+id/btnSelected"
-                android:layout_width="wrap_content"
-                android:layout_height="32dp"
-                android:text="Selected"
-                android:textSize="11sp"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:textColor="@color/white54"
-                android:layout_marginEnd="6dp" />
-
-            <Button
-                android:id="@+id/btnDeselected"
-                android:layout_width="wrap_content"
-                android:layout_height="32dp"
-                android:text="Deselected"
-                android:textSize="11sp"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:textColor="@color/white54" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <!-- Summary card -->
-    <LinearLayout
-        android:id="@+id/layoutSummary"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/bg_card"
-        android:orientation="vertical"
-        android:padding="10dp"
-        android:visibility="gone">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginBottom="4dp">
+            android:orientation="vertical"
+            android:paddingStart="@dimen/page_pad"
+            android:paddingTop="@dimen/sp_md"
+            android:paddingEnd="@dimen/page_pad"
+            android:paddingBottom="@dimen/sp_xl">
 
-            <TextView
-                android:layout_width="0dp"
+            <!-- ── Summary ───────────────────────────────────────── -->
+            <LinearLayout
+                android:id="@+id/layoutSummary"
+                style="@style/Royal.Card"
+                android:visibility="gone">
+
+                <LinearLayout style="@style/Royal.CardHead">
+
+                    <TextView
+                        style="@style/Royal.Cap"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="SUMMARY" />
+
+                    <TextView
+                        android:id="@+id/tvSummaryMonths"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/ink_mute"
+                        android:textSize="@dimen/t_fine" />
+                </LinearLayout>
+
+                <!-- Company -->
+                <TextView
+                    style="@style/Royal.Cap.Quiet"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="@dimen/sp_lg"
+                    android:paddingTop="10dp"
+                    android:text="COMPANY" />
+
+                <LinearLayout style="@style/MisRow">
+                    <TextView style="@style/MisRowLabel" android:text="Opened" />
+                    <TextView android:id="@+id/tvSumPawnBills" style="@style/MisRowCount" />
+                    <TextView android:id="@+id/tvSumPawnAmt"   style="@style/MisRowMoney" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/MisRow">
+                    <TextView style="@style/MisRowLabel" android:text="Closed" />
+                    <TextView android:id="@+id/tvSumRedeemBills" style="@style/MisRowCount" />
+                    <TextView android:id="@+id/tvSumRedeemAmt"   style="@style/MisRowMoney" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/MisRow">
+                    <TextView style="@style/MisRowLabel" android:text="Still out" />
+                    <TextView android:id="@+id/tvSumEarnedBills" style="@style/MisRowCount" />
+                    <TextView android:id="@+id/tvSumEarnedAmt"   style="@style/MisRowMoney" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/MisRow">
+                    <TextView style="@style/MisRowLabel" android:text="Interest earned" />
+                    <TextView style="@style/MisRowCount" />
+                    <TextView
+                        android:id="@+id/tvSumProfit"
+                        style="@style/MisRowMoney"
+                        android:textColor="@color/emerald" />
+                </LinearLayout>
+
+                <!-- Repledge -->
+                <TextView
+                    style="@style/Royal.Cap.Quiet"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="@dimen/sp_lg"
+                    android:paddingTop="@dimen/sp_md"
+                    android:text="REPLEDGE"
+                    android:textColor="@color/violet" />
+
+                <LinearLayout style="@style/MisRow">
+                    <TextView style="@style/MisRowLabel" android:text="Opened" />
+                    <TextView android:id="@+id/tvSumReplBills" style="@style/MisRowCount" />
+                    <TextView android:id="@+id/tvSumReplAmt"   style="@style/MisRowMoney" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/MisRow">
+                    <TextView style="@style/MisRowLabel" android:text="Closed" />
+                    <TextView android:id="@+id/tvSumReplRdmBills" style="@style/MisRowCount" />
+                    <TextView android:id="@+id/tvSumReplRdmAmt"   style="@style/MisRowMoney" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/MisRow">
+                    <TextView style="@style/MisRowLabel" android:text="Interest spent" />
+                    <TextView style="@style/MisRowCount" />
+                    <TextView
+                        android:id="@+id/tvSumReplIntr"
+                        style="@style/MisRowMoney"
+                        android:textColor="@color/ruby" />
+                </LinearLayout>
+
+                <!-- Stock -->
+                <TextView
+                    style="@style/Royal.Cap.Quiet"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="@dimen/sp_lg"
+                    android:paddingTop="@dimen/sp_md"
+                    android:text="STOCK STILL OUT" />
+
+                <LinearLayout style="@style/MisRow">
+                    <TextView style="@style/MisRowLabel" android:text="In the locker" />
+                    <TextView android:id="@+id/tvSumStockBills" style="@style/MisRowCount" />
+                    <TextView android:id="@+id/tvSumStockAmt"   style="@style/MisRowMoney" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/MisRow">
+                    <TextView style="@style/MisRowLabel" android:text="At the lender" />
+                    <TextView android:id="@+id/tvSumReplStockBills" style="@style/MisRowCount" />
+                    <TextView
+                        android:id="@+id/tvSumReplStockAmt"
+                        style="@style/MisRowMoney"
+                        android:textColor="@color/violet" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/MisRow">
+                    <TextView
+                        style="@style/MisRowLabel"
+                        android:text="Total stock"
+                        android:textColor="@color/wine"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvSumTotalStockBills"
+                        style="@style/MisRowCount"
+                        android:textColor="@color/wine"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvSumTotalStockAmt"
+                        style="@style/MisRowMoney"
+                        android:textColor="@color/wine" />
+                </LinearLayout>
+
+                <!-- Gross -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="@dimen/sp_md"
+                    android:background="@drawable/bg_result_good"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="12dp"
+                    android:paddingTop="9dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="9dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:letterSpacing="0.08"
+                        android:text="GROSS PROFIT"
+                        android:textColor="@color/emerald_ink"
+                        android:textSize="@dimen/t_fine"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvSumGross"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFeatureSettings="tnum"
+                        android:textColor="@color/emerald_ink"
+                        android:textSize="@dimen/t_figure"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- ── Which rows count ──────────────────────────────── -->
+            <LinearLayout
+                android:id="@+id/layoutControls"
+                style="@style/Royal.Card"
+                android:layout_marginTop="@dimen/sp_md"
+                android:padding="@dimen/sp_md"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnSelectAll"
+                        style="@style/Royal.Button.Quiet"
+                        android:layout_width="0dp"
+                        android:layout_height="38dp"
+                        android:layout_weight="1"
+                        android:text="Select all"
+                        android:textSize="12sp" />
+
+                    <Button
+                        android:id="@+id/btnDeselectAll"
+                        style="@style/Royal.Button.Quiet"
+                        android:layout_width="0dp"
+                        android:layout_height="38dp"
+                        android:layout_marginStart="9dp"
+                        android:layout_weight="1"
+                        android:text="Deselect all"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="9dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnAll"
+                        style="@style/Royal.Button.Quiet"
+                        android:layout_width="0dp"
+                        android:layout_height="38dp"
+                        android:layout_weight="1"
+                        android:text="All"
+                        android:textSize="12sp" />
+
+                    <Button
+                        android:id="@+id/btnSelected"
+                        style="@style/Royal.Button.Quiet"
+                        android:layout_width="0dp"
+                        android:layout_height="38dp"
+                        android:layout_marginStart="9dp"
+                        android:layout_weight="1"
+                        android:text="Selected"
+                        android:textSize="12sp" />
+
+                    <Button
+                        android:id="@+id/btnDeselected"
+                        style="@style/Royal.Button.Quiet"
+                        android:layout_width="0dp"
+                        android:layout_height="38dp"
+                        android:layout_marginStart="9dp"
+                        android:layout_weight="1"
+                        android:text="Deselected"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- ── Chart ─────────────────────────────────────────── -->
+            <LinearLayout
+                android:id="@+id/layoutChart"
+                style="@style/Royal.Card"
+                android:layout_marginTop="@dimen/sp_md"
+                android:padding="@dimen/sp_md"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tvChartTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/wine"
+                    android:textSize="@dimen/t_lead"
+                    android:textStyle="bold"
+                    style="@style/Royal.Font.Display" />
+
+                <com.github.mikephil.charting.charts.BarChart
+                    android:id="@+id/misBarChart"
+                    android:layout_width="match_parent"
+                    android:layout_height="260dp"
+                    android:layout_marginTop="@dimen/sp_sm"
+                    android:visibility="gone" />
+
+                <com.github.mikephil.charting.charts.LineChart
+                    android:id="@+id/misLineChart"
+                    android:layout_width="match_parent"
+                    android:layout_height="260dp"
+                    android:layout_marginTop="@dimen/sp_sm"
+                    android:visibility="gone" />
+
+                <com.github.mikephil.charting.charts.PieChart
+                    android:id="@+id/misPieChart"
+                    android:layout_width="match_parent"
+                    android:layout_height="260dp"
+                    android:layout_marginTop="@dimen/sp_sm"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <!-- ── The sixteen columns ───────────────────────────── -->
+            <HorizontalScrollView
+                android:id="@+id/layoutTableScroll"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="SUMMARY"
-                android:textColor="@color/gold"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:letterSpacing="0.1" />
+                android:layout_marginTop="@dimen/sp_md"
+                android:background="@drawable/bg_card"
+                android:scrollbars="horizontal">
 
-            <TextView
-                android:id="@+id/tvSummaryMonths"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/white54"
-                android:textSize="11sp" />
+                <TableLayout
+                    android:id="@+id/tableMonthly"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </HorizontalScrollView>
+
         </LinearLayout>
-
-        <!-- Row 1: Open -->
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="horizontal" android:layout_marginTop="4dp">
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="1" android:text="Open Bills"
-                android:textColor="@color/white54" android:textSize="12sp" />
-            <TextView android:id="@+id/tvSumPawnBills"
-                android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:textColor="#64B5F6" android:textSize="12sp" android:textStyle="bold" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="  |  " android:textColor="@color/white38" android:textSize="12sp" />
-            <TextView android:id="@+id/tvSumPawnAmt"
-                android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:textColor="@color/white" android:textSize="12sp" android:textStyle="bold" />
-        </LinearLayout>
-
-        <!-- Row 2: Close -->
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="horizontal" android:layout_marginTop="4dp">
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="1" android:text="Close Bills"
-                android:textColor="@color/white54" android:textSize="12sp" />
-            <TextView android:id="@+id/tvSumRedeemBills"
-                android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:textColor="#64B5F6" android:textSize="12sp" android:textStyle="bold" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="  |  " android:textColor="@color/white38" android:textSize="12sp" />
-            <TextView android:id="@+id/tvSumRedeemAmt"
-                android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:textColor="@color/white" android:textSize="12sp" android:textStyle="bold" />
-        </LinearLayout>
-
-        <!-- Row 3: Profit -->
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="horizontal" android:layout_marginTop="4dp">
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="1" android:text="Gross Profit"
-                android:textColor="@color/white54" android:textSize="12sp" />
-            <TextView android:id="@+id/tvSumProfit"
-                android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:textColor="#A5D6A7" android:textSize="13sp" android:textStyle="bold" />
-        </LinearLayout>
-
-        <!-- Row 4: Stock -->
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="horizontal" android:layout_marginTop="4dp">
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="1" android:text="Stock Bills"
-                android:textColor="@color/white54" android:textSize="12sp" />
-            <TextView android:id="@+id/tvSumStockBills"
-                android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:textColor="#64B5F6" android:textSize="12sp" android:textStyle="bold" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="  |  " android:textColor="@color/white38" android:textSize="12sp" />
-            <TextView android:id="@+id/tvSumStockAmt"
-                android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:textColor="@color/white" android:textSize="12sp" android:textStyle="bold" />
-        </LinearLayout>
-
-        <!-- Row 5: Earned -->
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="horizontal" android:layout_marginTop="4dp">
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="1" android:text="Bills Earned"
-                android:textColor="@color/white54" android:textSize="12sp" />
-            <TextView android:id="@+id/tvSumEarnedBills"
-                android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:textColor="#64B5F6" android:textSize="12sp" android:textStyle="bold" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="  |  " android:textColor="@color/white38" android:textSize="12sp" />
-            <TextView android:id="@+id/tvSumEarnedAmt"
-                android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:textColor="@color/white" android:textSize="12sp" android:textStyle="bold" />
-        </LinearLayout>
-
-    </LinearLayout>
-
-    <!-- Data table: horizontal + vertical scroll -->
-    <HorizontalScrollView
-        android:id="@+id/layoutTableScroll"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:scrollbars="horizontal">
-
-        <ScrollView
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:scrollbars="vertical">
-
-            <TableLayout
-                android:id="@+id/tableMonthly"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:padding="4dp" />
-
-        </ScrollView>
-    </HorizontalScrollView>
-
-    <include layout="@layout/view_bottom_nav" />
-
+    </ScrollView>
 </LinearLayout>

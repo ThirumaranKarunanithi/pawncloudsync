@@ -1,84 +1,80 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  The drill-down behind an Operations row. Its columns come from the
+  cloud and vary by type, so this table KEEPS its horizontal scroller -
+  unlike Today's Account, where the four columns are ours and fit.
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_dark"
+    android:background="@color/parchment"
     android:orientation="vertical">
 
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/bg_card"
-        android:theme="@style/ToolbarTheme"
-        app:titleTextColor="@color/gold" />
+    <include layout="@layout/view_band" />
 
-    <!-- Company + Date row -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/bg_card"
+        android:background="@color/surface"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:padding="10dp">
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="10dp"
+        android:paddingEnd="@dimen/page_pad"
+        android:paddingBottom="11dp">
 
         <TextView
             android:id="@+id/tvCompanyName"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:textColor="@color/white"
-            android:textSize="12sp"
+            android:textColor="@color/ink"
+            android:textSize="@dimen/t_body"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvDate"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@color/gold"
-            android:textSize="12sp"
+            android:layout_marginStart="@dimen/sp_sm"
+            android:fontFeatureSettings="tnum"
+            android:textColor="@color/gold_ink"
+            android:textSize="@dimen/t_small"
             android:textStyle="bold" />
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvCount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/parchment_strip"
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="@dimen/sp_sm"
+        android:paddingEnd="@dimen/page_pad"
+        android:paddingBottom="@dimen/sp_sm"
+        android:textColor="@color/ink_body"
+        android:textSize="@dimen/t_small"
+        android:visibility="gone" />
 
     <ProgressBar
         android:id="@+id/progressBar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:layout_marginTop="48dp"
-        android:indeterminateTint="@color/gold"
-        android:visibility="gone" />
-
-    <!-- Count badge -->
-    <TextView
-        android:id="@+id/tvCount"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="4dp"
-        android:textColor="@color/white54"
-        android:textSize="12sp"
+        android:layout_marginTop="32dp"
+        android:indeterminateTint="@color/wine"
         android:visibility="gone" />
 
     <HorizontalScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@color/surface"
         android:scrollbars="horizontal">
 
-        <ScrollView
+        <TableLayout
+            android:id="@+id/tableDetail"
             android:layout_width="wrap_content"
-            android:layout_height="match_parent">
-
-            <TableLayout
-                android:id="@+id/tableDetail"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:padding="8dp" />
-
-        </ScrollView>
+            android:layout_height="wrap_content" />
     </HorizontalScrollView>
-
 </LinearLayout>

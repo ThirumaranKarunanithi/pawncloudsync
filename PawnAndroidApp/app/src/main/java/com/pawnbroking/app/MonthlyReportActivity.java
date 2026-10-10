@@ -66,6 +66,14 @@ public class MonthlyReportActivity extends AppCompatActivity {
     private TextView tvSumProfit;
     private TextView tvSumStockBills, tvSumStockAmt;
     private TextView tvSumEarnedBills, tvSumEarnedAmt;
+    // The repledge leg and the locker/lender split: in MisRow all along,
+    // but the summary only ever showed five of the sixteen columns.
+    private TextView tvSumReplBills, tvSumReplAmt;
+    private TextView tvSumReplRdmBills, tvSumReplRdmAmt;
+    private TextView tvSumReplIntr;
+    private TextView tvSumReplStockBills, tvSumReplStockAmt;
+    private TextView tvSumTotalStockBills, tvSumTotalStockAmt;
+    private TextView tvSumGross;
     private View layoutControls, layoutSummary;
     private Button btnAll, btnSelected, btnDeselected;
     private Button btnSelectAll, btnDeselectAll;
@@ -180,6 +188,16 @@ public class MonthlyReportActivity extends AppCompatActivity {
         tvSumStockAmt   = findViewById(R.id.tvSumStockAmt);
         tvSumEarnedBills= findViewById(R.id.tvSumEarnedBills);
         tvSumEarnedAmt  = findViewById(R.id.tvSumEarnedAmt);
+        tvSumReplBills       = findViewById(R.id.tvSumReplBills);
+        tvSumReplAmt         = findViewById(R.id.tvSumReplAmt);
+        tvSumReplRdmBills    = findViewById(R.id.tvSumReplRdmBills);
+        tvSumReplRdmAmt      = findViewById(R.id.tvSumReplRdmAmt);
+        tvSumReplIntr        = findViewById(R.id.tvSumReplIntr);
+        tvSumReplStockBills  = findViewById(R.id.tvSumReplStockBills);
+        tvSumReplStockAmt    = findViewById(R.id.tvSumReplStockAmt);
+        tvSumTotalStockBills = findViewById(R.id.tvSumTotalStockBills);
+        tvSumTotalStockAmt   = findViewById(R.id.tvSumTotalStockAmt);
+        tvSumGross           = findViewById(R.id.tvSumGross);
 
         btnAll        = findViewById(R.id.btnAll);
         btnSelected   = findViewById(R.id.btnSelected);
@@ -328,6 +346,11 @@ public class MonthlyReportActivity extends AppCompatActivity {
         long pawnBills = 0, redeemBills = 0, earnedBills = 0;
         double pawnAmt = 0, redeemAmt = 0, interest = 0, earnedAmt = 0;
         long lastStockBills = 0; double lastStockAmt = 0;
+        long replBills = 0, replRdmBills = 0;
+        double replAmt = 0, replRdmAmt = 0, replIntr = 0;
+        // Stock is a position, not a flow, so it is carried not summed -
+        // same convention as the company stock above it.
+        long lastReplStockBills = 0; double lastReplStockAmt = 0;
 
         for (MisRow r : rows) {
             boolean include = "ALL".equals(mode)
@@ -342,6 +365,12 @@ public class MonthlyReportActivity extends AppCompatActivity {
                 earnedAmt   += (r.pawnAmt   - r.redeemAmt);
                 lastStockBills = r.stockBills;   // cumulative — last wins
                 lastStockAmt   = r.stockAmt;
+
+                replBills    += r.repledgeBills;       replAmt    += r.repledgeAmt;
+                replRdmBills += r.repledgeRedeemBills; replRdmAmt += r.repledgeRedeemAmt;
+                replIntr     += r.repledgeInterest;
+                lastReplStockBills = r.repledgeStockBills;
+                lastReplStockAmt   = r.repledgeStockAmt;
             }
         }
 
@@ -355,6 +384,23 @@ public class MonthlyReportActivity extends AppCompatActivity {
         tvSumStockAmt.setText("₹" + fmt.format(lastStockAmt));
         tvSumEarnedBills.setText(String.valueOf(earnedBills));
         tvSumEarnedAmt.setText("₹" + fmt.format(earnedAmt));
+
+        tvSumReplBills.setText(String.valueOf(replBills));
+        tvSumReplAmt.setText("₹" + fmt.format(replAmt));
+        tvSumReplRdmBills.setText(String.valueOf(replRdmBills));
+        tvSumReplRdmAmt.setText("₹" + fmt.format(replRdmAmt));
+        tvSumReplIntr.setText("₹" + fmt.format(replIntr));
+
+        tvSumReplStockBills.setText(String.valueOf(lastReplStockBills));
+        tvSumReplStockAmt.setText("₹" + fmt.format(lastReplStockAmt));
+        // Total stock = what is in the locker plus what is at the lender.
+        // A jewel is in one place or the other, never both.
+        tvSumTotalStockBills.setText(String.valueOf(lastStockBills + lastReplStockBills));
+        tvSumTotalStockAmt.setText("₹" + fmt.format(lastStockAmt + lastReplStockAmt));
+
+        // Gross is what the shop earned less what it paid the lender,
+        // which is how the desktop MIS reads it.
+        tvSumGross.setText("₹" + fmt.format(interest - replIntr));
     }
 
     // ── Builders ─────────────────────────────────────────────────────────────────

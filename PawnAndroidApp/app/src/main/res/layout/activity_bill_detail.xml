@@ -1,142 +1,232 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_dark"
+    android:background="@color/parchment"
     android:orientation="vertical">
 
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/bg_card"
-        android:theme="@style/ToolbarTheme"
-        app:menu="@menu/menu_detail"
-        app:titleTextColor="@color/gold" />
+    <include layout="@layout/view_band" />
 
     <ProgressBar
         android:id="@+id/progressBar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:layout_marginTop="64dp"
-        android:indeterminateTint="@color/gold"
+        android:layout_marginTop="32dp"
+        android:indeterminateTint="@color/wine"
         android:visibility="gone" />
 
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:fillViewport="true">
 
         <LinearLayout
             android:id="@+id/layoutContent"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp"
-            android:visibility="gone">
+            android:paddingStart="@dimen/page_pad"
+            android:paddingTop="@dimen/sp_lg"
+            android:paddingEnd="@dimen/page_pad"
+            android:paddingBottom="@dimen/sp_xl">
 
-            <!-- Header Card -->
+            <!-- The crest -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@drawable/bg_card"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:padding="20dp">
+                android:background="@drawable/bg_crest"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="@dimen/sp_lg"
+                android:paddingTop="15dp"
+                android:paddingEnd="@dimen/sp_lg"
+                android:paddingBottom="15dp">
 
                 <TextView
                     android:id="@+id/tvMaterialIcon"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="★"
-                    android:textSize="36sp" />
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
+                    android:background="@drawable/bg_emblem"
+                    android:gravity="center"
+                    android:textSize="24sp" />
 
-                <TextView
-                    android:id="@+id/tvBillNumber"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:textSize="22sp"
-                    android:textStyle="bold" />
+                    android:layout_marginStart="@dimen/sp_lg"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
 
-                <TextView
-                    android:id="@+id/tvCompanyName"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/white54"
-                    android:textSize="13sp" />
+                    <TextView
+                        android:id="@+id/tvBillNumber"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFeatureSettings="tnum"
+                        android:textColor="@color/on_wine"
+                        android:textSize="@dimen/t_hero"
+                        android:textStyle="bold"
+                        style="@style/Royal.Font.Display" />
+
+                    <TextView
+                        android:id="@+id/tvCompanyName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/on_wine_body"
+                        android:textSize="@dimen/t_small" />
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/tvStatus"
+                    style="@style/Royal.Pill.Closed"
+                    android:layout_width="wrap_content" />
+            </LinearLayout>
+
+            <!-- Customer -->
+            <LinearLayout
+                style="@style/Royal.Card"
+                android:layout_marginTop="@dimen/sp_lg">
+
+                <LinearLayout style="@style/Royal.CardHead">
+                    <TextView
+                        style="@style/Royal.Cap"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="CUSTOMER" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/sectionCustomer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="6dp" />
+            </LinearLayout>
+
+            <!-- Jewel -->
+            <LinearLayout
+                style="@style/Royal.Card"
+                android:layout_marginTop="@dimen/sp_md">
+
+                <LinearLayout style="@style/Royal.CardHead">
+                    <TextView
+                        style="@style/Royal.Cap"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="JEWEL" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/sectionJewel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="6dp" />
+            </LinearLayout>
+
+            <!-- Money -->
+            <LinearLayout
+                style="@style/Royal.Card"
+                android:layout_marginTop="@dimen/sp_md">
+
+                <LinearLayout style="@style/Royal.CardHead">
+                    <TextView
+                        style="@style/Royal.Cap"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="MONEY" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/sectionFinancial"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="6dp" />
+            </LinearLayout>
+
+            <!-- Dates -->
+            <LinearLayout
+                style="@style/Royal.Card"
+                android:layout_marginTop="@dimen/sp_md">
+
+                <LinearLayout style="@style/Royal.CardHead">
+                    <TextView
+                        style="@style/Royal.Cap"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="THE LIFE OF THIS BILL" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/sectionDates"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="6dp" />
+            </LinearLayout>
+
+            <!-- Settlement -->
+            <LinearLayout
+                style="@style/Royal.Card"
+                android:layout_marginTop="@dimen/sp_md"
+                android:background="@drawable/bg_row_income">
+
+                <LinearLayout style="@style/Royal.CardHead">
+                    <TextView
+                        style="@style/Royal.Cap"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="SETTLEMENT"
+                        android:textColor="@color/emerald_ink" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/sectionClosing"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="6dp" />
+            </LinearLayout>
+
+            <!-- Note. Only shown/hidden, never cleared, so tvNote lives
+                 inside it safely. -->
+            <LinearLayout
+                android:id="@+id/sectionNote"
+                style="@style/Royal.Card"
+                android:layout_marginTop="@dimen/sp_md"
+                android:background="@drawable/bg_row_gold"
+                android:visibility="gone">
+
+                <TextView
+                    style="@style/Royal.Cap"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:background="@drawable/chip_unselected"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:paddingTop="6dp"
-                    android:paddingBottom="6dp"
-                    android:textStyle="bold" />
+                    android:paddingStart="@dimen/sp_lg"
+                    android:paddingTop="@dimen/sp_md"
+                    android:paddingEnd="@dimen/sp_lg"
+                    android:text="NOTE" />
+
+                <TextView
+                    android:id="@+id/tvNote"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:lineSpacingMultiplier="1.2"
+                    android:paddingStart="@dimen/sp_lg"
+                    android:paddingTop="4dp"
+                    android:paddingEnd="@dimen/sp_lg"
+                    android:paddingBottom="@dimen/sp_lg"
+                    android:textColor="@color/ink_body"
+                    android:textSize="@dimen/t_body" />
             </LinearLayout>
 
-            <!-- Customer Section -->
-            <LinearLayout android:id="@+id/sectionCustomer"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="12dp" android:background="@drawable/bg_card"
-                android:orientation="vertical">
-                <TextView style="@style/SectionHeader" android:text="Customer Information" />
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#1AFFFFFF"/>
-            </LinearLayout>
-
-            <!-- Jewel Section -->
-            <LinearLayout android:id="@+id/sectionJewel"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="12dp" android:background="@drawable/bg_card"
-                android:orientation="vertical">
-                <TextView style="@style/SectionHeader" android:text="Jewel Details" />
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#1AFFFFFF"/>
-            </LinearLayout>
-
-            <!-- Financial Section -->
-            <LinearLayout android:id="@+id/sectionFinancial"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="12dp" android:background="@drawable/bg_card"
-                android:orientation="vertical">
-                <TextView style="@style/SectionHeader" android:text="Financial Details" />
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#1AFFFFFF"/>
-            </LinearLayout>
-
-            <!-- Dates Section -->
-            <LinearLayout android:id="@+id/sectionDates"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="12dp" android:background="@drawable/bg_card"
-                android:orientation="vertical">
-                <TextView style="@style/SectionHeader" android:text="Dates" />
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#1AFFFFFF"/>
-            </LinearLayout>
-
-            <!-- Closing Section -->
-            <LinearLayout android:id="@+id/sectionClosing"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="12dp" android:background="@drawable/bg_card"
-                android:orientation="vertical" android:visibility="gone">
-                <TextView style="@style/SectionHeader" android:text="Closing Details" />
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#1AFFFFFF"/>
-            </LinearLayout>
-
-            <!-- Note Section -->
-            <LinearLayout android:id="@+id/sectionNote"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="12dp" android:background="@drawable/bg_card"
-                android:orientation="vertical" android:visibility="gone">
-                <TextView style="@style/SectionHeader" android:text="Note" />
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#1AFFFFFF"/>
-                <TextView android:id="@+id/tvNote"
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:padding="16dp" android:textColor="@color/white54" android:textSize="13sp" />
-            </LinearLayout>
-
-            <View android:layout_width="1dp" android:layout_height="24dp" />
         </LinearLayout>
     </ScrollView>
 </LinearLayout>
