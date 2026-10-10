@@ -336,29 +336,47 @@ public class TodaysAccountActivity extends AppCompatActivity {
             row.setBackgroundResource(R.drawable.bg_table_row);
             row.setPadding(0, dp(2), 0, dp(2));
 
+            // Name, with Combo as a second line beneath it. Combo used to
+            // be a fifth cell 220dp wide inside a HorizontalScrollView,
+            // which pushed Credits off the right edge of every phone. The
+            // RB/NB split is worth reading, so it moved rather than went.
+            LinearLayout nameCell = new LinearLayout(this);
+            nameCell.setOrientation(LinearLayout.VERTICAL);
+            nameCell.setPadding(dp(12), dp(7), dp(6), dp(7));
+
             TextView tvName = new TextView(this);
             tvName.setText(name + (detailType != null ? " ›" : ""));
             // A row that opens a drill-down is wine, like a link; the two
             // that have no detail type (Liability, Asset) stay plain ink.
             tvName.setTextColor(detailType != null ? royal.wine : royal.ink);
-            tvName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+            tvName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
             tvName.setTypeface(null, android.graphics.Typeface.BOLD);
-            tvName.setPadding(dp(8), dp(6), dp(8), dp(6));
+            nameCell.addView(tvName);
+
+            if (combo != null && !combo.trim().isEmpty()) {
+                TextView tvCombo = new TextView(this);
+                tvCombo.setText(combo.trim());
+                tvCombo.setTextColor(royal.inkMute);
+                tvCombo.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+                nameCell.addView(tvCombo);
+            }
+
             TableRow.LayoutParams flexLp = new TableRow.LayoutParams(
                     TableRow.LayoutParams.WRAP_CONTENT,
                     TableRow.LayoutParams.WRAP_CONTENT);
             flexLp.column = 0;
-            tvName.setLayoutParams(flexLp);
-            row.addView(tvName);
+            nameCell.setLayoutParams(flexLp);
+            row.addView(nameCell);
 
             row.addView(makeCell(fmtNum(count),
-                    royal.inkSoft, dp(50), Gravity.CENTER));
+                    royal.inkSoft, dp(30), Gravity.END));
             row.addView(makeCell("₹" + fmtShort(debit),
-                    royal.money(debit, true), dp(80), Gravity.END));
-            row.addView(makeCell("₹" + fmtShort(credit),
-                    royal.money(credit, false), dp(80), Gravity.END));
-            row.addView(makeCell(combo,
-                    royal.inkMute, dp(220), Gravity.START));
+                    royal.money(debit, true), dp(70), Gravity.END));
+            TextView creditCell = makeCell("₹" + fmtShort(credit),
+                    royal.money(credit, false), dp(70), Gravity.END);
+            // Line the last column up with the header's 12dp gutter.
+            creditCell.setPadding(dp(6), dp(3), dp(12), dp(3));
+            row.addView(creditCell);
 
             if (detailType != null) {
                 final String finalName = name;
