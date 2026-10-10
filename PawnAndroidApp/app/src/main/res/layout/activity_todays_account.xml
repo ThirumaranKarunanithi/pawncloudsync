@@ -263,19 +263,19 @@
 
                     <TextView
                         style="@style/Royal.TableHead.Cell"
-                        android:layout_width="30dp"
+                        android:layout_width="36dp"
                         android:gravity="end"
                         android:text="NO." />
 
                     <TextView
                         style="@style/Royal.TableHead.Cell"
-                        android:layout_width="70dp"
+                        android:layout_width="88dp"
                         android:gravity="end"
                         android:text="DEBIT" />
 
                     <TextView
                         style="@style/Royal.TableHead.Cell"
-                        android:layout_width="70dp"
+                        android:layout_width="88dp"
                         android:gravity="end"
                         android:text="CREDIT" />
                 </LinearLayout>
@@ -295,10 +295,15 @@
                 <!-- Rows are added by the activity. It clears everything
                      below child 0, so the header above must stay first
                      and nothing permanent may follow inside here. -->
+                <!-- shrinkColumns as well as stretch: the Operation cell carries a long
+                     second line ("Amt ..., Intr ..., RB/NB ...") and stretch alone only ever
+                     GROWS a column, so that line was making column 0 wider than the phone and
+                     pushing No., Debit and Credit off the right edge. -->
                 <TableLayout
                     android:id="@+id/tableOperations"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:shrinkColumns="0"
                     android:stretchColumns="0">
 
                     <TableRow android:layout_height="0dp" />

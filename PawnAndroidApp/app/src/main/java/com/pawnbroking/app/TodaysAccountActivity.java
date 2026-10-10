@@ -55,10 +55,17 @@ public class TodaysAccountActivity extends AppCompatActivity {
     private String selectedDate;
     /** The L-marker date (last closed-account day) — drives Previous Day. */
     private String lastLDate;
-    /** Cached pre-day balance from the L row — used to derive Today's Balance
-     *  when the selected (L+1) date has no own row yet. */
+    /** What the shop carried INTO the selected day — the Previous Day card. */
     private double cachedPreActual, cachedPreAvailable, cachedPreDeficit;
+    /** Set when the selected day has a row of its own, i.e. it has been settled. */
+    private boolean daySettled;
+    /** A settled day's own stored closing figures. Shown as they stand, never re-derived. */
+    private double settledActual, settledAvailable, settledDeficit;
+    /** "CLOSED" when the settled row is the locked one (ref_mark L). */
+    private String dayStatus = "";
     private final NumberFormat fmt = NumberFormat.getNumberInstance(new Locale("en", "IN"));
+    /** The same Indian grouping without the paise, for the narrow columns of the grid. */
+    private final NumberFormat wholeRupees = NumberFormat.getIntegerInstance(new Locale("en", "IN"));
     private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
     private final SimpleDateFormat displaySdf = new SimpleDateFormat("dd MMM yyyy", Locale.getDefault());
 
@@ -180,6 +187,14 @@ public class TodaysAccountActivity extends AppCompatActivity {
     }
 
     private void showDatePicker() {
+        // Open on the day being looked at, not on the phone's today: most shops are running
+        // several days behind the calendar, and landing on today every time means scrolling back.
+        Calendar open = Calendar.getInstance();
+        try {
+            Date d = sdf.parse(selectedDate);
+            if (d != null) open.setTime(d);
+        } catch (Exception ignored) {}
+
         android.app.DatePickerDialog dialog = new android.app.DatePickerDialog(
             this, (view, year, month, day) -> {
                 Calendar c = Calendar.getInstance();
@@ -188,44 +203,76 @@ public class TodaysAccountActivity extends AppCompatActivity {
                 tvSelectedDate.setText(displaySdf.format(c.getTime()));
                 load();
             },
-            Calendar.getInstance().get(Calendar.YEAR),
-            Calendar.getInstance().get(Calendar.MONTH),
-            Calendar.getInstance().get(Calendar.DAY_OF_MONTH)
+            open.get(Calendar.YEAR),
+            open.get(Calendar.MONTH),
+            open.get(Calendar.DAY_OF_MONTH)
         );
         dialog.show();
     }
 
+    /**
+     * One day's figures, the way the desktop reads them.
+     *
+     * <p>A row of {@code company_todays_account} holds BOTH halves of a day: {@code pre_*} is what
+     * the shop carried in, {@code todays_*} is what it closed on. So the selected day's own row is
+     * asked for first, and it answers the whole screen by itself. Only a day that has no row - one
+     * nobody has settled yet - needs the day before it, and then its close is this day's opening.
+     *
+     * <p>This screen used to take the LAST CLOSED day's row every time and read the two halves out
+     * of it crosswise: the date off {@code pre_date} and the money off {@code todays_actual}. On a
+     * day that was already settled that put the day's own closing balance under the day before's
+     * date, and then added the day's trading to it a second time - the day counted twice. The
+     * desktop hit the same thing once and left a note about it in DrawerDay.
+     */
     private void load() {
         progressBar.setVisibility(View.VISIBLE);
         layoutContent.setVisibility(View.GONE);
 
-        // Two parallel fetches:
-        //   1. Previous Day card uses the L-marker row (selectedDate - 1 day,
-        //      i.e. the last closed account day). If no L row is known yet,
-        //      we fall back to the selected date itself.
-        //   2. Today's card + operations + Pf bar all key off selectedDate.
-        final String preDate = lastLDate != null ? lastLDate : prevDay(selectedDate);
-        ApiService.getTodaysAccount(companyId, preDate, new ApiService.Callback<JSONObject>() {
+        ApiService.getTodaysAccount(companyId, selectedDate, new ApiService.Callback<JSONObject>() {
+            @Override public void onSuccess(JSONObject row) {
+                // accountStatus is only put there when a row was actually found.
+                if (row.has("accountStatus")) {
+                    runOnUiThread(() -> {
+                        showContent();
+                        bindSettledDay(row);
+                        loadOperations();
+                    });
+                } else {
+                    loadDayNotSettled();
+                }
+            }
+            @Override public void onError(String message) {
+                android.util.Log.w("TodaysAcct", "day row load failed: " + message);
+                loadDayNotSettled();
+            }
+        });
+    }
+
+    /** No row for the selected day, so its opening is the close of the day before it. */
+    private void loadDayNotSettled() {
+        final String before = prevDay(selectedDate);
+        ApiService.getTodaysAccount(companyId, before, new ApiService.Callback<JSONObject>() {
             @Override public void onSuccess(JSONObject preRow) {
                 runOnUiThread(() -> {
-                    progressBar.setVisibility(View.GONE);
-                    layoutContent.setVisibility(View.VISIBLE);
-                    bindPrevious(preRow);
-                    // After the pre-row populates cached balances, ops load
-                    // computes Today's Balance = pre + credits - debits.
+                    showContent();
+                    bindOpeningFromDayBefore(before, preRow);
                     loadOperations();
                 });
             }
             @Override public void onError(String message) {
                 runOnUiThread(() -> {
-                    progressBar.setVisibility(View.GONE);
-                    layoutContent.setVisibility(View.VISIBLE);
+                    showContent();
                     android.util.Log.w("TodaysAcct", "pre-row load failed: " + message);
-                    bindPrevious(new JSONObject()); // zero out, still load ops
+                    bindOpeningFromDayBefore(before, new JSONObject());
                     loadOperations();
                 });
             }
         });
+    }
+
+    private void showContent() {
+        progressBar.setVisibility(View.GONE);
+        layoutContent.setVisibility(View.VISIBLE);
     }
 
     /** Returns date - 1 day in ISO yyyy-MM-dd form. */
@@ -260,21 +307,30 @@ public class TodaysAccountActivity extends AppCompatActivity {
                         tvSilverPf.setText("₹ " + fmt.format(silverPf));
                         tvTotalPf.setText ("₹ " + fmt.format(totalPf));
 
-                        // Desktop derivation: today's actual = pre actual +
-                        // credits − debits. Same for available; deficit
-                        // carries forward unless the user clears it.
-                        double actual    = cachedPreActual    + tc - td;
-                        double available = cachedPreAvailable + tc - td;
-                        double deficit   = cachedPreDeficit;
+                        double actual, available, deficit;
+                        if (daySettled) {
+                            // The day has been settled: show what it was settled ON, which is the
+                            // figure the counter signed off and the one the next day opens from.
+                            // Working it out again from the opening plus the day's trading would
+                            // add that trading to a total that already contains it.
+                            actual    = settledActual;
+                            available = settledAvailable;
+                            deficit   = settledDeficit;
+                        } else {
+                            // Nothing settled yet, so the books say: what came in, plus the day.
+                            actual    = cachedPreActual    + tc - td;
+                            available = cachedPreAvailable + tc - td;
+                            deficit   = cachedPreDeficit;
+                        }
                         tvActualBalance.setText    ("₹ " + fmt.format(actual));
                         tvAvailableBalance.setText ("₹ " + fmt.format(available));
                         tvDeficit.setText          ("₹ " + fmt.format(deficit));
                         tvDeficit.setTextColor(deficit == 0 ? royal.emerald : royal.ruby);
 
-                        // No L row yet for the selected (L+1) date → OPEN.
+                        boolean closed = "CLOSED".equalsIgnoreCase(dayStatus);
                         layoutStatus.setVisibility(View.VISIBLE);
-                        tvAccountStatus.setText("OPEN");
-                        tvAccountStatus.setTextColor(royal.amber);
+                        tvAccountStatus.setText(closed ? "CLOSED" : "OPEN");
+                        tvAccountStatus.setTextColor(closed ? royal.emerald : royal.amber);
                     });
                 }
                 @Override public void onError(String message) {
@@ -285,33 +341,52 @@ public class TodaysAccountActivity extends AppCompatActivity {
     }
 
     /**
-     * Renders only the Previous Day card from the L-marker row. Today's
-     * Balance + Pf strip are filled in by {@link #loadOperations()} because
-     * they need the operations totals to derive correctly.
+     * The selected day's own row. Its {@code pre_*} half IS the Previous Day card - date and money
+     * from the same half of the same row, which is the thing that was going wrong - and its
+     * {@code todays_*} half is what the day was settled on, held for {@link #loadOperations()}.
      */
-    private void bindPrevious(JSONObject data) {
-        String preDate = data.optString("preDate", lastLDate == null ? "" : lastLDate);
-        // For the L-marker row, the "todays_*" fields are actually the
-        // closing balances of that day — which become the OPENING balances
-        // for the next (selected) day's Previous Day card.
-        double preActual    = data.optDouble("actualBalance",    0);
-        double preAvailable = data.optDouble("availableBalance", 0);
-        double preDeficit   = data.optDouble("deficit",          0);
-        // Cache so the ops callback can derive today's balance from these.
-        cachedPreActual    = preActual;
-        cachedPreAvailable = preAvailable;
-        cachedPreDeficit   = preDeficit;
+    private void bindSettledDay(JSONObject row) {
+        daySettled       = true;
+        dayStatus        = row.optString("accountStatus", "");
+        settledActual    = row.optDouble("actualBalance",    0);
+        settledAvailable = row.optDouble("availableBalance", 0);
+        settledDeficit   = row.optDouble("deficit",          0);
 
-        // If preDate is empty, fall back to the row's own todays_date.
-        if (preDate.isEmpty()) preDate = data.optString("date", "");
-        tvPreDate.setText(preDate.isEmpty() ? "—" : preDate);
-        tvPreActual.setText("₹ " + fmt.format(preActual));
-        tvPreAvailable.setText("₹ " + fmt.format(preAvailable));
-        tvPreDeficit.setText("₹ " + fmt.format(preDeficit));
-        tvPreDeficit.setTextColor(preDeficit == 0 ? royal.emerald : royal.ruby);
-        String preNote = data.optString("todaysNote", "");
-        tvPreNote.setText(preNote.isEmpty() ? "" : preNote);
-        tvPreNote.setVisibility(preNote.isEmpty() ? View.GONE : View.VISIBLE);
+        cachedPreActual    = row.optDouble("preActualBalance",    0);
+        cachedPreAvailable = row.optDouble("preAvailableBalance", 0);
+        cachedPreDeficit   = row.optDouble("preDeficit",          0);
+        paintPreviousDay(row.optString("preDate", ""), row.optString("preNote", ""));
+
+        String note = row.optString("todaysNote", "");
+        tvTodaysNote.setText(note);
+        tvTodaysNote.setVisibility(note.isEmpty() ? View.GONE : View.VISIBLE);
+    }
+
+    /**
+     * The day has not been settled, so what it carried in is what the day BEFORE it closed on -
+     * that row's {@code todays_*} half, under that day's own date.
+     */
+    private void bindOpeningFromDayBefore(String theDayBefore, JSONObject row) {
+        daySettled = false;
+        dayStatus  = "";
+        cachedPreActual    = row.optDouble("actualBalance",    0);
+        cachedPreAvailable = row.optDouble("availableBalance", 0);
+        cachedPreDeficit   = row.optDouble("deficit",          0);
+        paintPreviousDay(theDayBefore, row.optString("todaysNote", ""));
+
+        tvTodaysNote.setText("");
+        tvTodaysNote.setVisibility(View.GONE);
+    }
+
+    /** Draws the Previous Day card from whatever the two binders put in the cached figures. */
+    private void paintPreviousDay(String date, String note) {
+        tvPreDate.setText(date == null || date.isEmpty() ? "—" : date);
+        tvPreActual.setText("₹ " + fmt.format(cachedPreActual));
+        tvPreAvailable.setText("₹ " + fmt.format(cachedPreAvailable));
+        tvPreDeficit.setText("₹ " + fmt.format(cachedPreDeficit));
+        tvPreDeficit.setTextColor(cachedPreDeficit == 0 ? royal.emerald : royal.ruby);
+        tvPreNote.setText(note == null ? "" : note);
+        tvPreNote.setVisibility(note == null || note.isEmpty() ? View.GONE : View.VISIBLE);
     }
 
     private void buildOperationsTable(JSONArray ops) {
@@ -353,7 +428,7 @@ public class TodaysAccountActivity extends AppCompatActivity {
             // A row that opens a drill-down is wine, like a link; the two
             // that have no detail type (Liability, Asset) stay plain ink.
             tvName.setTextColor(detailType != null ? royal.wineInk : royal.ink);
-            tvName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            tvName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
             tvName.setTypeface(null, android.graphics.Typeface.BOLD);
             nameCell.addView(tvName);
 
@@ -361,23 +436,25 @@ public class TodaysAccountActivity extends AppCompatActivity {
                 TextView tvCombo = new TextView(this);
                 tvCombo.setText(combo.trim());
                 tvCombo.setTextColor(royal.inkMute);
-                tvCombo.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+                tvCombo.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
                 nameCell.addView(tvCombo);
             }
 
+            // Width 0 with a weight: the name takes what is LEFT after the three number
+            // columns have had theirs. Given WRAP_CONTENT it took as much as its long second
+            // line wanted and the numbers went off the edge of the phone.
             TableRow.LayoutParams flexLp = new TableRow.LayoutParams(
-                    TableRow.LayoutParams.WRAP_CONTENT,
-                    TableRow.LayoutParams.WRAP_CONTENT);
+                    0, TableRow.LayoutParams.WRAP_CONTENT, 1f);
             flexLp.column = 0;
             nameCell.setLayoutParams(flexLp);
             row.addView(nameCell);
 
             row.addView(makeCell(fmtNum(count),
-                    royal.inkSoft, dp(30), Gravity.END));
+                    royal.inkSoft, dp(36), Gravity.END));
             row.addView(makeCell("₹" + fmtShort(debit),
-                    royal.money(debit, true), dp(70), Gravity.END));
+                    royal.money(debit, true), dp(88), Gravity.END));
             TextView creditCell = makeCell("₹" + fmtShort(credit),
-                    royal.money(credit, false), dp(70), Gravity.END);
+                    royal.money(credit, false), dp(88), Gravity.END);
             // Line the last column up with the header's 12dp gutter.
             creditCell.setPadding(dp(6), dp(3), dp(12), dp(3));
             row.addView(creditCell);
@@ -411,7 +488,7 @@ public class TodaysAccountActivity extends AppCompatActivity {
         TextView tv = new TextView(this);
         tv.setText(text);
         tv.setTextColor(color);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         tv.setGravity(gravity);
         tv.setPadding(dp(6), dp(3), dp(6), dp(3));
         TableRow.LayoutParams lp = new TableRow.LayoutParams(
@@ -420,8 +497,13 @@ public class TodaysAccountActivity extends AppCompatActivity {
         return tv;
     }
 
+    /**
+     * Whole rupees for the grid. The paise on a figure like 2,69,000.00 cost four characters
+     * that a phone's width does not have, and this shop's money never has any: the TOTAL and
+     * the balance cards below still carry them, where there is room.
+     */
     private String fmtShort(double v) {
-        return fmt.format(v);
+        return wholeRupees.format(Math.round(v));
     }
 
     private int dp(int val) {

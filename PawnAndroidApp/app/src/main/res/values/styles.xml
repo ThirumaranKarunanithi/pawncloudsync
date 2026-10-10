@@ -136,7 +136,9 @@
     <style name="Royal.TableHead.Cell" parent="Royal.Font.Body">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:textSize">@dimen/t_cap</item>
+        <!-- 11sp, not t_cap's 10: these headings sit over the figures the counter reads
+             across a room, and the figures under them went up to 13. -->
+        <item name="android:textSize">11sp</item>
         <item name="android:textStyle">bold</item>
         <item name="android:letterSpacing">0.10</item>
         <item name="android:textColor">@color/on_wine_title</item>
