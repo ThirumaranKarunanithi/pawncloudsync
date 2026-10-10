@@ -119,11 +119,21 @@ public class BillsActivity extends AppCompatActivity {
                     runOnUiThread(() -> {
                         progressBar.setVisibility(View.GONE);
                         total = result.total;
+                        int added = result.bills.size();
                         bills.addAll(result.bills);
                         adapter.notifyDataSetChanged();
-                        tvTotal.setText(total + " bills found");
+                        // Say both numbers. "20 bills found" on a shop with
+                        // a thousand was the page size wearing a total's
+                        // clothes, and it hid that the list was truncated.
+                        tvTotal.setText(bills.size() >= total
+                                ? total + (total == 1 ? " bill" : " bills")
+                                : "showing " + bills.size() + " of " + total);
                         tvEmpty.setVisibility(bills.isEmpty() ? View.VISIBLE : View.GONE);
-                        btnLoadMore.setVisibility(bills.size() < total ? View.VISIBLE : View.GONE);
+                        // Only offer more when the last page actually
+                        // brought some: past the cloud's window it cannot,
+                        // and a button that does nothing is worse than none.
+                        btnLoadMore.setVisibility(added > 0 && bills.size() < total
+                                ? View.VISIBLE : View.GONE);
                     });
                 }
                 @Override public void onError(String message) {
