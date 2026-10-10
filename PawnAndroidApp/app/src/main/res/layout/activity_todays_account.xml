@@ -85,9 +85,12 @@
                 android:orientation="horizontal"
                 android:visibility="gone">
 
+                <!-- Parchment fill, because the activity sets this text to
+                     amber (OPEN) or emerald itself. An amber pill would
+                     have put amber on amber. -->
                 <TextView
                     android:id="@+id/tvAccountStatus"
-                    style="@style/Royal.Pill.Due"
+                    style="@style/Royal.Pill.Closed"
                     android:layout_width="wrap_content"
                     android:paddingTop="7dp"
                     android:paddingBottom="7dp" />

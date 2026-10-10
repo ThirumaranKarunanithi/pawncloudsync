@@ -35,7 +35,11 @@ public class TodaysAccountActivity extends AppCompatActivity {
 
     private Royal royal;
     private ProgressBar progressBar;
-    private LinearLayout layoutContent;
+    // A View, not a LinearLayout: the id sits on the ScrollView that wraps
+    // the page, and it is only ever shown or hidden. Typing it to the
+    // concrete class made findViewById throw ClassCastException the moment
+    // the layout wrapped it in a scroller, which closed the app on open.
+    private View layoutContent;
     private TextView tvCompanyName, tvSelectedDate;
     private TableLayout tableOperations;
 
