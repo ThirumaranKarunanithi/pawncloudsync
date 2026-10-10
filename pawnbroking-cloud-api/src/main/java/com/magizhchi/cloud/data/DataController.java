@@ -2,14 +2,22 @@ package com.magizhchi.cloud.data;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.magizhchi.cloud.owed.OwedToday;
 import com.magizhchi.cloud.tenant.TenantContext;
 import com.magizhchi.cloud.tenant.TenantJdbc;
 import org.postgresql.util.PGobject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 import java.util.List;
 import java.util.Map;
@@ -62,7 +70,8 @@ public class DataController {
                                           @RequestParam(name="amountFrom", required=false) Double amountFrom,
                                           @RequestParam(name="amountTo",   required=false) Double amountTo,
                                           @RequestParam(name="refMark",    required=false) String refMark,
-                                          @RequestParam(name="todaysDate", required=false) String todaysDate) {
+                                          @RequestParam(name="todaysDate", required=false) String todaysDate,
+                                          @RequestParam(name="owed",       required=false) String owed) {
         if (!table.matches("[a-z_]+")) throw new IllegalArgumentException("bad table");
         int cap = Math.min(Math.max(limit, 1), 500);
         String orderField = null;
@@ -90,7 +99,9 @@ public class DataController {
             String sql = "SELECT row_pk, payload, last_updated_at FROM projections" +
                          wb.where + " ORDER BY " + order + " LIMIT ?";
             List<Map<String,Object>> rows = j.queryForList(sql, wb.args.toArray());
-            return rehydrate(rows);
+            rehydrate(rows);
+            if (wantsOwed(owed, table)) addOwed(j, rows);
+            return rows;
         });
     }
 
@@ -111,7 +122,8 @@ public class DataController {
                                        @RequestParam(name="dateTo",    required=false) String dateTo,
                                        @RequestParam(name="customerName", required=false) String customerName,
                                        @RequestParam(name="amountFrom", required=false) Double amountFrom,
-                                       @RequestParam(name="amountTo",   required=false) Double amountTo) {
+                                       @RequestParam(name="amountTo",   required=false) Double amountTo,
+                                       @RequestParam(name="owed",       required=false) String owed) {
         if (!table.matches("[a-z_]+")) throw new IllegalArgumentException("bad table");
         WhereBuild wb = buildWhere(table, q, companyId, material, status,
                                    statuses, repledged,
@@ -124,8 +136,103 @@ public class DataController {
                 "       COALESCE(sum(CASE WHEN payload->>'interest' ~ '^-?[0-9]+(\\.[0-9]+)?$' " +
                 "                         THEN (payload->>'interest')::numeric ELSE 0 END), 0) AS \"totalInterest\" " +
                 "  FROM projections " + wb.where;
-            return j.queryForMap(sql, wb.args.toArray());
+            Map<String,Object> out = new LinkedHashMap<>(j.queryForMap(sql, wb.args.toArray()));
+            if (wantsOwed(owed, table)) {
+                List<Map<String,Object>> rows = j.queryForList(
+                        "SELECT payload FROM projections " + wb.where, wb.args.toArray());
+                rehydrate(rows);
+                double[] sums = addOwed(j, rows);
+                out.put("totalInterestOwed", sums[0]);
+                out.put("totalOwed",         sums[1]);
+                out.put("owedCounted",       (long) sums[2]);
+            }
+            return out;
         });
+    }
+
+    // ── what a bill would cost to close today ────────────────────────────────
+
+    private static boolean wantsOwed(String owed, String table) {
+        return "true".equalsIgnoreCase(owed) && "company_billing".equals(table);
+    }
+
+    /**
+     * Adds {@code interest_owed} and {@code to_get} to every open bill in
+     * the list, by the desktop's own Bill Closing arithmetic.
+     *
+     * <p>Rows it cannot answer for are left alone rather than given a
+     * zero: a missing figure reads as missing, a zero reads as "nothing
+     * owed". {@link OwedToday} returns null when the shop's settings
+     * have not reached the cloud, when the formula is not arithmetic it
+     * can evaluate, or when the company prices per customer.
+     *
+     * @return {interest owed, to get, rows answered}
+     */
+    private static double[] addOwed(JdbcTemplate j, List<Map<String,Object>> rows) {
+        // The shop is in India and this server is not. LocalDate.now()
+        // would be yesterday for five and a half hours every night, and
+        // a day's interest with it.
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+        OwedToday.Cache calcs = new OwedToday.Cache();
+        Map<String,Double> advances = advancesByBill(j);
+
+        double interest = 0, toGet = 0; long answered = 0;
+        for (Map<String,Object> row : rows) {
+            if (!(row.get("payload") instanceof ObjectNode o)) continue;
+            String status = str(o, "status");
+            if (!"OPENED".equalsIgnoreCase(status) && !"LOCKED".equalsIgnoreCase(status)) continue;
+
+            String company  = str(o, "company_id");
+            String material = str(o, "jewel_material_type");
+            LocalDate opened = day(str(o, "opening_date"));
+            if (company == null || material == null || opened == null) continue;
+
+            double advance = advances.getOrDefault(
+                    material + "|" + str(o, "bill_number"), 0.0);
+
+            OwedToday.Owed owed = calcs.get(j, company, today)
+                    .of(material, opened, dec(o, "amount"), dec(o, "interest"),
+                        dec(o, "document_charge"), advance);
+            if (owed == null) continue;
+
+            o.put("interest_owed", owed.interest);
+            o.put("to_get",        owed.toGet);
+            interest += owed.interest;
+            toGet    += owed.toGet;
+            answered++;
+        }
+        return new double[] { interest, toGet, answered };
+    }
+
+    /** Advance already paid, per material|bill. */
+    private static Map<String,Double> advancesByBill(JdbcTemplate j) {
+        Map<String,Double> out = new HashMap<>();
+        List<Map<String,Object>> rows = j.queryForList(
+                "SELECT payload FROM projections WHERE table_name = 'company_advance_amount' AND NOT deleted");
+        rehydrate(rows);
+        for (Map<String,Object> r : rows) {
+            if (!(r.get("payload") instanceof JsonNode o)) continue;
+            String key = str(o, "jewel_material_type") + "|" + str(o, "bill_number");
+            out.merge(key, dec(o, "paid_amount"), Double::sum);
+        }
+        return out;
+    }
+
+    private static String str(JsonNode n, String field) {
+        JsonNode v = n.get(field);
+        return v == null || v.isNull() ? null : v.asText();
+    }
+
+    private static double dec(JsonNode n, String field) {
+        JsonNode v = n.get(field);
+        if (v == null || v.isNull()) return 0;
+        try { return Double.parseDouble(v.asText()); } catch (NumberFormatException e) { return 0; }
+    }
+
+    private static LocalDate day(String s) {
+        if (s == null || s.isBlank()) return null;
+        try { return LocalDate.parse(s.length() > 10 ? s.substring(0, 10) : s); }
+        catch (Exception e) { return null; }
     }
 
     // ── shared WHERE builder ─────────────────────────────────────────────────

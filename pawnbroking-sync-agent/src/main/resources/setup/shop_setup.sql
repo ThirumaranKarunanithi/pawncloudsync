@@ -1208,7 +1208,14 @@ DECLARE
         'repledge_bill_debit','repledge_other_debit',
         'employee_advance_amount_credit','employee_other_amount_credit',
         'company_bill_credit','company_other_credit',
-        'repledge_bill_credit','repledge_other_credit'];
+        'repledge_bill_credit','repledge_other_credit',
+        -- The settings Bill Closing prices a bill with. Without these
+        -- four the cloud can show what a bill was lent against but not
+        -- what it would cost to close today: the close formula, the
+        -- month reduction and minimum, the fraction a few leftover days
+        -- count as, and the fine slabs. They are a few dozen rows each.
+        'company_formula','company_reduce_months_or_days',
+        'company_month_setting','fine_charges'];
 BEGIN
     -- Told to leave the history alone this run.
     IF '${HISTORY_MODE}' = 'skip' THEN
