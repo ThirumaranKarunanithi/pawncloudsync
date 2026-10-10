@@ -21,6 +21,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.pawnbroking.app.services.ApiService;
+import com.pawnbroking.app.util.StatusPill;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -299,6 +300,7 @@ public class EmployeeActivityActivity extends AppCompatActivity {
             h.who.setText(name.isEmpty() ? user : name);
             h.when.setText(clock(text(r, "happened_at")));
             h.action.setText(text(r, "action"));
+            StatusPill.paintAction(h.action, text(r, "action"));
             h.screen.setText(text(r, "screen"));
             h.bill.setText(billNumber);
             h.bill.setVisibility(billNumber.isEmpty() ? View.GONE : View.VISIBLE);

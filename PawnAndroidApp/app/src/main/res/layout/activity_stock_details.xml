@@ -1,28 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_dark"
+    android:background="@color/parchment"
     android:orientation="vertical">
 
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/bg_card"
-        android:theme="@style/ToolbarTheme"
-        app:titleTextColor="@color/gold" />
+    <include layout="@layout/view_band" />
 
-    <!-- ═══ Filter Card ═══════════════════════════════════════════════════════ -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/bg_card"
+        android:background="@color/surface"
         android:orientation="vertical"
-        android:padding="10dp">
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="10dp"
+        android:paddingEnd="@dimen/page_pad"
+        android:paddingBottom="@dimen/sp_md">
 
-        <!-- Row 1: Company name + Filters toggle -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -34,322 +28,356 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textColor="@color/white"
-                android:textSize="12sp"
+                android:textColor="@color/ink"
+                android:textSize="@dimen/t_body"
                 android:textStyle="bold" />
 
             <Button
                 android:id="@+id/btnToggleFilters"
+                style="@style/Royal.Button.Outline"
                 android:layout_width="wrap_content"
-                android:layout_height="30dp"
-                android:backgroundTint="@color/gold"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:text="Filters ▼"
-                android:textColor="#0D1B2A"
-                android:textSize="10sp"
-                android:textStyle="bold" />
+                android:layout_height="38dp"
+                android:paddingStart="@dimen/sp_lg"
+                android:paddingEnd="@dimen/sp_lg"
+                android:text="Filters"
+                android:textSize="12sp" />
         </LinearLayout>
 
-        <!-- ── Tabs ALWAYS visible (Company | Repledge | All Details) ─────────── -->
+        <!-- Company / Repledge / All. These are Buttons on purpose: the
+             activity tints them, and a plain shape tints predictably
+             where a ripple does not. -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal">
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_seg_track"
+            android:orientation="horizontal"
+            android:padding="3dp">
 
             <Button
                 android:id="@+id/btnModeCompany"
                 android:layout_width="0dp"
-                android:layout_height="32dp"
+                android:layout_height="38dp"
                 android:layout_weight="1"
-                android:backgroundTint="#1E2A4A"
-                android:text="Company"
-                android:textColor="#AAAAAA"
-                android:textSize="10sp" />
+                android:background="@drawable/bg_seg_active"
+                android:letterSpacing="0.06"
+                android:stateListAnimator="@null"
+                android:text="COMPANY"
+                android:textSize="12sp"
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/btnModeRepledge"
                 android:layout_width="0dp"
-                android:layout_height="32dp"
+                android:layout_height="38dp"
+                android:layout_marginStart="3dp"
                 android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:backgroundTint="#1E2A4A"
-                android:text="Repledge"
-                android:textColor="#AAAAAA"
-                android:textSize="10sp" />
+                android:background="@drawable/bg_seg_active"
+                android:letterSpacing="0.06"
+                android:stateListAnimator="@null"
+                android:text="REPLEDGE"
+                android:textSize="12sp"
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/btnModeAll"
                 android:layout_width="0dp"
-                android:layout_height="32dp"
+                android:layout_height="38dp"
+                android:layout_marginStart="3dp"
                 android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:backgroundTint="@color/gold"
-                android:text="All Details"
-                android:textColor="#0D1B2A"
-                android:textSize="10sp"
+                android:background="@drawable/bg_seg_active"
+                android:letterSpacing="0.06"
+                android:stateListAnimator="@null"
+                android:text="ALL"
+                android:textSize="12sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- ── Collapsible filter panel (cap height so it can't push bills off-screen) ─ -->
-        <androidx.core.widget.NestedScrollView
+        <LinearLayout
+            style="@style/Royal.FieldBox"
+            android:layout_height="44dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_input_sunken">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_search"
+                android:tint="@color/ink_mute" />
+
+            <EditText
+                android:id="@+id/etSearch"
+                style="@style/Royal.Field"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:hint="Bill, customer or area"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:textSize="@dimen/t_body" />
+        </LinearLayout>
+
+        <!-- Collapsible filter builder -->
+        <LinearLayout
             android:id="@+id/layoutFilterContent"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:maxHeight="280dp"
-            android:fillViewport="false"
+            android:orientation="vertical"
             android:visibility="gone">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <!-- Material type (hidden for Repledge mode) -->
             <LinearLayout
                 android:id="@+id/layoutMaterial"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="10dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <TextView
+                    style="@style/Royal.Cap.Quiet"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Material:"
-                    android:textColor="@color/white54"
-                    android:textSize="12sp" />
+                    android:text="METAL" />
 
                 <Spinner
                     android:id="@+id/spinnerMaterial"
-                    android:layout_width="130dp"
-                    android:layout_height="34dp"
-                    android:layout_marginStart="8dp"
-                    android:background="@drawable/bg_card"
-                    android:popupBackground="@color/bg_card" />
+                    android:layout_width="0dp"
+                    android:layout_height="42dp"
+                    android:layout_marginStart="@dimen/sp_md"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_input_sunken"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="6dp"
+                    android:popupBackground="@color/surface" />
             </LinearLayout>
 
-            <!-- Divider -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="8dp"
-                android:background="@color/card_border" />
-
-            <!-- Filter type spinner + Add button -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="9dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <Spinner
                     android:id="@+id/spinnerFilterType"
                     android:layout_width="0dp"
-                    android:layout_height="36dp"
+                    android:layout_height="42dp"
                     android:layout_weight="1"
-                    android:background="@drawable/bg_card"
-                    android:popupBackground="@color/bg_card" />
+                    android:background="@drawable/bg_input_sunken"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="6dp"
+                    android:popupBackground="@color/surface" />
 
                 <Button
                     android:id="@+id/btnAddFilter"
+                    style="@style/Royal.Button"
                     android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:layout_marginStart="6dp"
-                    android:backgroundTint="@color/gold"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"
-                    android:text="+ Add"
-                    android:textColor="#0D1B2A"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
+                    android:layout_height="42dp"
+                    android:layout_marginStart="9dp"
+                    android:paddingStart="@dimen/sp_xl"
+                    android:paddingEnd="@dimen/sp_xl"
+                    android:text="ADD"
+                    android:textSize="12sp" />
             </LinearLayout>
 
-            <!-- Date range input (shown for date filter types) -->
             <LinearLayout
                 android:id="@+id/layoutDateInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="9dp"
                 android:orientation="horizontal"
                 android:visibility="gone">
 
                 <EditText
                     android:id="@+id/etDateFrom"
+                    style="@style/Royal.Field"
                     android:layout_width="0dp"
-                    android:layout_height="36dp"
+                    android:layout_height="42dp"
                     android:layout_weight="1"
-                    android:background="@drawable/bg_input"
-                    android:focusable="false"
-                    android:hint="From (yyyy-MM-dd)"
-                    android:inputType="none"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:textColor="@color/white"
-                    android:textColorHint="@color/white54"
-                    android:textSize="11sp" />
+                    android:background="@drawable/bg_input_sunken"
+                    android:hint="From yyyy-MM-dd"
+                    android:inputType="date"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:textSize="@dimen/t_body" />
 
                 <EditText
                     android:id="@+id/etDateTo"
+                    style="@style/Royal.Field"
                     android:layout_width="0dp"
-                    android:layout_height="36dp"
+                    android:layout_height="42dp"
+                    android:layout_marginStart="9dp"
                     android:layout_weight="1"
-                    android:layout_marginStart="4dp"
-                    android:background="@drawable/bg_input"
-                    android:focusable="false"
-                    android:hint="To (yyyy-MM-dd)"
-                    android:inputType="none"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:textColor="@color/white"
-                    android:textColorHint="@color/white54"
-                    android:textSize="11sp" />
+                    android:background="@drawable/bg_input_sunken"
+                    android:hint="To yyyy-MM-dd"
+                    android:inputType="date"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:textSize="@dimen/t_body" />
             </LinearLayout>
 
-            <!-- Amount range input -->
             <LinearLayout
                 android:id="@+id/layoutAmountInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="9dp"
                 android:orientation="horizontal"
                 android:visibility="gone">
 
                 <EditText
                     android:id="@+id/etAmountFrom"
+                    style="@style/Royal.Field"
                     android:layout_width="0dp"
-                    android:layout_height="36dp"
+                    android:layout_height="42dp"
                     android:layout_weight="1"
-                    android:background="@drawable/bg_input"
+                    android:background="@drawable/bg_input_sunken"
                     android:hint="Amount from"
                     android:inputType="numberDecimal"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:textColor="@color/white"
-                    android:textColorHint="@color/white54"
-                    android:textSize="11sp" />
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:textSize="@dimen/t_body" />
 
                 <EditText
                     android:id="@+id/etAmountTo"
+                    style="@style/Royal.Field"
                     android:layout_width="0dp"
-                    android:layout_height="36dp"
+                    android:layout_height="42dp"
+                    android:layout_marginStart="9dp"
                     android:layout_weight="1"
-                    android:layout_marginStart="4dp"
-                    android:background="@drawable/bg_input"
+                    android:background="@drawable/bg_input_sunken"
                     android:hint="Amount to"
                     android:inputType="numberDecimal"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:textColor="@color/white"
-                    android:textColorHint="@color/white54"
-                    android:textSize="11sp" />
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:textSize="@dimen/t_body" />
             </LinearLayout>
 
-            <!-- Name / text input (Customer Name popup or Repledge Name plain text) -->
             <EditText
                 android:id="@+id/etNameInput"
+                style="@style/Royal.Field"
                 android:layout_width="match_parent"
-                android:layout_height="36dp"
-                android:layout_marginTop="4dp"
-                android:background="@drawable/bg_input"
-                android:hint="Enter name…"
-                android:inputType="textCapWords"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                android:textColor="@color/white"
-                android:textColorHint="@color/white54"
-                android:textSize="11sp"
+                android:layout_height="42dp"
+                android:layout_marginTop="9dp"
+                android:background="@drawable/bg_input_sunken"
+                android:hint="Enter name"
+                android:inputType="textPersonName"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:textSize="@dimen/t_body"
                 android:visibility="gone" />
 
-            <!-- Active filter chips row -->
-            <HorizontalScrollView
+            <LinearLayout
+                android:id="@+id/layoutFilterChips"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:scrollbars="none">
+                android:layout_marginTop="9dp"
+                android:orientation="horizontal" />
 
-                <LinearLayout
-                    android:id="@+id/layoutFilterChips"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal" />
-            </HorizontalScrollView>
-
-            <!-- Clear all filters button -->
             <Button
                 android:id="@+id/btnClearAllFilters"
+                style="@style/Royal.Button.Quiet"
                 android:layout_width="wrap_content"
-                android:layout_height="28dp"
-                android:layout_marginTop="4dp"
-                android:backgroundTint="@color/red"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:text="Clear All Filters"
-                android:textColor="@color/white"
-                android:textSize="10sp"
-                android:visibility="gone" />
-
+                android:layout_height="38dp"
+                android:layout_marginTop="9dp"
+                android:paddingStart="@dimen/sp_lg"
+                android:paddingEnd="@dimen/sp_lg"
+                android:text="Clear all filters"
+                android:textSize="12sp" />
         </LinearLayout>
-        </androidx.core.widget.NestedScrollView>
-        <!-- ── End collapsible panel ─────────────────────────────────────────── -->
-
-        <!-- Search box (always visible) -->
-        <EditText
-            android:id="@+id/etSearch"
-            android:layout_width="match_parent"
-            android:layout_height="40dp"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/bg_input"
-            android:hint="Search bill / customer / area…"
-            android:inputType="text"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:textColor="@color/white"
-            android:textColorHint="@color/white54"
-            android:textSize="13sp" />
-
     </LinearLayout>
-    <!-- ═══ End Filter Card ═══════════════════════════════════════════════════ -->
 
-    <!-- Summary bar -->
+    <!-- What is still out -->
     <LinearLayout
         android:id="@+id/layoutSummary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#1E2A4A"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:padding="10dp"
-        android:visibility="gone">
+        android:layout_marginStart="@dimen/page_pad"
+        android:layout_marginTop="@dimen/sp_md"
+        android:layout_marginEnd="@dimen/page_pad"
+        android:background="@drawable/bg_crest"
+        android:baselineAligned="false"
+        android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/tvSummaryCount"
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:textColor="@color/gold"
-            android:textSize="12sp"
-            android:textStyle="bold" />
+            android:orientation="vertical"
+            android:paddingStart="@dimen/sp_lg"
+            android:paddingTop="10dp"
+            android:paddingEnd="6dp"
+            android:paddingBottom="11dp">
 
-        <TextView
-            android:id="@+id/tvSummaryAmount"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="@color/blue"
-            android:textSize="12sp"
-            android:textStyle="bold" />
+            <TextView
+                style="@style/Royal.Cap"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="BILLS"
+                android:textColor="@color/on_wine_dim" />
 
-        <!-- Interest summary hidden per request; kept in tree so the
-             activity's findViewById(tvSummaryInterest) doesn't NPE. -->
-        <TextView
-            android:id="@+id/tvSummaryInterest"
+            <TextView
+                android:id="@+id/tvSummaryCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFeatureSettings="tnum"
+                android:textColor="@color/on_wine"
+                android:textSize="@dimen/t_lead"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
             android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:visibility="gone" />
+            android:layout_height="wrap_content"
+            android:layout_weight="1.3"
+            android:orientation="vertical"
+            android:paddingTop="10dp"
+            android:paddingEnd="6dp"
+            android:paddingBottom="11dp">
+
+            <TextView
+                style="@style/Royal.Cap"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="CAPITAL"
+                android:textColor="@color/on_wine_dim" />
+
+            <TextView
+                android:id="@+id/tvSummaryAmount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFeatureSettings="tnum"
+                android:textColor="@color/on_wine"
+                android:textSize="@dimen/t_lead"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1.2"
+            android:orientation="vertical"
+            android:paddingTop="10dp"
+            android:paddingEnd="@dimen/sp_lg"
+            android:paddingBottom="11dp">
+
+            <TextView
+                style="@style/Royal.Cap"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="AVG RATE"
+                android:textColor="@color/on_wine_dim" />
+
+            <TextView
+                android:id="@+id/tvSummaryInterest"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFeatureSettings="tnum"
+                android:textColor="@color/on_wine_good"
+                android:textSize="@dimen/t_lead"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
 
     <ProgressBar
@@ -357,15 +385,18 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:layout_marginTop="48dp"
-        android:indeterminateTint="@color/gold"
+        android:layout_marginTop="32dp"
+        android:indeterminateTint="@color/wine"
         android:visibility="gone" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:clipToPadding="false"
-        android:paddingBottom="80dp" />
-
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="@dimen/sp_md"
+        android:paddingEnd="@dimen/page_pad"
+        android:paddingBottom="@dimen/sp_md" />
 </LinearLayout>

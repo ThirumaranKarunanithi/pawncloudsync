@@ -1,20 +1,102 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <style name="Theme.PawnApp" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
-        <item name="colorPrimary">@color/gold</item>
-        <item name="colorPrimaryVariant">@color/gold_dark</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSurface">@color/bg_card</item>
-        <item name="android:windowBackground">@color/bg_dark</item>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      The royal theme. Shared by light and night — every colour it names
+      is defined in both values/colors.xml and values-night/colors.xml,
+      so this file does not need a night copy.
+    -->
+    <style name="Theme.PawnApp" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/wine</item>
+        <item name="colorPrimaryVariant">@color/wine_deep</item>
+        <item name="colorOnPrimary">@color/on_wine</item>
+
+        <item name="colorSecondary">@color/gold_rule</item>
+        <item name="colorSecondaryVariant">@color/gold_ink</item>
+        <item name="colorOnSecondary">@color/wine</item>
+        <item name="colorAccent">@color/gold_rule</item>
+
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/ink</item>
+        <item name="colorError">@color/ruby</item>
+
+        <item name="android:windowBackground">@color/parchment</item>
+        <item name="android:textColorPrimary">@color/ink</item>
+        <item name="android:textColorSecondary">@color/ink_soft</item>
+        <item name="android:textColorHint">@color/ink_mute</item>
+
+        <!-- The band runs under the status bar, so it is wine in both
+             modes and its icons must stay light in both. -->
+        <item name="android:statusBarColor">@color/wine_deepest</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="android:navigationBarColor">@color/wine_deep</item>
+
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
+
+        <!-- Default every widget onto the royal faces, so a screen only
+             names a font when it wants the display one. -->
+        <item name="android:textViewStyle">@style/RoyalTextView</item>
+        <item name="android:editTextStyle">@style/RoyalEditText</item>
+        <item name="android:buttonStyle">@style/RoyalButton</item>
+        <item name="toolbarStyle">@style/RoyalToolbar</item>
     </style>
 
-    <!-- Light mode: dark icons on light toolbar bg -->
-    <style name="ToolbarTheme" parent="ThemeOverlay.AppCompat.ActionBar" />
+    <style name="RoyalTextView" parent="Widget.AppCompat.TextView">
+        <item name="android:fontFamily">@font/royal_sans</item>
+        <item name="fontFamily">@font/royal_sans</item>
+    </style>
+
+    <style name="RoyalEditText" parent="Widget.AppCompat.EditText">
+        <item name="android:fontFamily">@font/royal_sans</item>
+        <item name="fontFamily">@font/royal_sans</item>
+        <item name="android:textColor">@color/ink</item>
+        <item name="android:textColorHint">@color/ink_mute</item>
+    </style>
+
+    <style name="RoyalButton" parent="Widget.AppCompat.Button">
+        <item name="android:fontFamily">@font/royal_sans</item>
+        <item name="fontFamily">@font/royal_sans</item>
+    </style>
+
+    <!-- A band, wherever a screen forgets to dress one. The overflow
+         menu takes a light popup so it is readable on parchment. -->
+    <style name="RoyalToolbar" parent="Widget.MaterialComponents.Toolbar">
+        <item name="android:background">@color/wine</item>
+        <item name="titleTextAppearance">@style/ToolbarTitle</item>
+        <item name="subtitleTextAppearance">@style/ToolbarSubtitle</item>
+        <item name="android:theme">@style/ToolbarTheme</item>
+        <item name="popupTheme">@style/ThemeOverlay.MaterialComponents.Light</item>
+    </style>
 
     <style name="Theme.PawnApp.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
     </style>
+
+    <!--
+      Toolbars sit on wine in BOTH modes, so this is the Dark overlay in
+      both — it is what makes the back arrow and overflow dots light.
+      There is deliberately no values-night copy: a Light overlay after
+      dark would put a black back arrow on a wine band.
+    -->
+    <style name="ToolbarTheme" parent="ThemeOverlay.MaterialComponents.Dark.ActionBar">
+        <item name="android:textColorPrimary">@color/on_wine_title</item>
+        <item name="android:textColorSecondary">@color/on_wine_dim</item>
+        <item name="colorControlNormal">@color/on_wine_title</item>
+    </style>
+
+    <!-- Inherit the display face from Royal.Font.Display (styles.xml) so
+         the typeface is chosen in exactly one place. -->
+    <style name="ToolbarTitle" parent="Royal.Font.Display">
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/on_wine_title</item>
+    </style>
+
+    <style name="ToolbarSubtitle" parent="Royal.Font.Body">
+        <item name="android:textSize">11sp</item>
+        <item name="android:textColor">@color/on_wine_dim</item>
+    </style>
+
 </resources>

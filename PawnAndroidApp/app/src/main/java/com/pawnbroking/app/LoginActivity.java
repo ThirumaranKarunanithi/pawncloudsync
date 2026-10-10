@@ -80,7 +80,7 @@ public class LoginActivity extends AppCompatActivity {
                 : android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;
             etPassword.setInputType(type);
             etPassword.setSelection(etPassword.getText().length());
-            ibTogglePass.setImageResource(passVisible ? android.R.drawable.ic_menu_view : android.R.drawable.ic_secure);
+            ibTogglePass.setImageResource(passVisible ? R.drawable.ic_eye : R.drawable.ic_lock);
         });
 
         btnLogin.setOnClickListener(v -> onLoginTap());

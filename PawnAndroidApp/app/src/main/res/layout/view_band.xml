@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The band every screen starts with: wine, with its gold rule under it.
+  <include layout="@layout/view_band" /> at the top of a screen, then
+  findViewById(R.id.toolbar) works exactly as it did before.
+
+  The rule lives here so no screen can forget it.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/wine"
+        android:theme="@style/ToolbarTheme"
+        app:popupTheme="@style/ThemeOverlay.MaterialComponents.Light"
+        app:subtitleTextAppearance="@style/ToolbarSubtitle"
+        app:titleTextAppearance="@style/ToolbarTitle" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/gold_rule_h"
+        android:background="@color/gold_rule" />
+
+</LinearLayout>

@@ -1,46 +1,451 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  The royal component kit. A screen should be able to lay itself out with
+  these alone; reach for a raw colour or dp only when nothing here fits.
+-->
 <resources>
+
+    <!-- A dotted style name implicitly inherits from its prefix, so these
+         two empty roots have to exist or every Royal.* style fails to
+         link. They are not meant to be used directly. -->
+    <style name="Royal" />
+    <style name="Royal.Font" />
+
+    <!-- ══ The two typefaces ══════════════════════════════════════════
+         Change the face in these two styles and the whole app follows.
+         Both attributes are set on each: "fontFamily" is AppCompat's,
+         which is what gets read below API 26; "android:fontFamily" is
+         the platform's, read at 26 and above. Setting only one leaves
+         half the shop's phones on Roboto.
+         ═══════════════════════════════════════════════════════════════ -->
+    <style name="Royal.Font.Display">
+        <item name="android:fontFamily">@font/royal_display</item>
+        <item name="fontFamily">@font/royal_display</item>
+    </style>
+
+    <style name="Royal.Font.Body">
+        <item name="android:fontFamily">@font/royal_sans</item>
+        <item name="fontFamily">@font/royal_sans</item>
+    </style>
+
+    <!-- ── Type roles ───────────────────────────────────────────────── -->
+
+    <!-- The shop's name, screen titles, and the figure that answers the
+         question. Nothing else gets the display face. -->
+    <style name="Royal.Title" parent="Royal.Font.Display">
+        <item name="android:textSize">@dimen/t_lead</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/wine_ink</item>
+    </style>
+
+    <style name="Royal.Title.Large">
+        <item name="android:textSize">@dimen/t_title</item>
+    </style>
+
+    <!-- The small letter-spaced caps over a card or a block. -->
+    <style name="Royal.Cap" parent="Royal.Font.Body">
+        <item name="android:textSize">@dimen/t_cap</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.14</item>
+        <item name="android:textColor">@color/gold_ink</item>
+    </style>
+
+    <style name="Royal.Cap.Quiet">
+        <item name="android:textColor">@color/ink_mute</item>
+        <item name="android:letterSpacing">0.10</item>
+    </style>
+
+    <style name="Royal.Body" parent="Royal.Font.Body">
+        <item name="android:textSize">@dimen/t_body</item>
+        <item name="android:textColor">@color/ink</item>
+    </style>
+
+    <style name="Royal.Label" parent="Royal.Font.Body">
+        <item name="android:textSize">@dimen/t_small</item>
+        <item name="android:textColor">@color/ink_mute</item>
+    </style>
+
+    <style name="Royal.Value" parent="Royal.Font.Body">
+        <item name="android:textSize">@dimen/t_body</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/ink</item>
+    </style>
+
+    <!-- Money. Always tabular so a column of rupees lines up. -->
+    <style name="Royal.Figure" parent="Royal.Font.Body">
+        <item name="android:textSize">@dimen/t_figure</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/ink</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+    </style>
+
+    <style name="Royal.Figure.Small">
+        <item name="android:textSize">@dimen/t_lead</item>
+    </style>
+
+    <style name="Royal.Figure.Credit">
+        <item name="android:textColor">@color/emerald</item>
+    </style>
+
+    <style name="Royal.Figure.Debit">
+        <item name="android:textColor">@color/ruby</item>
+    </style>
+
+    <!-- Any number in a table cell or beside a date. -->
+    <style name="Royal.Num" parent="Royal.Font.Body">
+        <item name="android:textSize">@dimen/t_small</item>
+        <item name="android:textColor">@color/ink</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+        <item name="android:gravity">end</item>
+    </style>
+
+    <!-- ── Surfaces ─────────────────────────────────────────────────── -->
+
+    <style name="Royal.Card">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/bg_card</item>
+        <item name="android:orientation">vertical</item>
+    </style>
+
+    <!-- The parchment strip that heads a card. -->
+    <style name="Royal.CardHead">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/bg_card_head</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:paddingStart">@dimen/sp_lg</item>
+        <item name="android:paddingEnd">@dimen/sp_lg</item>
+        <item name="android:paddingTop">@dimen/sp_sm</item>
+        <item name="android:paddingBottom">@dimen/sp_sm</item>
+    </style>
+
+    <!-- The wine strip that heads a TABLE. -->
+    <style name="Royal.TableHead">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@color/wine</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:paddingStart">@dimen/sp_md</item>
+        <item name="android:paddingEnd">@dimen/sp_md</item>
+        <item name="android:paddingTop">9dp</item>
+        <item name="android:paddingBottom">9dp</item>
+    </style>
+
+    <style name="Royal.TableHead.Cell" parent="Royal.Font.Body">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">@dimen/t_cap</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.10</item>
+        <item name="android:textColor">@color/on_wine_title</item>
+    </style>
+
+    <!-- A row in a table: hairline under, never a zebra stripe. -->
+    <style name="Royal.TableRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/bg_table_row</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:paddingStart">@dimen/sp_md</item>
+        <item name="android:paddingEnd">@dimen/sp_md</item>
+        <item name="android:paddingTop">9dp</item>
+        <item name="android:paddingBottom">9dp</item>
+    </style>
+
+    <style name="Royal.TableTotal" parent="Royal.TableRow">
+        <item name="android:background">@drawable/bg_table_total</item>
+        <item name="android:paddingTop">11dp</item>
+        <item name="android:paddingBottom">11dp</item>
+    </style>
+
+    <!-- ── Controls ─────────────────────────────────────────────────── -->
+
+    <style name="Royal.Button" parent="Royal.Font.Body">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">@dimen/btn_h</item>
+        <item name="android:background">@drawable/btn_wine</item>
+        <item name="android:textColor">@color/on_wine</item>
+        <item name="android:textSize">@dimen/t_lead</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.08</item>
+        <item name="android:stateListAnimator">@null</item>
+    </style>
+
+    <style name="Royal.Button.Outline">
+        <item name="android:background">@drawable/btn_outline</item>
+        <item name="android:textColor">@color/wine_ink</item>
+    </style>
+
+    <style name="Royal.Button.Quiet">
+        <item name="android:background">@drawable/btn_quiet</item>
+        <item name="android:textColor">@color/ink_body</item>
+    </style>
+
+    <style name="Royal.Field" parent="Royal.Font.Body">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">@dimen/field_h</item>
+        <item name="android:background">@null</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/ink</item>
+        <item name="android:textColorHint">@color/ink_mute</item>
+    </style>
+
+    <!-- The box a Royal.Field sits inside, with its icon. -->
+    <style name="Royal.FieldBox">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">@dimen/field_h</item>
+        <item name="android:background">@drawable/bg_input</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:paddingStart">13dp</item>
+        <item name="android:paddingEnd">13dp</item>
+    </style>
+
+    <style name="Royal.FieldBox.Focused">
+        <item name="android:background">@drawable/bg_input_gold</item>
+    </style>
+
+    <!-- Filter chips -->
+    <style name="Royal.Chip" parent="Royal.Font.Body">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">@dimen/chip_h</item>
+        <item name="android:layout_marginEnd">@dimen/sp_sm</item>
+        <item name="android:background">@drawable/chip_unselected</item>
+        <item name="android:gravity">center</item>
+        <item name="android:paddingStart">@dimen/sp_lg</item>
+        <item name="android:paddingEnd">@dimen/sp_lg</item>
+        <item name="android:textColor">@color/ink_body</item>
+        <item name="android:textSize">@dimen/t_fine</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.07</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+    </style>
+
+    <style name="Royal.Chip.Selected">
+        <item name="android:background">@drawable/chip_selected</item>
+        <item name="android:textColor">@color/on_wine</item>
+    </style>
+
+    <!-- Status pills. Each differs in lightness as well as hue, so they
+         are still told apart in a photocopy or by a colour-blind eye. -->
+    <style name="Royal.Pill" parent="Royal.Font.Body">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:paddingStart">11dp</item>
+        <item name="android:paddingEnd">11dp</item>
+        <item name="android:paddingTop">4dp</item>
+        <item name="android:paddingBottom">4dp</item>
+        <item name="android:textSize">@dimen/t_cap</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.10</item>
+    </style>
+
+    <style name="Royal.Pill.Open">
+        <item name="android:background">@drawable/pill_open</item>
+        <item name="android:textColor">@color/emerald_ink</item>
+    </style>
+
+    <style name="Royal.Pill.Closed">
+        <item name="android:background">@drawable/pill_closed</item>
+        <item name="android:textColor">@color/ink_body</item>
+    </style>
+
+    <style name="Royal.Pill.Repledged">
+        <item name="android:background">@drawable/pill_repledged</item>
+        <item name="android:textColor">@color/violet</item>
+    </style>
+
+    <style name="Royal.Pill.Due">
+        <item name="android:background">@drawable/pill_due</item>
+        <item name="android:textColor">@color/on_wine</item>
+    </style>
+
+    <style name="Royal.Pill.Overdue">
+        <item name="android:background">@drawable/pill_overdue</item>
+        <item name="android:textColor">@color/on_wine</item>
+    </style>
+
+    <!-- The parchment money chip on a bill row. -->
+    <style name="Royal.MoneyChip" parent="Royal.Font.Body">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/bg_money_chip</item>
+        <item name="android:paddingStart">9dp</item>
+        <item name="android:paddingEnd">9dp</item>
+        <item name="android:paddingTop">3dp</item>
+        <item name="android:paddingBottom">3dp</item>
+        <item name="android:textSize">@dimen/t_small</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/wine_ink</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+    </style>
+
+    <!-- ── Sections ─────────────────────────────────────────────────── -->
+
+    <!-- "OPERATIONS ─────────" : caps plus a hairline to the edge. -->
+    <style name="SectionHeader" parent="Royal.Font.Body">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:paddingStart">@dimen/page_pad</item>
+        <item name="android:paddingEnd">@dimen/page_pad</item>
+        <item name="android:paddingTop">@dimen/sp_md</item>
+        <item name="android:paddingBottom">@dimen/sp_sm</item>
+        <item name="android:textColor">@color/gold_ink</item>
+        <item name="android:textSize">@dimen/t_fine</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.16</item>
+    </style>
+
+    <!-- ── Home tiles ───────────────────────────────────────────────── -->
+
+    <style name="RoyalTile">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:background">@drawable/bg_tappable</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:minHeight">92dp</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:padding">@dimen/sp_lg</item>
+    </style>
+
+    <style name="RoyalTileIcon">
+        <item name="android:layout_width">23dp</item>
+        <item name="android:layout_height">23dp</item>
+        <!-- A glyph on parchment is ink, so it lightens after dark. -->
+        <item name="android:tint">@color/wine_ink</item>
+        <item name="android:contentDescription">@null</item>
+    </style>
+
+    <style name="RoyalTileTitle" parent="Royal.Font.Body">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">9dp</item>
+        <item name="android:textColor">@color/ink</item>
+        <item name="android:textSize">@dimen/t_body</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="RoyalTileSub" parent="Royal.Font.Body">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/ink_mute</item>
+        <item name="android:textSize">@dimen/t_fine</item>
+    </style>
+
+    <!-- A section rule: "OPERATIONS ───────────" -->
+    <style name="RoyalSectionRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">@dimen/sp_xl</item>
+        <item name="android:layout_marginBottom">@dimen/sp_md</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:orientation">horizontal</item>
+    </style>
+
+    <!-- ── MIS summary: label · bills · amount ──────────────────────── -->
+
+    <style name="MisRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:paddingStart">@dimen/sp_lg</item>
+        <item name="android:paddingTop">4dp</item>
+        <item name="android:paddingEnd">@dimen/sp_lg</item>
+        <item name="android:paddingBottom">4dp</item>
+    </style>
+
+    <style name="MisRowLabel" parent="Royal.Font.Body">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:textColor">@color/ink_body</item>
+        <item name="android:textSize">@dimen/t_small</item>
+    </style>
+
+    <style name="MisRowCount" parent="Royal.Font.Body">
+        <item name="android:layout_width">52dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+        <item name="android:gravity">end</item>
+        <item name="android:textColor">@color/ink</item>
+        <item name="android:textSize">@dimen/t_small</item>
+    </style>
+
+    <style name="MisRowMoney" parent="Royal.Font.Body">
+        <item name="android:layout_width">96dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+        <item name="android:gravity">end</item>
+        <item name="android:textColor">@color/ink</item>
+        <item name="android:textSize">@dimen/t_small</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <!-- ── The More sheet ───────────────────────────────────────────── -->
+
+    <style name="MoreRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">?attr/selectableItemBackground</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:minHeight">52dp</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:paddingStart">@dimen/page_pad</item>
+        <item name="android:paddingEnd">@dimen/page_pad</item>
+    </style>
+
+    <style name="MoreRowIcon">
+        <item name="android:layout_width">22dp</item>
+        <item name="android:layout_height">22dp</item>
+        <item name="android:tint">@color/gold_ink</item>
+        <item name="android:contentDescription">@null</item>
+    </style>
+
+    <style name="MoreRowLabel" parent="Royal.Font.Body">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_marginStart">@dimen/sp_lg</item>
+        <item name="android:textColor">@color/ink</item>
+        <item name="android:textSize">@dimen/t_lead</item>
+    </style>
+
+    <style name="MoreRowChevron">
+        <item name="android:layout_width">18dp</item>
+        <item name="android:layout_height">18dp</item>
+        <item name="android:src">@drawable/ic_chevron_right</item>
+        <item name="android:tint">@color/ink_mute</item>
+        <item name="android:contentDescription">@null</item>
+    </style>
+
+    <!-- ══ Old names, kept until every screen is converted ══════════ -->
+
     <style name="StatCard">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_weight">1</item>
         <item name="android:background">@drawable/bg_card</item>
         <item name="android:orientation">vertical</item>
-        <item name="android:padding">14dp</item>
+        <item name="android:padding">@dimen/sp_lg</item>
     </style>
 
     <style name="ActionBtn">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_weight">1</item>
-        <item name="android:backgroundTint">@color/bg_card</item>
-        <item name="android:paddingTop">14dp</item>
-        <item name="android:paddingBottom">14dp</item>
+        <item name="android:backgroundTint">@color/surface</item>
+        <item name="android:paddingTop">@dimen/sp_lg</item>
+        <item name="android:paddingBottom">@dimen/sp_lg</item>
     </style>
 
-    <style name="Chip">
-        <item name="android:layout_width">wrap_content</item>
-        <item name="android:layout_height">32dp</item>
-        <item name="android:layout_marginEnd">8dp</item>
-        <item name="android:background">@drawable/chip_unselected</item>
-        <item name="android:gravity">center</item>
-        <item name="android:paddingStart">14dp</item>
-        <item name="android:paddingEnd">14dp</item>
-        <item name="android:textColor">@color/white54</item>
-        <item name="android:textSize">12sp</item>
-        <item name="android:clickable">true</item>
-        <item name="android:focusable">true</item>
-    </style>
+    <style name="Chip" parent="Royal.Chip" />
 
-    <style name="SectionHeader">
-        <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">wrap_content</item>
-        <item name="android:paddingStart">16dp</item>
-        <item name="android:paddingEnd">16dp</item>
-        <item name="android:paddingTop">12dp</item>
-        <item name="android:paddingBottom">8dp</item>
-        <item name="android:textColor">@color/gold</item>
-        <item name="android:textSize">14sp</item>
-        <item name="android:textStyle">bold</item>
-    </style>
 </resources>

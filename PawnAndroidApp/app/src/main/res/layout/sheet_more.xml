@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Everything the bottom bar does not have room for. Opened by More. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_sheet"
+    android:orientation="vertical"
+    android:paddingBottom="@dimen/sp_xl">
+
+    <View
+        android:layout_width="38dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/pill_closed" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/page_pad"
+        android:layout_marginTop="@dimen/sp_lg"
+        android:layout_marginBottom="@dimen/sp_sm"
+        android:text="More"
+        android:textColor="@color/wine_ink"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        style="@style/Royal.Font.Display" />
+
+    <LinearLayout
+        android:id="@+id/moreCustomers"
+        style="@style/MoreRow">
+        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic_customers" />
+        <TextView style="@style/MoreRowLabel" android:text="Customers" />
+        <ImageView style="@style/MoreRowChevron" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/moreStock"
+        style="@style/MoreRow">
+        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic_stock" />
+        <TextView style="@style/MoreRowLabel" android:text="Stock Details" />
+        <ImageView style="@style/MoreRowChevron" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/moreTodays"
+        style="@style/MoreRow">
+        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic_ledger" />
+        <TextView style="@style/MoreRowLabel" android:text="Today's Account" />
+        <ImageView style="@style/MoreRowChevron" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/moreTrial"
+        style="@style/MoreRow">
+        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic_scale" />
+        <TextView style="@style/MoreRowLabel" android:text="Trial Balance" />
+        <ImageView style="@style/MoreRowChevron" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/moreActivity"
+        style="@style/MoreRow">
+        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic_clock" />
+        <TextView style="@style/MoreRowLabel" android:text="Who Did What" />
+        <ImageView style="@style/MoreRowChevron" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginStart="@dimen/page_pad"
+        android:layout_marginTop="@dimen/sp_sm"
+        android:layout_marginEnd="@dimen/page_pad"
+        android:layout_marginBottom="@dimen/sp_sm"
+        android:background="@color/parchment_line" />
+
+    <LinearLayout
+        android:id="@+id/moreNotifications"
+        style="@style/MoreRow">
+        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic_bell" />
+        <TextView style="@style/MoreRowLabel" android:text="Notifications" />
+        <ImageView style="@style/MoreRowChevron" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/moreBackups"
+        style="@style/MoreRow">
+        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic_cloud" />
+        <TextView style="@style/MoreRowLabel" android:text="Backups" />
+        <ImageView style="@style/MoreRowChevron" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/moreSettings"
+        style="@style/MoreRow">
+        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic_gear" />
+        <TextView style="@style/MoreRowLabel" android:text="Settings" />
+        <ImageView style="@style/MoreRowChevron" />
+    </LinearLayout>
+
+</LinearLayout>

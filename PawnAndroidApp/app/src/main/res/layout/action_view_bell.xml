@@ -1,32 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Action view for the toolbar bell: icon + circular unread-count badge. -->
+<!-- The bell in the band, with its unread count ringed in wine so the
+     badge reads as a badge and not a smudge on the gold. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="48dp"
     android:layout_height="48dp"
-    android:padding="6dp"
+    android:background="?attr/selectableItemBackgroundBorderless"
     android:clickable="true"
     android:focusable="true"
-    android:background="?attr/selectableItemBackgroundBorderless">
+    android:padding="6dp">
 
     <ImageView
         android:id="@+id/ivBell"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:src="@android:drawable/ic_popup_reminder"
-        android:tint="@color/gold"
-        android:contentDescription="Notifications" />
+        android:contentDescription="Notifications"
+        android:src="@drawable/ic_bell"
+        android:tint="@color/on_wine_title" />
 
     <TextView
         android:id="@+id/tvBellBadge"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="end|top"
+        android:background="@drawable/bg_badge"
+        android:gravity="center"
         android:minWidth="18dp"
         android:minHeight="18dp"
         android:paddingStart="5dp"
         android:paddingEnd="5dp"
-        android:background="@drawable/bg_badge"
-        android:gravity="center"
         android:textColor="@android:color/white"
         android:textSize="10sp"
         android:textStyle="bold"

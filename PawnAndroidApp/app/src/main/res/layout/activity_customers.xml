@@ -1,47 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_dark"
+    android:background="@color/parchment"
     android:orientation="vertical">
 
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/bg_card"
-        android:theme="@style/ToolbarTheme"
-        app:titleTextColor="@color/gold" />
+    <include layout="@layout/view_band" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/bg_card"
+        android:background="@color/surface"
         android:orientation="vertical"
-        android:padding="10dp">
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="10dp"
+        android:paddingEnd="@dimen/page_pad"
+        android:paddingBottom="@dimen/sp_md">
 
         <TextView
             android:id="@+id/tvCompanyName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/white"
-            android:textSize="12sp"
+            android:textColor="@color/ink"
+            android:textSize="@dimen/t_body"
             android:textStyle="bold" />
 
-        <EditText
-            android:id="@+id/etSearch"
-            android:layout_width="match_parent"
+        <LinearLayout
+            style="@style/Royal.FieldBox"
             android:layout_height="44dp"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/bg_card"
-            android:hint="Type customer name or mobile (min 2 chars)…"
-            android:inputType="text"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:textColor="@color/white"
-            android:textColorHint="@color/white54"
-            android:textSize="13sp" />
+            android:layout_marginTop="9dp"
+            android:background="@drawable/bg_input_sunken">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_search"
+                android:tint="@color/ink_mute" />
+
+            <EditText
+                android:id="@+id/etSearch"
+                style="@style/Royal.Field"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:hint="Name or mobile, at least two letters"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:textSize="@dimen/t_body" />
+        </LinearLayout>
     </LinearLayout>
 
     <ProgressBar
@@ -50,7 +58,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:layout_marginTop="32dp"
-        android:indeterminateTint="@color/gold"
+        android:indeterminateTint="@color/wine"
         android:visibility="gone" />
 
     <TextView
@@ -60,14 +68,17 @@
         android:gravity="center"
         android:padding="32dp"
         android:text="No customers found"
-        android:textColor="@color/white54"
+        android:textColor="@color/ink_soft"
         android:visibility="gone" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:clipToPadding="false"
-        android:paddingBottom="16dp" />
-
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="@dimen/sp_md"
+        android:paddingEnd="@dimen/page_pad"
+        android:paddingBottom="@dimen/sp_md" />
 </LinearLayout>

@@ -1,82 +1,84 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_dark"
+    android:background="@color/parchment"
     android:orientation="vertical">
 
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/bg_card"
-        android:theme="@style/ToolbarTheme"
-        app:titleTextColor="@color/gold" />
+    <include layout="@layout/view_band" />
 
-    <!-- Storage / status summary -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="12dp"
-        android:background="@color/bg_card"
+        android:background="@color/surface"
         android:orientation="vertical"
-        android:padding="14dp">
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="@dimen/sp_md"
+        android:paddingEnd="@dimen/page_pad"
+        android:paddingBottom="@dimen/sp_md">
 
         <TextView
             android:id="@+id/tvLatestInfo"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Checking backups…"
-            android:textColor="@color/white"
-            android:textSize="14sp"
+            android:text="Checking backups"
+            android:textColor="@color/ink"
+            android:textSize="@dimen/t_lead"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvStorageInfo"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textColor="@color/white54"
-            android:textSize="12sp" />
+            android:layout_marginTop="2dp"
+            android:textColor="@color/ink_mute"
+            android:textSize="@dimen/t_small" />
 
         <TextView
             android:id="@+id/tvStaleWarning"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:textColor="@color/orange"
-            android:textSize="12sp"
-            android:textStyle="bold"
+            android:layout_marginTop="9dp"
+            android:background="@drawable/bg_result_bad"
+            android:padding="11dp"
+            android:textColor="@color/ruby_ink"
+            android:textSize="@dimen/t_small"
             android:visibility="gone" />
-    </LinearLayout>
 
-    <!-- Shops accumulate hundreds of daily dumps, so scrolling to a given
-         date is impractical — filter by name, date or company instead. -->
-    <EditText
-        android:id="@+id/etSearch"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="12dp"
-        android:layout_marginBottom="8dp"
-        android:background="@color/bg_card"
-        android:hint="Search by name, date or company"
-        android:imeOptions="actionSearch"
-        android:importantForAutofill="no"
-        android:inputType="text"
-        android:maxLines="1"
-        android:padding="12dp"
-        android:textColor="@color/white"
-        android:textColorHint="@color/white54"
-        android:textSize="14sp" />
+        <LinearLayout
+            style="@style/Royal.FieldBox"
+            android:layout_height="44dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_input_sunken">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_search"
+                android:tint="@color/ink_mute" />
+
+            <EditText
+                android:id="@+id/etSearch"
+                style="@style/Royal.Field"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:hint="Name, date or company"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:textSize="@dimen/t_body" />
+        </LinearLayout>
+    </LinearLayout>
 
     <ProgressBar
         android:id="@+id/progressBar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginTop="24dp"
-        android:indeterminateTint="@color/gold"
+        android:layout_gravity="center"
+        android:layout_marginTop="32dp"
+        android:indeterminateTint="@color/wine"
         android:visibility="gone" />
 
     <TextView
@@ -86,20 +88,21 @@
         android:gravity="center"
         android:padding="32dp"
         android:text="No backup files yet"
-        android:textColor="@color/white54"
-        android:textSize="14sp"
+        android:textColor="@color/ink_soft"
         android:visibility="gone" />
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swipeRefresh"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:clipToPadding="false"
-            android:paddingBottom="24dp" />
+            android:paddingTop="@dimen/sp_md"
+            android:paddingBottom="@dimen/sp_md" />
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 </LinearLayout>

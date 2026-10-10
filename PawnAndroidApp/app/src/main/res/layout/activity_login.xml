@@ -1,173 +1,286 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Sign in. Wine above, a parchment sheet rising over it, like a letter
+  laid on the counter. The sheet overlaps the wine by 26dp so the gold
+  edge reads as a fold rather than a seam.
+-->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_dark"
+    android:background="@color/wine_deep"
     android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:padding="28dp"
-        android:minHeight="600dp">
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-        <!-- Logo -->
-        <LinearLayout
-            android:layout_width="90dp"
-            android:layout_height="90dp"
-            android:gravity="center"
-            android:background="@color/gold">
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="&#9830;"
-                android:textSize="48sp"
-                android:textColor="@color/white" />
-        </LinearLayout>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Pawnbroking"
-            android:textColor="@color/gold"
-            android:textSize="26sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Management System"
-            android:textColor="@color/white54"
-            android:textSize="14sp" />
-
-        <!-- Username -->
+        <!-- ── The crest ─────────────────────────────────────────── -->
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="32dp"
-            android:background="@drawable/bg_input"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp">
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingStart="28dp"
+            android:paddingTop="54dp"
+            android:paddingEnd="28dp"
+            android:paddingBottom="44dp">
+
+            <LinearLayout
+                android:layout_width="86dp"
+                android:layout_height="86dp"
+                android:background="@drawable/bg_emblem"
+                android:gravity="center">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="₹"
+                    android:textColor="@color/gold_bright"
+                    android:textSize="44sp"
+                    android:textStyle="bold"
+                    style="@style/Royal.Font.Display" />
+            </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="&#128100;"
-                android:textSize="18sp"
-                android:textColor="@color/white54" />
+                android:layout_marginTop="20dp"
+                android:gravity="center"
+                android:text="@string/app_name"
+                android:textColor="@color/on_wine_title"
+                android:textSize="25sp"
+                android:textStyle="bold"
+                style="@style/Royal.Font.Display" />
 
-            <EditText
-                android:id="@+id/etUsername"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:background="@null"
-                android:hint="Username"
-                android:inputType="text"
-                android:textColor="@color/white"
-                android:textColorHint="@color/white54" />
-        </LinearLayout>
+            <!-- rule · diamond · rule -->
+            <LinearLayout
+                android:layout_width="170dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-        <!-- Password -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="12dp"
-            android:background="@drawable/bg_input"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="12dp"
-            android:paddingEnd="4dp">
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1"
+                    android:background="@color/on_wine_rule" />
+
+                <View
+                    android:layout_width="7dp"
+                    android:layout_height="7dp"
+                    android:layout_marginStart="10dp"
+                    android:layout_marginEnd="10dp"
+                    android:background="@color/gold_rule"
+                    android:rotation="45" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1"
+                    android:background="@color/on_wine_rule" />
+            </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="&#128274;"
-                android:textSize="18sp"
-                android:textColor="@color/white54" />
-
-            <EditText
-                android:id="@+id/etPassword"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:background="@null"
-                android:hint="Password"
-                android:inputType="textPassword"
-                android:textColor="@color/white"
-                android:textColorHint="@color/white54" />
-
-            <ImageButton
-                android:id="@+id/ibTogglePass"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="@null"
-                android:src="@android:drawable/ic_secure"
-                android:tint="@color/white54" />
+                android:layout_marginTop="11dp"
+                android:letterSpacing="0.22"
+                android:text="BILL &amp; REPLEDGE"
+                android:textColor="@color/on_wine_dim"
+                android:textSize="11sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Error -->
-        <TextView
-            android:id="@+id/tvError"
+        <!-- ── The sheet ─────────────────────────────────────────── -->
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:background="#661A0000"
-            android:padding="10dp"
-            android:textColor="#FF5555"
-            android:textSize="13sp"
-            android:visibility="gone" />
+            android:layout_height="0dp"
+            android:layout_marginTop="-26dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_sheet"
+            android:minHeight="430dp"
+            android:orientation="vertical"
+            android:paddingStart="26dp"
+            android:paddingTop="28dp"
+            android:paddingEnd="26dp"
+            android:paddingBottom="20dp">
 
-        <!-- Progress -->
-        <ProgressBar
-            android:id="@+id/progressBar"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:indeterminateTint="@color/gold"
-            android:visibility="gone" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sign in"
+                android:textColor="@color/wine_ink"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                style="@style/Royal.Font.Display" />
 
-        <!-- Login Button -->
-        <Button
-            android:id="@+id/btnLogin"
-            android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:layout_marginTop="16dp"
-            android:backgroundTint="@color/gold"
-            android:text="LOGIN"
-            android:textColor="@color/bg_dark"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            <!-- Username -->
+            <TextView
+                style="@style/Royal.Cap.Quiet"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:labelFor="@id/etUsername"
+                android:text="USERNAME" />
 
-        <!-- Switch between OTP and Password login -->
-        <TextView
-            android:id="@+id/tvSwitchMode"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:padding="6dp"
-            android:text="Use password instead"
-            android:textColor="@color/gold"
-            android:textSize="13sp" />
+            <LinearLayout
+                style="@style/Royal.FieldBox"
+                android:layout_marginTop="6dp">
 
-        <!-- Set/change password (visible in password mode) -->
-        <TextView
-            android:id="@+id/tvSetPassword"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:padding="6dp"
-            android:text="Set / change password"
-            android:textColor="@color/white54"
-            android:textSize="12sp"
-            android:visibility="gone" />
+                <ImageView
+                    android:layout_width="19dp"
+                    android:layout_height="19dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_user"
+                    android:tint="@color/ink_mute" />
 
+                <EditText
+                    android:id="@+id/etUsername"
+                    style="@style/Royal.Field"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="10dp"
+                    android:autofillHints="username"
+                    android:hint="Your username"
+                    android:inputType="text" />
+            </LinearLayout>
+
+            <!-- Password -->
+            <TextView
+                style="@style/Royal.Cap.Quiet"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:labelFor="@id/etPassword"
+                android:text="PASSWORD" />
+
+            <LinearLayout
+                style="@style/Royal.FieldBox.Focused"
+                android:layout_marginTop="6dp"
+                android:paddingEnd="4dp">
+
+                <ImageView
+                    android:layout_width="19dp"
+                    android:layout_height="19dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_lock"
+                    android:tint="@color/gold_ink" />
+
+                <EditText
+                    android:id="@+id/etPassword"
+                    style="@style/Royal.Field"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="10dp"
+                    android:autofillHints="password"
+                    android:hint="Your password"
+                    android:inputType="textPassword" />
+
+                <ImageButton
+                    android:id="@+id/ibTogglePass"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Show password"
+                    android:src="@drawable/ic_eye"
+                    android:tint="@color/ink_soft" />
+            </LinearLayout>
+
+            <!-- Error -->
+            <TextView
+                android:id="@+id/tvError"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_result_bad"
+                android:padding="11dp"
+                android:textColor="@color/ruby_ink"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+            <ProgressBar
+                android:id="@+id/progressBar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="16dp"
+                android:indeterminateTint="@color/wine"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btnLogin"
+                style="@style/Royal.Button"
+                android:layout_marginTop="22dp"
+                android:text="SIGN IN" />
+
+            <TextView
+                android:id="@+id/tvSwitchMode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="14dp"
+                android:background="?attr/selectableItemBackground"
+                android:minHeight="@dimen/tap_min"
+                android:gravity="center"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="Use password instead"
+                android:textColor="@color/gold_ink"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvSetPassword"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:background="?attr/selectableItemBackground"
+                android:minHeight="@dimen/tap_min"
+                android:gravity="center"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="Set or change password"
+                android:textColor="@color/ink_soft"
+                android:textSize="12sp"
+                android:visibility="gone" />
+
+            <Space
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <View
+                    android:layout_width="5dp"
+                    android:layout_height="5dp"
+                    android:background="@color/parchment_deep"
+                    android:rotation="45" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginEnd="8dp"
+                    android:letterSpacing="0.08"
+                    android:text="MAGIZHCHI"
+                    android:textColor="@color/ink_mute"
+                    android:textSize="11sp" />
+
+                <View
+                    android:layout_width="5dp"
+                    android:layout_height="5dp"
+                    android:background="@color/parchment_deep"
+                    android:rotation="45" />
+            </LinearLayout>
+
+        </LinearLayout>
     </LinearLayout>
 </ScrollView>

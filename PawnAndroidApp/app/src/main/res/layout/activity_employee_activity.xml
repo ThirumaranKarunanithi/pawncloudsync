@@ -1,118 +1,162 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_dark"
+    android:background="@color/parchment"
     android:orientation="vertical">
 
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/bg_card"
-        android:theme="@style/ToolbarTheme"
-        app:titleTextColor="@color/gold" />
+    <include layout="@layout/view_band" />
 
-    <!-- What to look at. Collapsed to one line of taps until the owner wants more. -->
+    <!-- Filter shelf -->
     <LinearLayout
         android:id="@+id/layoutFilters"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/bg_card"
+        android:background="@color/surface"
         android:orientation="vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="10dp">
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="@dimen/sp_md"
+        android:paddingEnd="@dimen/page_pad"
+        android:paddingBottom="@dimen/sp_md">
 
-        <EditText
-            android:id="@+id/etSearch"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="A name, a bill number, anything that was typed"
-            android:imeOptions="actionSearch"
-            android:inputType="text"
-            android:maxLines="1"
-            android:textColor="@color/white"
-            android:textColorHint="@color/white38"
-            android:textSize="13sp" />
+        <LinearLayout
+            style="@style/Royal.FieldBox"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_input_sunken">
 
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_search"
+                android:tint="@color/ink_mute" />
+
+            <EditText
+                android:id="@+id/etSearch"
+                style="@style/Royal.Field"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:hint="A name, a bill number, anything typed"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:textSize="@dimen/t_body" />
+        </LinearLayout>
+
+        <!-- Who / which screen / what -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="9dp"
+            android:baselineAligned="false"
             android:orientation="horizontal">
 
             <Spinner
                 android:id="@+id/spWho"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1" />
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_input_sunken"
+                android:paddingStart="10dp"
+                android:paddingEnd="6dp"
+                android:popupBackground="@color/surface" />
+
+            <Space
+                android:layout_width="7dp"
+                android:layout_height="1dp" />
 
             <Spinner
                 android:id="@+id/spScreen"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:layout_weight="1" />
-        </LinearLayout>
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_input_sunken"
+                android:paddingStart="10dp"
+                android:paddingEnd="6dp"
+                android:popupBackground="@color/surface" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:orientation="horizontal">
+            <Space
+                android:layout_width="7dp"
+                android:layout_height="1dp" />
 
             <Spinner
                 android:id="@+id/spAction"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1" />
+                android:layout_height="42dp"
+                android:layout_weight="0.85"
+                android:background="@drawable/bg_input_sunken"
+                android:paddingStart="10dp"
+                android:paddingEnd="6dp"
+                android:popupBackground="@color/surface" />
+        </LinearLayout>
+
+        <!-- From → To -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="9dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
             <TextView
                 android:id="@+id/tvFrom"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_vertical"
-                android:layout_marginStart="6dp"
+                android:layout_height="42dp"
                 android:layout_weight="1"
-                android:background="@drawable/bg_card"
+                android:background="@drawable/bg_input_sunken"
+                android:clickable="true"
+                android:focusable="true"
+                android:fontFeatureSettings="tnum"
                 android:gravity="center"
-                android:padding="8dp"
-                android:textColor="@color/white"
-                android:textSize="12sp" />
+                android:textColor="@color/ink"
+                android:textSize="@dimen/t_body"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:layout_width="15dp"
+                android:layout_height="15dp"
+                android:layout_marginStart="9dp"
+                android:layout_marginEnd="9dp"
+                android:contentDescription="to"
+                android:src="@drawable/ic_forward"
+                android:tint="@color/gold_ink" />
 
             <TextView
                 android:id="@+id/tvTo"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_vertical"
-                android:layout_marginStart="6dp"
+                android:layout_height="42dp"
                 android:layout_weight="1"
-                android:background="@drawable/bg_card"
+                android:background="@drawable/bg_input_sunken"
+                android:clickable="true"
+                android:focusable="true"
+                android:fontFeatureSettings="tnum"
                 android:gravity="center"
-                android:padding="8dp"
-                android:textColor="@color/white"
-                android:textSize="12sp" />
+                android:textColor="@color/ink"
+                android:textSize="@dimen/t_body"
+                android:textStyle="bold" />
         </LinearLayout>
-
-        <TextView
-            android:id="@+id/tvCount"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:textColor="@color/white54"
-            android:textSize="11sp" />
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvCount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/parchment_strip"
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="@dimen/sp_sm"
+        android:paddingEnd="@dimen/page_pad"
+        android:paddingBottom="@dimen/sp_sm"
+        android:textColor="@color/ink_body"
+        android:textSize="@dimen/t_small" />
 
     <ProgressBar
         android:id="@+id/progressBar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
+        android:layout_gravity="center"
         android:layout_marginTop="32dp"
-        android:indeterminateTint="@color/gold"
+        android:indeterminateTint="@color/wine"
         android:visibility="gone" />
 
     <TextView
@@ -122,14 +166,17 @@
         android:gravity="center"
         android:padding="32dp"
         android:text="Nobody did anything that matches this"
-        android:textColor="@color/white54"
-        android:textSize="14sp"
+        android:textColor="@color/ink_soft"
         android:visibility="gone" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:clipToPadding="false"
-        android:paddingBottom="24dp" />
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="@dimen/sp_md"
+        android:paddingEnd="@dimen/page_pad"
+        android:paddingBottom="@dimen/sp_md" />
 </LinearLayout>

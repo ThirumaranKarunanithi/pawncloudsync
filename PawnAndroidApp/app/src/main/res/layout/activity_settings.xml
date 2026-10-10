@@ -2,43 +2,31 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_dark"
+    android:background="@color/parchment"
     android:orientation="vertical">
 
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/bg_card"
-        android:theme="@style/ToolbarTheme"
-        android:elevation="4dp" />
+    <include layout="@layout/view_band" />
 
-    <!-- ── Appearance section ── -->
     <TextView
+        style="@style/SectionHeader"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="APPEARANCE"
-        android:textColor="@color/gold"
-        android:textSize="11sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.12"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
         android:paddingTop="20dp"
-        android:paddingBottom="6dp" />
+        android:text="APPEARANCE" />
 
-    <!-- Theme row -->
     <LinearLayout
         android:id="@+id/rowTheme"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/bg_card"
-        android:orientation="horizontal"
+        android:layout_marginStart="@dimen/page_pad"
+        android:layout_marginEnd="@dimen/page_pad"
+        android:background="@drawable/bg_card"
         android:gravity="center_vertical"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingTop="14dp"
-        android:paddingBottom="14dp">
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/sp_lg"
+        android:paddingTop="@dimen/sp_lg"
+        android:paddingEnd="@dimen/sp_lg"
+        android:paddingBottom="@dimen/sp_lg">
 
         <LinearLayout
             android:layout_width="0dp"
@@ -50,50 +38,42 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Theme"
-                android:textColor="@color/white"
-                android:textSize="15sp" />
+                android:textColor="@color/ink"
+                android:textSize="@dimen/t_lead"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tvThemeDesc"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:textColor="@color/white54"
-                android:textSize="12sp" />
+                android:textColor="@color/ink_mute"
+                android:textSize="@dimen/t_small" />
         </LinearLayout>
 
-        <!-- Toggle: DARK / LIGHT -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:background="@drawable/bg_seg_track"
             android:orientation="horizontal"
-            android:background="@drawable/bg_card"
-            android:padding="2dp">
+            android:padding="3dp">
 
             <Button
                 android:id="@+id/btnDark"
-                android:layout_width="96dp"
-                android:layout_height="34dp"
+                style="@style/Royal.Button.Quiet"
+                android:layout_width="78dp"
+                android:layout_height="38dp"
                 android:text="Dark"
-                android:textSize="12sp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:textColor="@color/white" />
+                android:textSize="12sp" />
 
             <Button
                 android:id="@+id/btnLight"
-                android:layout_width="96dp"
-                android:layout_height="34dp"
+                style="@style/Royal.Button.Quiet"
+                android:layout_width="78dp"
+                android:layout_height="38dp"
+                android:layout_marginStart="3dp"
                 android:text="Light"
-                android:textSize="12sp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:textColor="@color/white54"
-                android:layout_marginStart="4dp" />
+                android:textSize="12sp" />
         </LinearLayout>
     </LinearLayout>
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="@color/bg_dark" />
-
 </LinearLayout>

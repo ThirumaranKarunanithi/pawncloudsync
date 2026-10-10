@@ -118,9 +118,9 @@ public class CustomersActivity extends AppCompatActivity {
             h.tvAddr.setText(addr.trim().replaceAll("^,\\s*|,\\s*$", ""));
             String status = c.optString("status", "ACTIVE");
             h.tvStatus.setText(status);
-            h.tvStatus.setTextColor("BLOCKED".equalsIgnoreCase(status)
-                ? android.graphics.Color.parseColor("#F44336")
-                : android.graphics.Color.parseColor("#4CAF50"));
+            h.tvStatus.setTextColor(androidx.core.content.ContextCompat.getColor(
+                h.itemView.getContext(),
+                "BLOCKED".equalsIgnoreCase(status) ? R.color.ruby : R.color.emerald));
         }
         @Override public int getItemCount() { return customers.size(); }
         class VH extends RecyclerView.ViewHolder {

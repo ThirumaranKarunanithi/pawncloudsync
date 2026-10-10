@@ -1,6 +1,8 @@
 package com.pawnbroking.app;
 
 import com.pawnbroking.app.util.DateFmt;
+import com.pawnbroking.app.util.Royal;
+import com.pawnbroking.app.util.StatusPill;
 
 import android.graphics.Color;
 import android.os.Bundle;
@@ -23,6 +25,7 @@ import java.util.Locale;
 
 public class BillDetailActivity extends AppCompatActivity {
 
+    private Royal royal;
     private ProgressBar progressBar;
     private LinearLayout layoutContent;
     private TextView tvBillNumber, tvCompanyName, tvStatus, tvMaterialIcon, tvNote;
@@ -37,6 +40,7 @@ public class BillDetailActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_bill_detail);
+        royal = new Royal(this);
 
         fmt.setMinimumFractionDigits(2);
         fmt.setMaximumFractionDigits(2);
@@ -98,22 +102,17 @@ public class BillDetailActivity extends AppCompatActivity {
 
     private void bind(JSONObject b) {
         boolean isGold = "GOLD".equals(type);
-        int goldColor  = isGold ? Color.parseColor("#E6B800") : Color.parseColor("#AAAAAA");
         String status  = b.optString("status", "");
 
+        // The crest sits on wine, so its type is the on-wine family. The
+        // metal only tints the mark beside the number.
         tvBillNumber.setText(billNumber);
-        tvBillNumber.setTextColor(goldColor);
+        tvBillNumber.setTextColor(royal.onWine);
         tvMaterialIcon.setText(isGold ? "★" : "●");
-        tvMaterialIcon.setTextColor(goldColor);
+        tvMaterialIcon.setTextColor(royal.onWineTitle);
         tvCompanyName.setText(companyName);
         tvStatus.setText(status);
-        int statusColor;
-        switch (status) {
-            case "OPENED": statusColor = Color.parseColor("#4CAF50"); break;
-            case "CLOSED": statusColor = Color.parseColor("#FF9800"); break;
-            default:       statusColor = Color.parseColor("#2196F3"); break;
-        }
-        tvStatus.setTextColor(statusColor);
+        StatusPill.paint(tvStatus, status);
 
         // Customer
         clearSection(sectionCustomer);
@@ -191,14 +190,14 @@ public class BillDetailActivity extends AppCompatActivity {
 
         TextView tvLabel = new TextView(this);
         tvLabel.setText(label);
-        tvLabel.setTextColor(Color.parseColor("#8AFFFFFF"));
+        tvLabel.setTextColor(royal.inkMute);
         tvLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(130), LinearLayout.LayoutParams.WRAP_CONTENT);
         tvLabel.setLayoutParams(lp);
 
         TextView tvValue = new TextView(this);
         tvValue.setText(value);
-        tvValue.setTextColor(Color.WHITE);
+        tvValue.setTextColor(royal.ink);
         tvValue.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         LinearLayout.LayoutParams lp2 = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         tvValue.setLayoutParams(lp2);

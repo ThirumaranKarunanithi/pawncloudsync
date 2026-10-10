@@ -524,15 +524,43 @@ public class ApiService {
 
     // ── Bills ─────────────────────────────────────────────────────────────────
 
+    /** The cloud's own LIMIT cap. It has no offset, so this is also the
+     *  furthest the Bills list can page before you must narrow the search. */
+    private static final int BILLS_WINDOW_MAX = 500;
+
+    /**
+     * One page of the Bills list.
+     *
+     * <p>This used to ask the cloud for {@code size} rows — twenty — and
+     * then filter company, metal and status out of those twenty on the
+     * phone, paginate inside them, and report the survivors as the total.
+     * Three things followed. The count was the page size, not a total.
+     * There is no offset on the cloud list, so Load More re-sliced the
+     * same twenty rows for ever. And the default ordering is
+     * {@code last_updated_at DESC} — during a history backfill that is
+     * sync order, which lands one customer's bills together, so the
+     * screen showed the same name down the page.
+     *
+     * <p>Now the filters go to the cloud, which can apply them across the
+     * whole table; the order is newest bill first; and the total comes
+     * from the /summary endpoint, over the entire filtered set, the way
+     * Stock Details already did it.
+     */
     public static void getBills(String companyId, String type, String status,
                                 String search, int page, int size,
                                 Callback<BillsResult> cb) {
         EXEC.execute(() -> {
             try {
                 String table = AppConfig.TBL_BILL_OPENING;
+                // The cloud cannot skip rows, so Load More widens the
+                // window rather than stepping to an offset.
+                int want = Math.min(Math.max((page + 1) * size, size), BILLS_WINDOW_MAX);
+
                 HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/" + table).newBuilder()
-                    .addQueryParameter("limit", String.valueOf(Math.max(size, 1)));
-                if (search != null && !search.isEmpty()) b.addQueryParameter("q", search);
+                    .addQueryParameter("limit", String.valueOf(want))
+                    .addQueryParameter("order_by", "opening_date:desc");
+                applyBillFilters(b, companyId, type, status, search);
+
                 try (Response res = CLIENT.newCall(authed(b.build()).get().build()).execute()) {
                     String raw = res.body() != null ? res.body().string() : "[]";
                     checkStatus(res, raw);
@@ -542,25 +570,70 @@ public class ApiService {
                         JSONObject row = arr.getJSONObject(i);
                         JSONObject body = row.optJSONObject("payload");
                         if (body == null) body = row;
-                        if (companyId != null && !companyId.isEmpty()
-                            && !"ALL".equalsIgnoreCase(companyId)
-                            && !companyId.equalsIgnoreCase(currentShop())
+                        // Kept as a backstop only: if this app ever meets a
+                        // cloud too old to know these parameters, a wrong
+                        // list is worse than a short one.
+                        if (isRealCompany(companyId)
                             && !companyId.equalsIgnoreCase(body.optString("company_id", "")))
                             continue;
                         Bill bill = Bill.fromJson(row);
                         if (!matchesFilter(bill, type, status)) continue;
                         bills.add(bill);
                     }
-                    // client-side pagination since cloud /v1/data is just a top-N list
+
                     int from = Math.max(page * size, 0);
                     int to   = Math.min(from + size, bills.size());
                     List<Bill> pageSlice = from < bills.size()
                         ? new ArrayList<>(bills.subList(from, to))
                         : new ArrayList<>();
-                    cb.onSuccess(new BillsResult(pageSlice, bills.size()));
+
+                    int total = fetchBillsTotal(table, companyId, type, status, search,
+                                                bills.size());
+                    cb.onSuccess(new BillsResult(pageSlice, total));
                 }
             } catch (Exception e) { cb.onError(e.getMessage()); }
         });
+    }
+
+    /**
+     * The spinner hands us a desktop company ("CMP1"). On a shop with no
+     * company table the fallback entry carries the shop id instead, and
+     * then there is nothing to narrow by.
+     */
+    private static boolean isRealCompany(String companyId) {
+        return companyId != null && !companyId.isEmpty()
+            && !"ALL".equalsIgnoreCase(companyId)
+            && !companyId.equalsIgnoreCase(currentShop());
+    }
+
+    /** The same filter set for the list and for its count, so the number
+     *  on screen always describes the rows under it. */
+    private static void applyBillFilters(HttpUrl.Builder b, String companyId,
+                                         String type, String status, String search) {
+        if (search != null && !search.isEmpty())  b.addQueryParameter("q", search);
+        if (isRealCompany(companyId))             b.addQueryParameter("companyId", companyId);
+        if (type != null && !type.isEmpty() && !"ALL".equalsIgnoreCase(type))
+            b.addQueryParameter("material", type);
+        if (status != null && !status.isEmpty() && !"ALL".equalsIgnoreCase(status))
+            b.addQueryParameter("statuses", status);
+    }
+
+    /** True count across the whole filtered set. Falls back to what we
+     *  actually hold: a missing count must never empty the list. */
+    private static int fetchBillsTotal(String table, String companyId, String type,
+                                       String status, String search, int fallback) {
+        try {
+            HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/" + table + "/summary")
+                    .newBuilder();
+            applyBillFilters(b, companyId, type, status, search);
+            try (Response res = CLIENT.newCall(authed(b.build()).get().build()).execute()) {
+                if (!res.isSuccessful()) return fallback;
+                String raw = res.body() != null ? res.body().string() : "{}";
+                return new JSONObject(raw).optInt("total", fallback);
+            }
+        } catch (Exception e) {
+            return fallback;
+        }
     }
 
     public static void getBillDetail(String companyId, String billNumber, String type,

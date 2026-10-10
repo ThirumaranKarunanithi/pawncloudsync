@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The spacing, radius and type scale. Screens use these, not raw dp. -->
+<resources>
+
+    <!-- Spacing -->
+    <dimen name="sp_xs">4dp</dimen>
+    <dimen name="sp_sm">8dp</dimen>
+    <dimen name="sp_md">12dp</dimen>
+    <dimen name="sp_lg">14dp</dimen>
+    <dimen name="sp_xl">18dp</dimen>
+    <dimen name="sp_xxl">24dp</dimen>
+
+    <!-- Page gutter — the same on every screen -->
+    <dimen name="page_pad">18dp</dimen>
+
+    <!-- Radii -->
+    <dimen name="r_sm">7dp</dimen>
+    <dimen name="r_md">10dp</dimen>
+    <dimen name="r_lg">12dp</dimen>
+    <dimen name="r_pill">20dp</dimen>
+
+    <!-- The gold rule under every band -->
+    <dimen name="gold_rule_h">3dp</dimen>
+    <!-- The metal edge down the left of a bill row -->
+    <dimen name="metal_edge_w">4dp</dimen>
+
+    <!-- Controls. 44dp is the floor for anything tappable. -->
+    <dimen name="tap_min">44dp</dimen>
+    <dimen name="field_h">48dp</dimen>
+    <dimen name="chip_h">34dp</dimen>
+    <dimen name="btn_h">50dp</dimen>
+
+    <!-- Type -->
+    <dimen name="t_cap">10sp</dimen>
+    <dimen name="t_fine">11sp</dimen>
+    <dimen name="t_small">12sp</dimen>
+    <dimen name="t_body">14sp</dimen>
+    <dimen name="t_lead">15sp</dimen>
+    <dimen name="t_title">18sp</dimen>
+    <dimen name="t_figure">20sp</dimen>
+    <dimen name="t_hero">27sp</dimen>
+
+</resources>

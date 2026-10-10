@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.pawnbroking.app.adapters.BillAdapter;
 import com.pawnbroking.app.models.Bill;
 import com.pawnbroking.app.services.ApiService;
+import com.pawnbroking.app.util.BottomNav;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -73,6 +74,8 @@ public class BillsActivity extends AppCompatActivity {
         chipClosed    = findViewById(R.id.chipClosed);
         chipAllStatus = findViewById(R.id.chipAllStatus);
 
+        BottomNav.attach(this, BottomNav.Tab.BILLS, companyId, companyName);
+
         adapter = new BillAdapter(bills, bill -> {
             Intent i = new Intent(this, BillDetailActivity.class);
             i.putExtra("companyId", companyId);
@@ -116,11 +119,21 @@ public class BillsActivity extends AppCompatActivity {
                     runOnUiThread(() -> {
                         progressBar.setVisibility(View.GONE);
                         total = result.total;
+                        int added = result.bills.size();
                         bills.addAll(result.bills);
                         adapter.notifyDataSetChanged();
-                        tvTotal.setText(total + " bills found");
+                        // Say both numbers. "20 bills found" on a shop with
+                        // a thousand was the page size wearing a total's
+                        // clothes, and it hid that the list was truncated.
+                        tvTotal.setText(bills.size() >= total
+                                ? total + (total == 1 ? " bill" : " bills")
+                                : "showing " + bills.size() + " of " + total);
                         tvEmpty.setVisibility(bills.isEmpty() ? View.VISIBLE : View.GONE);
-                        btnLoadMore.setVisibility(bills.size() < total ? View.VISIBLE : View.GONE);
+                        // Only offer more when the last page actually
+                        // brought some: past the cloud's window it cannot,
+                        // and a button that does nothing is worse than none.
+                        btnLoadMore.setVisibility(added > 0 && bills.size() < total
+                                ? View.VISIBLE : View.GONE);
                     });
                 }
                 @Override public void onError(String message) {
@@ -133,22 +146,19 @@ public class BillsActivity extends AppCompatActivity {
     }
 
     private void updateChips() {
-        int gold = 0xFFD4AF37, white = 0xFFFFFFFF, dark = 0xFF16213E, green = 0xFF4CAF50;
-        setChip(chipAll,       "ALL".equals(type),   gold, dark);
-        setChip(chipGold,      "GOLD".equals(type),  gold, dark);
-        setChip(chipSilver,    "SILVER".equals(type),gold, dark);
-        setChip(chipOpened,    "OPENED".equals(status), green, dark);
-        setChip(chipClosed,    "CLOSED".equals(status), green, dark);
-        setChip(chipAllStatus, "ALL".equals(status),    green, dark);
+        setChip(chipAll,       "ALL".equals(type));
+        setChip(chipGold,      "GOLD".equals(type));
+        setChip(chipSilver,    "SILVER".equals(type));
+        setChip(chipOpened,    "OPENED".equals(status));
+        setChip(chipClosed,    "CLOSED".equals(status));
+        setChip(chipAllStatus, "ALL".equals(status));
     }
 
-    private void setChip(TextView chip, boolean selected, int selectedBg, int selectedText) {
-        if (selected) {
-            chip.setBackgroundResource(R.drawable.chip_selected);
-            chip.setTextColor(selectedText);
-        } else {
-            chip.setBackgroundResource(R.drawable.chip_unselected);
-            chip.setTextColor(0xFFCCCCCC);
-        }
+    /** Chosen chips are wine with light type; the rest are outlined. */
+    private void setChip(TextView chip, boolean selected) {
+        chip.setBackgroundResource(selected
+                ? R.drawable.chip_selected : R.drawable.chip_unselected);
+        chip.setTextColor(androidx.core.content.ContextCompat.getColor(this,
+                selected ? R.color.on_wine : R.color.ink_body));
     }
 }

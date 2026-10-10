@@ -1,77 +1,106 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- layoutContent stays a LinearLayout: the activity's field is typed
+     to one, so the ScrollView goes AROUND it, never on it. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_dark"
+    android:background="@color/parchment"
     android:orientation="vertical">
 
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/bg_card"
-        android:theme="@style/ToolbarTheme"
-        app:titleTextColor="@color/gold" />
+    <include layout="@layout/view_band" />
 
-    <!-- Date range bar -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/bg_card"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:padding="10dp">
+        android:background="@color/surface"
+        android:orientation="vertical"
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="10dp"
+        android:paddingEnd="@dimen/page_pad"
+        android:paddingBottom="@dimen/sp_md">
 
         <TextView
             android:id="@+id/tvCompanyName"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:textColor="@color/white"
-            android:textSize="12sp"
+            android:textColor="@color/ink"
+            android:textSize="@dimen/t_body"
             android:textStyle="bold" />
 
-        <ImageButton
-            android:id="@+id/btnFrom"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:background="@null"
-            android:src="@android:drawable/ic_menu_today"
-            android:tint="@color/gold" />
-
-        <TextView
-            android:id="@+id/tvFrom"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:textColor="@color/gold"
-            android:textSize="12sp" />
+            android:layout_marginTop="9dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:layout_marginEnd="6dp"
-            android:text="→"
-            android:textColor="@color/white54"
-            android:textSize="12sp" />
+            <LinearLayout
+                android:id="@+id/btnFrom"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/tap_min"
+                android:layout_weight="1"
+                android:background="@drawable/bg_input_sunken"
+                android:clickable="true"
+                android:focusable="true"
+                android:orientation="vertical"
+                android:paddingStart="12dp"
+                android:paddingTop="5dp"
+                android:paddingEnd="12dp">
 
-        <ImageButton
-            android:id="@+id/btnTo"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:background="@null"
-            android:src="@android:drawable/ic_menu_today"
-            android:tint="@color/gold" />
+                <TextView
+                    style="@style/Royal.Cap.Quiet"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="FROM" />
 
-        <TextView
-            android:id="@+id/tvTo"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:textColor="@color/gold"
-            android:textSize="12sp" />
+                <TextView
+                    android:id="@+id/tvFrom"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFeatureSettings="tnum"
+                    android:textColor="@color/ink"
+                    android:textSize="@dimen/t_body"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <ImageView
+                android:layout_width="15dp"
+                android:layout_height="15dp"
+                android:layout_marginStart="9dp"
+                android:layout_marginEnd="9dp"
+                android:contentDescription="to"
+                android:src="@drawable/ic_forward"
+                android:tint="@color/gold_ink" />
+
+            <LinearLayout
+                android:id="@+id/btnTo"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/tap_min"
+                android:layout_weight="1"
+                android:background="@drawable/bg_input_sunken"
+                android:clickable="true"
+                android:focusable="true"
+                android:orientation="vertical"
+                android:paddingStart="12dp"
+                android:paddingTop="5dp"
+                android:paddingEnd="12dp">
+
+                <TextView
+                    style="@style/Royal.Cap.Quiet"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="TO" />
+
+                <TextView
+                    android:id="@+id/tvTo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFeatureSettings="tnum"
+                    android:textColor="@color/ink"
+                    android:textSize="@dimen/t_body"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
     </LinearLayout>
 
     <ProgressBar
@@ -79,114 +108,227 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:layout_marginTop="48dp"
-        android:indeterminateTint="@color/gold"
+        android:layout_marginTop="32dp"
+        android:indeterminateTint="@color/wine"
         android:visibility="gone" />
 
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:fillViewport="true">
 
         <LinearLayout
             android:id="@+id/layoutContent"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="12dp"
-            android:visibility="gone">
+            android:paddingStart="@dimen/page_pad"
+            android:paddingTop="@dimen/sp_lg"
+            android:paddingEnd="@dimen/page_pad"
+            android:paddingBottom="@dimen/sp_xl">
 
-            <!-- INCOME card -->
-            <LinearLayout android:id="@+id/cardIncome"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:background="@drawable/bg_card" android:orientation="vertical"
-                android:padding="14dp" android:layout_marginBottom="10dp">
-                <TextView android:text="INCOME"
-                    android:textColor="@color/green" android:textSize="12sp" android:textStyle="bold"
-                    android:letterSpacing="0.1"
-                    android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                <View android:layout_width="match_parent" android:layout_height="1dp"
-                    android:background="#1AFFFFFF" android:layout_marginTop="6dp" android:layout_marginBottom="6dp"/>
-                <LinearLayout android:id="@+id/llIncome"
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:orientation="vertical"/>
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp" android:orientation="horizontal">
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                        android:layout_weight="1" android:text="TOTAL INCOME"
-                        android:textColor="@color/green" android:textSize="13sp" android:textStyle="bold"/>
-                    <TextView android:id="@+id/tvTotalIncome"
-                        android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:textColor="@color/green" android:textSize="13sp" android:textStyle="bold"/>
+            <!-- Income -->
+            <LinearLayout
+                android:id="@+id/cardIncome"
+                style="@style/Royal.Card"
+                android:background="@drawable/bg_row_income">
+
+                <LinearLayout style="@style/Royal.CardHead">
+                    <TextView
+                        style="@style/Royal.Cap"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="INCOME"
+                        android:textColor="@color/emerald_ink" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/llIncome"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingStart="@dimen/sp_lg"
+                    android:paddingTop="4dp"
+                    android:paddingEnd="@dimen/sp_lg" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="@dimen/sp_md"
+                    android:background="@drawable/bg_result_good"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="12dp"
+                    android:paddingTop="9dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="9dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:letterSpacing="0.08"
+                        android:text="TOTAL INCOME"
+                        android:textColor="@color/emerald_ink"
+                        android:textSize="@dimen/t_fine"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvTotalIncome"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFeatureSettings="tnum"
+                        android:textColor="@color/emerald_ink"
+                        android:textSize="@dimen/t_lead"
+                        android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- EXPENSE card -->
-            <LinearLayout android:id="@+id/cardExpense"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:background="@drawable/bg_card" android:orientation="vertical"
-                android:padding="14dp" android:layout_marginBottom="10dp">
-                <TextView android:text="EXPENSE"
-                    android:textColor="#EF9A9A" android:textSize="12sp" android:textStyle="bold"
-                    android:letterSpacing="0.1"
-                    android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                <View android:layout_width="match_parent" android:layout_height="1dp"
-                    android:background="#1AFFFFFF" android:layout_marginTop="6dp" android:layout_marginBottom="6dp"/>
-                <LinearLayout android:id="@+id/llExpense"
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:orientation="vertical"/>
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp" android:orientation="horizontal">
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                        android:layout_weight="1" android:text="TOTAL EXPENSE"
-                        android:textColor="#EF9A9A" android:textSize="13sp" android:textStyle="bold"/>
-                    <TextView android:id="@+id/tvTotalExpense"
-                        android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:textColor="#EF9A9A" android:textSize="13sp" android:textStyle="bold"/>
+            <!-- Expense -->
+            <LinearLayout
+                android:id="@+id/cardExpense"
+                style="@style/Royal.Card"
+                android:layout_marginTop="@dimen/sp_md"
+                android:background="@drawable/bg_row_expense">
+
+                <LinearLayout style="@style/Royal.CardHead">
+                    <TextView
+                        style="@style/Royal.Cap"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="EXPENSE"
+                        android:textColor="@color/ruby_ink" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/llExpense"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingStart="@dimen/sp_lg"
+                    android:paddingTop="4dp"
+                    android:paddingEnd="@dimen/sp_lg" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="@dimen/sp_md"
+                    android:background="@drawable/bg_result_bad"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="12dp"
+                    android:paddingTop="9dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="9dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:letterSpacing="0.08"
+                        android:text="TOTAL EXPENSE"
+                        android:textColor="@color/ruby_ink"
+                        android:textSize="@dimen/t_fine"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvTotalExpense"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFeatureSettings="tnum"
+                        android:textColor="@color/ruby_ink"
+                        android:textSize="@dimen/t_lead"
+                        android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- ASSET card -->
-            <LinearLayout android:id="@+id/cardAsset"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:background="@drawable/bg_card" android:orientation="vertical"
-                android:padding="14dp" android:layout_marginBottom="10dp">
-                <TextView android:text="ASSETS"
-                    android:textColor="@color/blue" android:textSize="12sp" android:textStyle="bold"
-                    android:letterSpacing="0.1"
-                    android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                <View android:layout_width="match_parent" android:layout_height="1dp"
-                    android:background="#1AFFFFFF" android:layout_marginTop="6dp" android:layout_marginBottom="6dp"/>
-                <LinearLayout android:id="@+id/llAsset"
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:orientation="vertical"/>
-                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp" android:orientation="horizontal">
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                        android:layout_weight="1" android:text="TOTAL ASSETS"
-                        android:textColor="@color/blue" android:textSize="13sp" android:textStyle="bold"/>
-                    <TextView android:id="@+id/tvTotalAsset"
-                        android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:textColor="@color/blue" android:textSize="13sp" android:textStyle="bold"/>
+            <!-- Assets -->
+            <LinearLayout
+                android:id="@+id/cardAsset"
+                style="@style/Royal.Card"
+                android:layout_marginTop="@dimen/sp_md"
+                android:background="@drawable/bg_row_silver">
+
+                <LinearLayout style="@style/Royal.CardHead">
+                    <TextView
+                        style="@style/Royal.Cap"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="ASSETS"
+                        android:textColor="@color/navy" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/llAsset"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingStart="@dimen/sp_lg"
+                    android:paddingTop="4dp"
+                    android:paddingEnd="@dimen/sp_lg" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="@dimen/sp_md"
+                    android:background="@drawable/bg_money_chip"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="12dp"
+                    android:paddingTop="9dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="9dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:letterSpacing="0.08"
+                        android:text="TOTAL ASSETS"
+                        android:textColor="@color/wine_ink"
+                        android:textSize="@dimen/t_fine"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvTotalAsset"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFeatureSettings="tnum"
+                        android:textColor="@color/wine_ink"
+                        android:textSize="@dimen/t_lead"
+                        android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- LIABILITY card -->
-            <LinearLayout android:id="@+id/cardLiability"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:background="@drawable/bg_card" android:orientation="vertical"
-                android:padding="14dp" android:layout_marginBottom="16dp">
-                <TextView android:text="LIABILITY / SUMMARY"
-                    android:textColor="@color/gold" android:textSize="12sp" android:textStyle="bold"
-                    android:letterSpacing="0.1"
-                    android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                <View android:layout_width="match_parent" android:layout_height="1dp"
-                    android:background="#1AFFFFFF" android:layout_marginTop="6dp" android:layout_marginBottom="6dp"/>
-                <LinearLayout android:id="@+id/llLiability"
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:orientation="vertical"/>
+            <!-- Liability / summary -->
+            <LinearLayout
+                android:id="@+id/cardLiability"
+                style="@style/Royal.Card"
+                android:layout_marginTop="@dimen/sp_md"
+                android:background="@drawable/bg_row_repledge">
+
+                <LinearLayout style="@style/Royal.CardHead">
+                    <TextView
+                        style="@style/Royal.Cap"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="LIABILITY &amp; SUMMARY"
+                        android:textColor="@color/violet" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/llLiability"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingStart="@dimen/sp_lg"
+                    android:paddingTop="4dp"
+                    android:paddingEnd="@dimen/sp_lg"
+                    android:paddingBottom="@dimen/sp_md" />
             </LinearLayout>
 
         </LinearLayout>
     </ScrollView>
-
 </LinearLayout>

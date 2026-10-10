@@ -1,15 +1,99 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Royal palette, night mode. Every name in values/colors.xml must appear
+  here too, or that name silently keeps its light value after dark.
+
+  Parchment becomes deep wine. The gold stays gold.
+
+  The wine band is wine in BOTH modes, so the on_wine_* family is almost
+  unchanged — only the band's own ground goes deeper.
+-->
 <resources>
-    <color name="bg_dark">#0C1B33</color>
-    <color name="bg_card">#162547</color>
-    <color name="card_border">#00000000</color>
-    <color name="gold">#E6B800</color>
-    <color name="gold_dark">#B8900A</color>
-    <color name="white">#FFFFFF</color>
-    <color name="white54">#8AFFFFFF</color>
-    <color name="white38">#61FFFFFF</color>
-    <color name="green">#4CAF50</color>
-    <color name="orange">#FF9800</color>
-    <color name="blue">#2196F3</color>
-    <color name="red">#F44336</color>
+
+    <!-- ── Wine ─────────────────────────────────────────────────────── -->
+    <color name="wine_deepest">#2B151C</color>
+    <color name="wine_deep">#2B151C</color>
+    <color name="wine">#3E0E18</color>
+    <color name="wine_light">#5A1A26</color>
+    <color name="crimson">#8E2A3A</color>
+
+    <!-- After dark the ground IS wine, so wine cannot also be the ink.
+         The accent becomes pale gold - the one highlight colour the
+         night palette has, and what the design uses for figures. -->
+    <color name="wine_ink">#F0DA9B</color>
+
+    <!-- ── Gold ─────────────────────────────────────────────────────── -->
+    <!-- gold_ink must be readable on the #211016 surface, so at night it
+         brightens rather than darkens. -->
+    <color name="gold_ink">#E8C766</color>
+    <color name="gold_rule">#C9A227</color>
+    <color name="gold_bright">#DDBE5C</color>
+    <color name="gold_pale">#F0DA9B</color>
+    <color name="gold_wash">#3A2A14</color>
+    <color name="gold_wash_line">#6B5520</color>
+
+    <!-- ── Ground ───────────────────────────────────────────────────── -->
+    <color name="parchment">#17090D</color>
+    <color name="surface">#211016</color>
+    <color name="parchment_strip">#2B151C</color>
+    <color name="parchment_line">#452630</color>
+    <color name="parchment_deep">#5A3340</color>
+    <color name="row_highlight">#2E1820</color>
+
+    <!-- ── Type ─────────────────────────────────────────────────────── -->
+    <color name="ink">#F7EFE4</color>
+    <color name="ink_body">#E2D3C4</color>
+    <color name="ink_soft">#C0A99A</color>
+    <color name="ink_mute">#B49C8C</color>
+    <color name="ink_faint">#6E5A50</color>
+
+    <!-- ── Silver side ──────────────────────────────────────────────── -->
+    <color name="navy">#9BAFD1</color>
+    <color name="navy_soft">#6B82AD</color>
+    <color name="silver">#8A97AC</color>
+    <color name="silver_pale">#242F42</color>
+    <color name="silver_row">#1C1118</color>
+
+    <!-- ── Ledger accents ───────────────────────────────────────────── -->
+    <color name="emerald">#6FCFA0</color>
+    <color name="emerald_ink">#8FD9B6</color>
+    <color name="emerald_wash">#15291F</color>
+    <color name="emerald_line">#2E5844</color>
+    <color name="emerald_chip">#1B3327</color>
+
+    <color name="ruby">#F08A82</color>
+    <color name="ruby_ink">#F2A09A</color>
+    <color name="ruby_wash">#2E1416</color>
+    <color name="ruby_line">#5C2A28</color>
+
+    <color name="violet">#B49AD6</color>
+    <color name="violet_chip">#2A1E3A</color>
+    <color name="violet_row">#1E1424</color>
+
+    <color name="amber">#E0A84E</color>
+
+    <!-- ── On the wine band: unchanged, the band is still wine ──────── -->
+    <color name="on_wine">#FFFFFF</color>
+    <color name="on_wine_title">#F0DA9B</color>
+    <color name="on_wine_dim">#DDBE5C</color>
+    <color name="on_wine_body">#E8C9A8</color>
+    <color name="on_wine_rule">#8F7314</color>
+    <color name="on_wine_good">#8FD9B6</color>
+    <color name="on_wine_bad">#F2A09A</color>
+    <color name="nav_inactive">#C9A99E</color>
+
+    <!-- ══ Old names, remapped ══════════════════════════════════════ -->
+    <color name="bg_dark">#17090D</color>
+    <color name="bg_card">#211016</color>
+    <color name="card_border">#452630</color>
+    <color name="gold">#E8C766</color>
+    <color name="gold_dark">#C9A227</color>
+    <color name="white">#F7EFE4</color>
+    <color name="white54">#C0A99A</color>
+    <color name="white38">#B49C8C</color>
+    <color name="green">#6FCFA0</color>
+    <color name="orange">#E0A84E</color>
+    <color name="blue">#9BAFD1</color>
+    <color name="red">#F08A82</color>
+
 </resources>

@@ -28,6 +28,8 @@ import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.github.mikephil.charting.formatter.ValueFormatter;
 import com.pawnbroking.app.models.Company;
 import com.pawnbroking.app.services.ApiService;
+import com.pawnbroking.app.util.BottomNav;
+import com.pawnbroking.app.util.Royal;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -38,6 +40,7 @@ import java.util.List;
 public class HomeActivity extends AppCompatActivity {
 
     private Spinner spinnerCompany;
+    private Royal royal;
     private ProgressBar progressCompany;
     private TextView tvNoCompany;
     private View layoutContent;
@@ -64,6 +67,7 @@ public class HomeActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
+        royal = new Royal(this);
 
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -74,7 +78,7 @@ public class HomeActivity extends AppCompatActivity {
         if (getSupportActionBar() != null && activeShop != null && !activeShop.isEmpty()) {
             getSupportActionBar().setSubtitle(capitalizeShop(activeShop));
         }
-        toolbar.setSubtitleTextColor(0xFFB0BEC5);
+        toolbar.setSubtitleTextColor(androidx.core.content.ContextCompat.getColor(this, R.color.on_wine_dim));
 
         spinnerCompany  = findViewById(R.id.spinnerCompany);
         progressCompany = findViewById(R.id.progressCompany);
@@ -211,11 +215,13 @@ public class HomeActivity extends AppCompatActivity {
                     spinnerCompany.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
                         @Override public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
                             selectedCompany = companies.get(pos);
+                            attachBar();
                             loadCharts();
                         }
                         @Override public void onNothingSelected(AdapterView<?> p) {}
                     });
                     selectedCompany = companies.get(0);
+                    attachBar();
                     layoutContent.setVisibility(View.VISIBLE);
                     loadCharts();
                 });
@@ -227,6 +233,17 @@ public class HomeActivity extends AppCompatActivity {
                 });
             }
         });
+    }
+
+    /**
+     * Re-wires the bottom bar. Called whenever the company changes, so
+     * the bar carries the company the user is actually looking at — the
+     * screens it opens all need it.
+     */
+    private void attachBar() {
+        BottomNav.attach(this, BottomNav.Tab.HOME,
+                selectedCompany == null ? null : selectedCompany.id,
+                selectedCompany == null ? null : selectedCompany.name);
     }
 
     private void open(Class<?> activityClass) {
@@ -250,8 +267,14 @@ public class HomeActivity extends AppCompatActivity {
     // ── Monthly charts ───────────────────────────────────────────────────────
 
     private void styleChart(LineChart chart) {
+        // MPAndroidChart draws outside the resource system, so it has to
+        // be handed resolved colours or it keeps its library defaults
+        // (white type, invisible on parchment).
+        final int ink  = androidx.core.content.ContextCompat.getColor(this, R.color.ink);
+        final int mute = androidx.core.content.ContextCompat.getColor(this, R.color.ink_mute);
+
         chart.setNoDataText("No data yet");
-        chart.setNoDataTextColor(0xFF888888);
+        chart.setNoDataTextColor(mute);
         chart.setDrawGridBackground(false);
         chart.setTouchEnabled(true);
         chart.setPinchZoom(false);
@@ -259,14 +282,14 @@ public class HomeActivity extends AppCompatActivity {
         Description d = new Description();
         d.setText("");
         chart.setDescription(d);
-        chart.getLegend().setTextColor(0xFFFFFFFF);
+        chart.getLegend().setTextColor(ink);
         XAxis x = chart.getXAxis();
         x.setPosition(XAxis.XAxisPosition.BOTTOM);
-        x.setTextColor(0xFFFFFFFF);
+        x.setTextColor(mute);
         x.setLabelRotationAngle(-45f);
         x.setGranularity(1f);
         x.setDrawGridLines(false);
-        chart.getAxisLeft().setTextColor(0xFFFFFFFF);
+        chart.getAxisLeft().setTextColor(mute);
         chart.getAxisLeft().setValueFormatter(new ValueFormatter() {
             @Override public String getFormattedValue(float v) { return IN_FMT.format(v); }
         });
@@ -319,9 +342,9 @@ public class HomeActivity extends AppCompatActivity {
                              java.util.List<Entry> a, java.util.List<Entry> b, java.util.List<Entry> c,
                              String labelA, String labelB, String labelC) {
         if (labels.isEmpty()) { chart.clear(); chart.invalidate(); return; }
-        LineDataSet dsTotal = makeSet(a, labelA, 0xFF9C27B0);       // purple
-        LineDataSet dsGold  = makeSet(b, labelB, 0xFFE6B800);       // gold
-        LineDataSet dsSilver= makeSet(c, labelC, 0xFF42A5F5);       // blue
+        LineDataSet dsTotal = makeSet(a, labelA, royal.wine);     // both metals
+        LineDataSet dsGold  = makeSet(b, labelB, royal.goldRule); // gold
+        LineDataSet dsSilver= makeSet(c, labelC, royal.navy);     // silver
         LineData ld = new LineData(dsTotal, dsGold, dsSilver);
         chart.setData(ld);
         chart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
