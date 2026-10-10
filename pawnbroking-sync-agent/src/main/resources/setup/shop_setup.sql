@@ -1294,6 +1294,85 @@ BEGIN
 END $$;
 
 
+-- S6b The four settings tables Bill Closing prices a bill with. Without
+--     them the phone can show what a bill was lent against but not what
+--     it would cost to close today:
+--
+--       company_formula                the close formula itself
+--       company_reduce_months_or_days  the reduction and the minimum
+--       company_month_setting          what a few leftover days count as
+--       fine_charges                   the slabs past the accepted term
+--
+--     They were missing from S6's list, and triggers alone never sent
+--     them because settings tables do not change. S6 carries them now,
+--     but it will not run twice on a shop that has already sent its
+--     history - so this queues them on their own for those shops.
+--
+--     Four no-op updates: each row is set to the value it already holds,
+--     which fires the capture trigger. Nothing anywhere changes. Marked
+--     on company_formula so a second run does nothing; S6's own marker
+--     lives on sync_outbox and is rewritten wholesale, so it cannot be
+--     shared.
+DO $$
+DECLARE
+    t      TEXT;
+    n      BIGINT;
+    total  BIGINT := 0;
+    missing BOOLEAN := FALSE;
+    tables TEXT[] := ARRAY['company_formula', 'company_reduce_months_or_days',
+                           'company_month_setting', 'fine_charges'];
+BEGIN
+    IF to_regclass('public.sync_outbox') IS NULL THEN
+        PERFORM set_config('mb.settings',
+            'NOT SENT - the agent has never set this database up.', false);
+        RETURN;
+    END IF;
+    IF to_regclass('public.company_formula') IS NULL THEN
+        PERFORM set_config('mb.settings',
+            'NOT ON THIS SHOP - company_formula does not exist here.', false);
+        RETURN;
+    END IF;
+
+    IF obj_description('public.company_formula'::regclass, 'pg_class')
+       LIKE '%closing settings queued%' THEN
+        PERFORM set_config('mb.settings', 'DONE EARLIER - not sent again.', false);
+        RETURN;
+    END IF;
+
+    -- S6 just ran and its list already carries these four, so queueing
+    -- them again would only send the same rows twice.
+    IF COALESCE(current_setting('mb.history', true), '') LIKE 'SENT%' THEN
+        EXECUTE format('COMMENT ON TABLE company_formula IS %L',
+                       format('closing settings queued %s with the history',
+                              to_char(now(), 'DD-MM-YYYY HH24:MI')));
+        PERFORM set_config('mb.settings', 'SENT - with the history, just now.', false);
+        RETURN;
+    END IF;
+
+    FOREACH t IN ARRAY tables LOOP
+        IF to_regclass('public.' || t) IS NULL THEN
+            missing := TRUE;
+            CONTINUE;
+        END IF;
+        -- company_id is on all four and never null, so writing it back
+        -- to itself touches the row without altering it.
+        EXECUTE format('UPDATE %I SET company_id = company_id', t);
+        GET DIAGNOSTICS n = ROW_COUNT;
+        total := total + n;
+    END LOOP;
+
+    EXECUTE format('COMMENT ON TABLE company_formula IS %L',
+                   format('closing settings queued %s, %s rows',
+                          to_char(now(), 'DD-MM-YYYY HH24:MI'), total));
+    PERFORM pg_notify('sync_channel', 'settings');
+
+    PERFORM set_config('mb.settings', format(
+        'SENT - %s row(s) queued so the phone can work out what a bill owes.%s',
+        total, CASE WHEN missing THEN ' (one or more of the four is not on this shop)'
+                    ELSE '' END), false);
+END $$;
+
+
 -- S7  Values for the report. Anything that might not exist yet - the
 --     agent's tables, the folder columns - is read only if it does, so
 --     the report can never be the thing that fails the whole run.

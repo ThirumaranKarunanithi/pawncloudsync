@@ -1,6 +1,12 @@
 -- =====================================================================
 --  Send the four settings tables Bill Closing prices a bill with.
 --
+--  YOU PROBABLY DO NOT NEED THIS FILE.
+--    PawnBrokingSyncSetup.exe does it at step S6b on every full setup,
+--    once per shop. This is the by-hand version, for a PC you would
+--    rather not run the whole setup on. Running both is harmless: each
+--    guards itself, and the second finds nothing to do.
+--
 --  WHY
 --    The phone can show what a bill was lent against, but not what it
 --    would cost to close today, because the cloud has never been sent

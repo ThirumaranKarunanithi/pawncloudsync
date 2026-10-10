@@ -124,6 +124,13 @@ SELECT step, item, status FROM (
               THEN 'current' WHEN EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'sync_capture')
               THEN 'OLD - sends some rows under the wrong key' ELSE 'not installed' END),
     (9,  'History to the cloud',   current_setting('mb.history', true)),
+    (9.5, 'Closing settings (what a bill owes)',
+         CASE WHEN to_regclass('public.company_formula') IS NULL
+              THEN 'company_formula is not on this shop'
+              WHEN obj_description('public.company_formula'::regclass, 'pg_class')
+                   LIKE '%closing settings queued%'
+              THEN COALESCE(obj_description('public.company_formula'::regclass, 'pg_class'), 'sent')
+              ELSE 'NOT SENT - the phone cannot work out interest owed (Full setup sends them)' END),
     (10, 'Already sent',           current_setting('mb.sent', true)),
     (11, 'Waiting to send',        current_setting('mb.pending', true)),
     (12, 'Refused for good (dlq)', current_setting('mb.dlq', true)),
