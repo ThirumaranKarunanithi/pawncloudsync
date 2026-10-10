@@ -148,7 +148,7 @@ public class MonthlyReportActivity extends AppCompatActivity {
 
         royal       = new Royal(this);
         colHead     = royal.onWineTitle;
-        colMonth    = royal.wine;
+        colMonth    = royal.wineInk;
         colCount    = royal.inkSoft;
         colAmount   = royal.ink;
         colEarned   = royal.emerald;

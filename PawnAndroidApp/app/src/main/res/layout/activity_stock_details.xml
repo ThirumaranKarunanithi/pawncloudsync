@@ -366,7 +366,7 @@
                 style="@style/Royal.Cap"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="INTEREST"
+                android:text="AVG RATE"
                 android:textColor="@color/on_wine_dim" />
 
             <TextView

@@ -21,7 +21,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:textColor="@color/wine"
+            android:textColor="@color/wine_ink"
             android:textSize="@dimen/t_body"
             android:textStyle="bold" />
 

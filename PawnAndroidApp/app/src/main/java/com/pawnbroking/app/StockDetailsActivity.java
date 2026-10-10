@@ -302,7 +302,7 @@ public class StockDetailsActivity extends AppCompatActivity {
 
             TextView tvLine1 = new TextView(StockDetailsActivity.this);
             tvLine1.setText(l1.toString());
-            tvLine1.setTextColor(royal.wine);
+            tvLine1.setTextColor(royal.wineInk);
             tvLine1.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
             tvLine1.setTypeface(null, Typeface.BOLD);
             row.addView(tvLine1);
@@ -497,13 +497,13 @@ public class StockDetailsActivity extends AppCompatActivity {
 
         TextView tvLabel = new TextView(this);
         tvLabel.setText(f.label);
-        tvLabel.setTextColor(royal.wine);
+        tvLabel.setTextColor(royal.wineInk);
         tvLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
         chip.addView(tvLabel);
 
         TextView tvX = new TextView(this);
         tvX.setText("  ×");
-        tvX.setTextColor(royal.wine);
+        tvX.setTextColor(royal.wineInk);
         tvX.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         tvX.setOnClickListener(v -> { activeFilters.remove(f); refreshChips(); load(); });
         chip.addView(tvX);
@@ -573,7 +573,16 @@ public class StockDetailsActivity extends AppCompatActivity {
         long count = data.optLong("total", 0);
         tvSummaryCount.setText(count + " bill" + (count != 1 ? "s" : ""));
         tvSummaryAmount.setText("₹" + shortFmt(data.optDouble("totalAmount", 0)));
-        tvSummaryInterest.setText("Intr ₹" + shortFmt(data.optDouble("totalInterest", 0)));
+        // company_billing.interest is the RATE - the Billing screen labels
+        // the same field "Interest %". Summing it added up 1,737
+        // percentages and showed the result as money. The average is the
+        // only honest thing this column can say; the interest actually
+        // owed needs the desktop's minimum-months rule, which the cloud
+        // does not send.
+        double rateSum = data.optDouble("totalInterest", 0);
+        tvSummaryInterest.setText(count > 0
+                ? "avg " + String.format(java.util.Locale.UK, "%.2f", rateSum / count) + " %"
+                : "—");
         layoutSummary.setVisibility(View.VISIBLE);
 
         bills.clear();
@@ -619,7 +628,7 @@ public class StockDetailsActivity extends AppCompatActivity {
                 h.tvItems.setText("Company Bill: " + b.optString("company_bill_number", ""));
                 h.tvDate.setText(dateStr(b.optString("opening_date", "")));
                 h.tvAmount.setText("₹" + fmt.format(b.optDouble("amount", 0)));
-                h.tvInterest.setText("₹" + fmt.format(b.optDouble("interest", 0)));
+                h.tvInterest.setText(fmt.format(b.optDouble("interest", 0)) + " %");
                 h.tvWeight.setText("");
             } else {
                 h.tvBillNo.setText(b.optString("bill_number", ""));
@@ -636,7 +645,7 @@ public class StockDetailsActivity extends AppCompatActivity {
                 h.tvItems.setText(b.optString("items", ""));
                 h.tvDate.setText(dateStr(b.optString("opening_date", "")));
                 h.tvAmount.setText("₹" + fmt.format(b.optDouble("amount", 0)));
-                h.tvInterest.setText("₹" + fmt.format(b.optDouble("interest", 0)));
+                h.tvInterest.setText(fmt.format(b.optDouble("interest", 0)) + " %");
                 h.tvWeight.setText(String.format("%.2f", b.optDouble("gross_weight", 0)));
             }
 

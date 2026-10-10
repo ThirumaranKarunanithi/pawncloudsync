@@ -74,7 +74,7 @@
             android:layout_marginStart="@dimen/sp_sm"
             android:layout_weight="1"
             android:fontFeatureSettings="tnum"
-            android:textColor="@color/wine"
+            android:textColor="@color/wine_ink"
             android:textSize="@dimen/t_small"
             android:textStyle="bold" />
 

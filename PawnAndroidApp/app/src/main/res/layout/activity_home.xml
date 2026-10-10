@@ -253,7 +253,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Number of bills"
-                    android:textColor="@color/wine"
+                    android:textColor="@color/wine_ink"
                     android:textSize="@dimen/t_lead"
                     android:textStyle="bold"
                     style="@style/Royal.Font.Display" />
@@ -277,7 +277,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Total bill amount"
-                    android:textColor="@color/wine"
+                    android:textColor="@color/wine_ink"
                     android:textSize="@dimen/t_lead"
                     android:textStyle="bold"
                     style="@style/Royal.Font.Display" />

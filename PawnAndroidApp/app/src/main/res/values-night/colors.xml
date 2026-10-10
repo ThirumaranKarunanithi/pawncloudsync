@@ -17,6 +17,11 @@
     <color name="wine_light">#5A1A26</color>
     <color name="crimson">#8E2A3A</color>
 
+    <!-- After dark the ground IS wine, so wine cannot also be the ink.
+         The accent becomes pale gold - the one highlight colour the
+         night palette has, and what the design uses for figures. -->
+    <color name="wine_ink">#F0DA9B</color>
+
     <!-- ── Gold ─────────────────────────────────────────────────────── -->
     <!-- gold_ink must be readable on the #211016 surface, so at night it
          brightens rather than darkens. -->

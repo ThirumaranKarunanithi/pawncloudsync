@@ -21,7 +21,7 @@
         android:layout_marginTop="@dimen/sp_lg"
         android:layout_marginBottom="@dimen/sp_sm"
         android:text="More"
-        android:textColor="@color/wine"
+        android:textColor="@color/wine_ink"
         android:textSize="20sp"
         android:textStyle="bold"
         style="@style/Royal.Font.Display" />

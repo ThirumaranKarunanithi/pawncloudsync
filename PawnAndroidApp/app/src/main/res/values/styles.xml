@@ -35,7 +35,7 @@
     <style name="Royal.Title" parent="Royal.Font.Display">
         <item name="android:textSize">@dimen/t_lead</item>
         <item name="android:textStyle">bold</item>
-        <item name="android:textColor">@color/wine</item>
+        <item name="android:textColor">@color/wine_ink</item>
     </style>
 
     <style name="Royal.Title.Large">
@@ -175,7 +175,7 @@
 
     <style name="Royal.Button.Outline">
         <item name="android:background">@drawable/btn_outline</item>
-        <item name="android:textColor">@color/wine</item>
+        <item name="android:textColor">@color/wine_ink</item>
     </style>
 
     <style name="Royal.Button.Quiet">
@@ -279,7 +279,7 @@
         <item name="android:paddingBottom">3dp</item>
         <item name="android:textSize">@dimen/t_small</item>
         <item name="android:textStyle">bold</item>
-        <item name="android:textColor">@color/wine</item>
+        <item name="android:textColor">@color/wine_ink</item>
         <item name="android:fontFeatureSettings">tnum</item>
     </style>
 
@@ -316,7 +316,8 @@
     <style name="RoyalTileIcon">
         <item name="android:layout_width">23dp</item>
         <item name="android:layout_height">23dp</item>
-        <item name="android:tint">@color/wine</item>
+        <!-- A glyph on parchment is ink, so it lightens after dark. -->
+        <item name="android:tint">@color/wine_ink</item>
         <item name="android:contentDescription">@null</item>
     </style>
 

@@ -255,19 +255,19 @@
                     <TextView
                         style="@style/MisRowLabel"
                         android:text="Total stock"
-                        android:textColor="@color/wine"
+                        android:textColor="@color/wine_ink"
                         android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/tvSumTotalStockBills"
                         style="@style/MisRowCount"
-                        android:textColor="@color/wine"
+                        android:textColor="@color/wine_ink"
                         android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/tvSumTotalStockAmt"
                         style="@style/MisRowMoney"
-                        android:textColor="@color/wine" />
+                        android:textColor="@color/wine_ink" />
                 </LinearLayout>
 
                 <!-- Gross -->
@@ -386,7 +386,7 @@
                     android:id="@+id/tvChartTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/wine"
+                    android:textColor="@color/wine_ink"
                     android:textSize="@dimen/t_lead"
                     android:textStyle="bold"
                     style="@style/Royal.Font.Display" />

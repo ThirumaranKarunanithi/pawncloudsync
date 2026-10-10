@@ -148,7 +148,7 @@ public class AccountDetailActivity extends AppCompatActivity {
                 catch (Exception ignored) {}
                 TextView cell = makeCell(cellText, isAmount);
                 if (isBillNoCol) {
-                    cell.setTextColor(royal.wine);
+                    cell.setTextColor(royal.wineInk);
                     cell.setTypeface(null, Typeface.BOLD);
                 }
                 tr.addView(cell);

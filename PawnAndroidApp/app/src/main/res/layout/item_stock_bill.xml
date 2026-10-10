@@ -112,7 +112,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFeatureSettings="tnum"
-                android:textColor="@color/wine"
+                android:textColor="@color/wine_ink"
                 android:textSize="@dimen/t_small"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -156,26 +156,27 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:background="@drawable/bg_result_good"
+            android:background="@drawable/bg_money_chip"
             android:orientation="vertical"
             android:paddingStart="9dp"
             android:paddingTop="6dp"
             android:paddingEnd="9dp"
             android:paddingBottom="6dp">
 
+            <!-- Neutral, not emerald: this is the rate on the bill, not
+                 money the shop has earned. -->
             <TextView
                 style="@style/Royal.Cap.Quiet"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="INTEREST"
-                android:textColor="@color/emerald_ink" />
+                android:text="INT. RATE" />
 
             <TextView
                 android:id="@+id/tvInterest"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFeatureSettings="tnum"
-                android:textColor="@color/emerald_ink"
+                android:textColor="@color/ink"
                 android:textSize="@dimen/t_small"
                 android:textStyle="bold" />
         </LinearLayout>

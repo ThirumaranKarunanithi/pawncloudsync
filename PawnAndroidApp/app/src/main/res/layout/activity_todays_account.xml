@@ -322,7 +322,7 @@
                         android:layout_weight="1"
                         android:letterSpacing="0.08"
                         android:text="TOTAL"
-                        android:textColor="@color/wine"
+                        android:textColor="@color/wine_ink"
                         android:textSize="@dimen/t_small"
                         android:textStyle="bold" />
 

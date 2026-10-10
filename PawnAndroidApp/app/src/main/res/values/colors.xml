@@ -24,6 +24,13 @@
     <color name="wine_light">#76222F</color>
     <color name="crimson">#8E2A3A</color>
 
+    <!-- Wine as TYPE, not as a surface. The two cannot be the same token:
+         a surface goes darker after dark, ink has to go lighter, and
+         using @color/wine for text put near-black on near-black at
+         night - the Capital figure vanished on every stock row. Reach
+         for this whenever wine is the colour of a word. -->
+    <color name="wine_ink">#611A28</color>
+
     <!-- ── Gold: rules, titles on wine ──────────────────────────────── -->
     <!-- gold_ink is the only gold readable as text ON parchment (4.9:1).
          gold_rule and brighter are for fills, rules and text on wine. -->

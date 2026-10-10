@@ -78,7 +78,7 @@
             android:layout_width="wrap_content"
             android:layout_height="@dimen/tap_min"
             android:text="Download"
-            android:textColor="@color/wine"
+            android:textColor="@color/wine_ink"
             android:textSize="13sp"
             android:textStyle="bold" />
 

@@ -23,9 +23,20 @@ import com.pawnbroking.app.R;
  */
 public final class Royal {
 
-    /** Bands, primary buttons, the Month column, totals. */
+    /** Bands, primary buttons, filled surfaces. A SURFACE colour. */
     public final int wine;
     public final int wineDeep;
+
+    /**
+     * Wine as the colour of a word, not of a surface.
+     *
+     * <p>The two cannot be one token. A surface goes darker after dark
+     * while ink has to go lighter, so painting text with {@link #wine}
+     * put near-black on near-black at night and the Capital figure
+     * disappeared from every stock row. Use this for any wine text,
+     * and for an icon drawn on parchment.
+     */
+    public final int wineInk;
 
     /** The only gold readable as text on parchment. */
     public final int goldInk;
@@ -68,6 +79,7 @@ public final class Royal {
     public Royal(Context c) {
         wine         = of(c, R.color.wine);
         wineDeep     = of(c, R.color.wine_deep);
+        wineInk      = of(c, R.color.wine_ink);
         goldInk      = of(c, R.color.gold_ink);
         goldRule     = of(c, R.color.gold_rule);
         goldWash     = of(c, R.color.gold_wash);

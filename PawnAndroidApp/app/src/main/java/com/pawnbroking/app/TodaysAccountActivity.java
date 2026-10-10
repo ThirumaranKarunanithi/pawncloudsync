@@ -352,7 +352,7 @@ public class TodaysAccountActivity extends AppCompatActivity {
             tvName.setText(name + (detailType != null ? " ›" : ""));
             // A row that opens a drill-down is wine, like a link; the two
             // that have no detail type (Liability, Asset) stay plain ink.
-            tvName.setTextColor(detailType != null ? royal.wine : royal.ink);
+            tvName.setTextColor(detailType != null ? royal.wineInk : royal.ink);
             tvName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
             tvName.setTypeface(null, android.graphics.Typeface.BOLD);
             nameCell.addView(tvName);
