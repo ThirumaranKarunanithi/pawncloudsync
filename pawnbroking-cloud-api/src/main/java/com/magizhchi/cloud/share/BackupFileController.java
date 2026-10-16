@@ -295,7 +295,13 @@ public class BackupFileController {
         boolean lopsided = dumpAgeDays >= 3 && ageDays(lastAny) <= 1;
 
         String reason, advice;
-        if (full || (lopsided && pct >= 0)) {
+        // Blaming storage needs the storage figure to actually SAY so. An
+        // earlier cut of this blamed a full box whenever reports were arriving
+        // and dumps were not, which on a box at 2% would have announced "your
+        // cloud storage is full (2% used)" and sent somebody off to buy space
+        // they already had. Lopsided is the symptom; only the percentage is
+        // evidence of the cause.
+        if (full || (lopsided && pct >= 90)) {
             reason = "CLOUD_FULL";
             advice = "The shop PC is fine — its cloud storage is full"
                    + (pct >= 0 ? " (" + pct + "% used)" : "")
@@ -304,8 +310,18 @@ public class BackupFileController {
                    + "Ask for the storage plan to be raised.";
         } else if (lopsided) {
             reason = "DUMPS_NOT_ARRIVING";
-            advice = "Daily reports are arriving but the database backup is not. "
-                   + "This is a cloud-side problem, not the backup job on the shop PC.";
+            // What is NOT knowable from here: whether the agent tried to send a
+            // dump and was refused, or never found one to send. Both look
+            // identical to the cloud — it sees reports and no dump either way.
+            // So name the one thing that IS settled (storage is not the cause)
+            // and send them to the agent's own panel, which can tell them apart.
+            advice = "Daily reports are arriving but the database backup is not."
+                   + (pct >= 0
+                      ? " Cloud storage is only " + pct + "% used, so it is not full."
+                      : "")
+                   + " Either the backup file is not being written where the sync agent "
+                   + "looks for it, or its upload is failing. The agent's own progress "
+                   + "window on the shop PC has a Backup line that says which.";
         } else if (dumpAgeDays >= 2) {
             reason = "STALE";
             advice = "No backup has reached the cloud for " + dumpAgeDays
