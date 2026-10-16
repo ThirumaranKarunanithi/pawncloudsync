@@ -66,6 +66,9 @@ public class BackupFilesActivity extends AppCompatActivity {
 
     /** Everything the cloud returned. */
     private final List<JSONObject> allItems = new ArrayList<>();
+    /** The cloud's verdict on why backups are or are not arriving; null until
+     *  it answers, or on a cloud too old to have been asked. */
+    private JSONObject health;
     /** What the list currently shows — allItems narrowed by the search box. */
     private final List<JSONObject> items = new ArrayList<>();
     private String query = "";
@@ -162,6 +165,26 @@ public class BackupFilesActivity extends AppCompatActivity {
                 });
             }
         });
+        loadHealth();
+    }
+
+    /**
+     * Asks the cloud why backups are or are not arriving. Runs beside the list
+     * rather than before it, so a slow or old server never keeps the shop from
+     * seeing its backups — the list is the useful part, the verdict only sharpens
+     * the warning above it.
+     */
+    private void loadHealth() {
+        ApiService.backupHealth(new ApiService.Callback<JSONObject>() {
+            @Override public void onSuccess(JSONObject data) {
+                runOnUiThread(() -> { health = data; updateSummary(); });
+            }
+            @Override public void onError(String msg) {
+                // An older cloud has no /health. Leave it null and fall back to
+                // what the list itself shows; never nag about it.
+                runOnUiThread(() -> { health = null; updateSummary(); });
+            }
+        });
     }
 
     /**
@@ -206,17 +229,46 @@ public class BackupFilesActivity extends AppCompatActivity {
             return;
         }
         JSONObject newest = allItems.get(0);
-        String when = newest.optString("uploaded_at", "");
         tvLatestInfo.setText("Latest: " + newest.optString("file_name", "?")
                 + "  (" + BackupStore.humanSize(newest.optLong("file_size_bytes", 0)) + ")");
 
-        // Backup jobs fail silently on the shop PC; surfacing the age here is
-        // the only way the owner finds out before they actually need it.
-        long ts = parseTimestamp(when);
-        if (ts > 0 && System.currentTimeMillis() - ts > STALE_AFTER_MS) {
-            long days = (System.currentTimeMillis() - ts) / (24L * 60 * 60 * 1000);
-            tvStaleWarning.setText("⚠ No new backup for " + days
-                    + " day(s) — check the shop PC's backup job.");
+        // The age that matters is the newest DATABASE BACKUP, not the newest
+        // file. Judging it by any file was the quiet half of this fault: when a
+        // shop's cloud storage filled, the small daily PDF report still fitted
+        // and the large dump did not, so a report from this morning sat at the
+        // top of the list and the screen declared everything healthy — while
+        // the database had not been saved off-site for months. A shop was never
+        // even warned. It is the big file or nothing.
+        JSONObject newestDump = null;
+        for (JSONObject o : allItems) {
+            if (!o.optString("file_name", "").toLowerCase(Locale.US).endsWith(".pdf")) {
+                newestDump = o; break;      // the list arrives newest first
+            }
+        }
+        long ts = newestDump == null ? 0
+                : parseTimestamp(newestDump.optString("uploaded_at", ""));
+        boolean stale = ts <= 0 || System.currentTimeMillis() - ts > STALE_AFTER_MS;
+
+        // The cloud's own verdict wins when we have it: it is the only side that
+        // can see whether the shop's storage is full, and therefore the only
+        // side that can tell the shop where to actually look.
+        String reason = health == null ? null : health.optString("reason", null);
+        String advice = health == null ? null : health.optString("advice", null);
+
+        if (reason != null && !"OK".equals(reason)) {
+            boolean bad = !"FILLING".equals(reason);
+            tvStaleWarning.setText((bad ? "⚠ " : "ℹ ") + advice);
+            tvStaleWarning.setVisibility(View.VISIBLE);
+        } else if (reason != null) {
+            tvStaleWarning.setVisibility(View.GONE);
+        } else if (stale) {
+            // No answer from the cloud — say what we can see and no more. The
+            // old wording named the shop PC as the culprit, which sent people
+            // to the one place the fault usually was not.
+            long days = ts <= 0 ? -1 : (System.currentTimeMillis() - ts) / (24L * 60 * 60 * 1000);
+            tvStaleWarning.setText("⚠ " + (days < 0
+                    ? "No database backup has reached the cloud yet."
+                    : "No new database backup for " + days + " day(s)."));
             tvStaleWarning.setVisibility(View.VISIBLE);
         } else {
             tvStaleWarning.setVisibility(View.GONE);

@@ -49,6 +49,35 @@ public class AgentState {
         consecutiveFailures.incrementAndGet();
     }
 
+    // ── Backups ──────────────────────────────────────────────────────────────
+    //
+    // Kept apart from the event-sync fields above because the two fail
+    // independently and for different reasons, and reading one as the other is
+    // how this went unnoticed for so long: event sync was perfectly healthy —
+    // "status": "ok" on every check — while the nightly database backup had
+    // not reached the cloud for months. Nothing on this page said otherwise.
+
+    /** When a backup last reached the cloud. */
+    public volatile Instant lastBackupAt;
+    /** Why the last backup attempt failed, in the cloud's own words. */
+    public volatile String lastBackupError;
+    public volatile Instant lastBackupErrorAt;
+    /** Set when the refusal was "no room", which no amount of retrying fixes. */
+    public volatile boolean backupBlockedByStorage;
+
+    public void recordBackupSuccess() {
+        lastBackupAt = Instant.now();
+        lastBackupError = null;
+        lastBackupErrorAt = null;
+        backupBlockedByStorage = false;
+    }
+
+    public void recordBackupFailure(String why, boolean noRoom) {
+        lastBackupError = why;
+        lastBackupErrorAt = Instant.now();
+        backupBlockedByStorage = noRoom;
+    }
+
     /**
      * One word for whoever is looking: ok, degraded, or failing.
      *

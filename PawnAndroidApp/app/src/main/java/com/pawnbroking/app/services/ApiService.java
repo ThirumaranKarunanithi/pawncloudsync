@@ -1494,6 +1494,29 @@ public class ApiService {
     }
 
     /**
+     * Asks the cloud why backups are or are not arriving.
+     *
+     * <p>The phone cannot work this out for itself. It can see that no backup
+     * has arrived, but not WHY — and the obvious guess, that the shop PC's
+     * backup job has stopped, was wrong in every case that mattered. The real
+     * cause was a full cloud box, which goes on accepting the small daily
+     * report while refusing the large database dump. Only the cloud can see
+     * the storage figure, so only the cloud can say.
+     */
+    public static void backupHealth(Callback<JSONObject> cb) {
+        EXEC.execute(() -> {
+            try {
+                try (Response res = CLIENT.newCall(
+                        authed(HttpUrl.parse(AppConfig.BACKUP_HEALTH)).get().build()).execute()) {
+                    String raw = res.body() != null ? res.body().string() : "{}";
+                    checkStatus(res, raw);
+                    cb.onSuccess(new JSONObject(raw));
+                }
+            } catch (Exception e) { cb.onError(e.getMessage()); }
+        });
+    }
+
+    /**
      * Downloads one backup file to {@code dest}, streaming straight to disk so
      * a 100MB+ dump never sits in the app's heap. Writes to a ".part" file and
      * renames on success, so an interrupted download can never be mistaken for

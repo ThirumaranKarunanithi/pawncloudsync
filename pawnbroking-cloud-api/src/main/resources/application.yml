@@ -52,6 +52,25 @@ pawnbroking:
   # Magizhchi Share ("the box") — used for passwordless email-OTP login
   box:
     url: ${MAGIZHCHI_BOX_URL:https://box.magizhchi.software}
+  # How long an off-site backup is kept in the shop's box.
+  #
+  # Before this existed, nothing ever deleted a backup, so a shop's box could
+  # only ever fill — and a full box still accepts the small daily PDF report
+  # while refusing the large database dump. Shops watched their reports arrive
+  # every morning and concluded all was well, with no database backup saved for
+  # months. Retiring old ones puts storage in a steady state instead.
+  backup:
+    keep-days: ${BACKUP_KEEP_DAYS:30}
+    # The newest few of EACH kind of file survive whatever their age, so a shop
+    # whose backup job has been stopped for two months does not have its last
+    # off-site copy swept away on the day somebody finally needs it.
+    keep-floor: ${BACKUP_KEEP_FLOOR:7}
+  # Warns before a shop's box fills, rather than after it has stopped backing
+  # up. Once per crossing of 80 / 90 / 95 percent — a mail every morning is one
+  # nobody reads by Friday, which is the same as no mail at all.
+  quota:
+    watch-enabled: ${QUOTA_WATCH_ENABLED:true}
+    cron: ${QUOTA_WATCH_CRON:0 0 7 * * *}
   # Who may open /admin.html. Comma separated; each address signs in with a
   # code sent to it, so it must have a Magizhchi Share account. Read on every
   # boot and added if missing — admins are otherwise managed from the page,
@@ -69,6 +88,17 @@ pawnbroking:
   # origins that should be able to read shop data from a web page.
   cors:
     origins: ${CORS_ORIGINS:https://meet.magizhchi.software,https://meetback.magizhchi.software,http://localhost:5173}
+
+# Transactional mail, through Resend's HTTP API. The SAME account and verified
+# sender Magizhchi Share uses for its sign-in codes — Railway blocks the SMTP
+# ports (25/465/587), so HTTPS is the only way out, and one mail account is one
+# thing to keep working instead of two.
+#
+# Only the storage warnings use this. With these unset nothing breaks: the
+# warning is logged and not sent, and the job carries on.
+resend:
+  api-key:      ${RESEND_API_KEY:}
+  from-address: ${RESEND_FROM:}
 
 springdoc:
   swagger-ui:

@@ -40,6 +40,15 @@ public class HealthServer {
             body.put("consecutive_failures", s.consecutiveFailures.get());
             body.put("last_error", s.lastError);
             body.put("last_error_at", s.lastErrorAt == null ? null : s.lastErrorAt.toString());
+            // The backup is a separate promise to the shop and fails for its own
+            // reasons. Reported separately because "status": "ok" above refers to
+            // event sync alone, and reading it as a verdict on the backups is
+            // exactly how shops went months without one.
+            body.put("last_backup_at", s.lastBackupAt == null ? null : s.lastBackupAt.toString());
+            body.put("last_backup_error", s.lastBackupError);
+            body.put("last_backup_error_at",
+                     s.lastBackupErrorAt == null ? null : s.lastBackupErrorAt.toString());
+            body.put("backup_blocked_by_storage", s.backupBlockedByStorage);
             byte[] out = M.writeValueAsBytes(body);
             ex.getResponseHeaders().add("Content-Type", "application/json");
             ex.sendResponseHeaders(200, out.length);

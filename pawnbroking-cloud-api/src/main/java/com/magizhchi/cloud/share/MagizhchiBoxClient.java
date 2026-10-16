@@ -207,6 +207,52 @@ public class MagizhchiBoxClient {
         return blob.body();
     }
 
+    /**
+     * Deletes one file and gives the account its room back.
+     *
+     * <p>This is the half that was missing for a year. Backups were uploaded and
+     * never removed, so a shop's box could only ever fill up - and the box
+     * refuses an upload that would cross the account's limit, which is a cap on
+     * the SIZE of the file, not on how many. So the day a shop got close to the
+     * line, the 1 MB report still fitted and the 21 MB database dump did not,
+     * and the shop went on seeing its PDFs arrive every morning while its actual
+     * backup quietly stopped. Nothing is really off-site after that.
+     */
+    public void deleteFile(String apiKey, long fileId) throws Exception {
+        HttpRequest req = HttpRequest.newBuilder(URI.create(baseUrl + "/api/files/" + fileId))
+                .header("X-Api-Key", apiKey)
+                .timeout(Duration.ofSeconds(30))
+                .DELETE().build();
+        HttpResponse<String> r = http.send(req, HttpResponse.BodyHandlers.ofString());
+        // Already gone is the outcome we wanted. Only a real failure is an error.
+        if (r.statusCode() == 404) return;
+        if (r.statusCode() / 100 != 2)
+            throw new RuntimeException("box deleteFile " + r.statusCode() + ": " + r.body());
+    }
+
+    /** What an account has used and what it is allowed, in bytes. */
+    public record Usage(long usedBytes, long limitBytes) {
+        public long freeBytes() { return Math.max(0L, limitBytes - usedBytes); }
+        public boolean fits(long size) { return usedBytes + size <= limitBytes; }
+    }
+
+    /**
+     * Reads the account's storage line so the caller can look BEFORE sending a
+     * big file, rather than finding out from a 413 after pushing 21 MB up a
+     * shop's broadband.
+     */
+    public Usage usage(String apiKey) throws Exception {
+        HttpRequest req = HttpRequest.newBuilder(URI.create(baseUrl + "/api/storage/usage"))
+                .header("X-Api-Key", apiKey)
+                .timeout(Duration.ofSeconds(30))
+                .GET().build();
+        HttpResponse<String> r = http.send(req, HttpResponse.BodyHandlers.ofString());
+        if (r.statusCode() / 100 != 2)
+            throw new RuntimeException("box usage " + r.statusCode() + ": " + r.body());
+        JsonNode n = M.readTree(r.body());
+        return new Usage(n.path("usedBytes").asLong(0L), n.path("limitBytes").asLong(0L));
+    }
+
     private static String jsonEscape(String s) {
         return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }

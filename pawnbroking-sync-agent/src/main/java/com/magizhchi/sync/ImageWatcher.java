@@ -278,6 +278,21 @@ public class ImageWatcher implements Runnable {
     }
 
     /** True for statuses worth retrying: rate-limit + transient gateway errors. */
+    /**
+     * Whether the cloud refused for want of room — which is the one refusal
+     * that never clears by itself.
+     *
+     * <p>507 is what cloud-api now answers; the older wording and a bare 413
+     * are matched too, so an agent that has not been updated alongside the
+     * cloud still says the right thing to whoever reads the log.
+     */
+    private static boolean noRoom(String why) {
+        if (why == null) return false;
+        String s = why.toLowerCase();
+        return s.contains("status=507") || s.contains("storage limit")
+            || s.contains("box is full") || s.contains("status=413");
+    }
+
     private static boolean isTransient(HttpResponse<String> r) {
         int s = r.statusCode();
         if (s == 429 || s == 502 || s == 503 || s == 504) return true;
@@ -405,8 +420,26 @@ public class ImageWatcher implements Runnable {
                     try {
                         uploadBackup(p, cr.companyId, relPath, fileName);
                         uploaded++;
+                        Agent.STATE.get().recordBackupSuccess();
                     } catch (Exception ue) {
-                        log.warn("backup upload failed for {}: {}", abs, ue.getMessage());
+                        String why = ue.getMessage() == null ? ue.toString() : ue.getMessage();
+                        boolean noRoom = noRoom(why);
+                        Agent.STATE.get().recordBackupFailure(why, noRoom);
+                        if (noRoom) {
+                            // Not a warning. The shop's off-site copy of its
+                            // database has stopped, and no amount of retrying
+                            // will start it again — only more room will. This
+                            // was a log.warn for a year, which is to say it was
+                            // nothing at all: shops went months without a backup
+                            // while every screen they could see said "ok".
+                            log.error("BACKUP REFUSED — THE SHOP'S CLOUD STORAGE IS FULL. "
+                                    + "Nothing is being backed up off-site. The daily PDF "
+                                    + "report is small enough to still fit, so the phone may "
+                                    + "look healthy; it is not. Raise the shop's box plan. "
+                                    + "File: {} — {}", abs, why);
+                        } else {
+                            log.warn("backup upload failed for {}: {}", abs, why);
+                        }
                     }
                 }
             }

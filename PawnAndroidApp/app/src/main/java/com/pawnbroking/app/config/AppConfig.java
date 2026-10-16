@@ -51,6 +51,9 @@ public class AppConfig {
     public static final String BACKUP_LIST     = BASE_URL + "/v1/files/backup/list";
     /** Streamed bytes for one backup file. */
     public static final String BACKUP_DOWNLOAD = BASE_URL + "/v1/files/backup/download";
+    /** Why backups are, or are not, arriving — answered by the cloud, which is
+     *  the only side that can see whether the shop's storage is full. */
+    public static final String BACKUP_HEALTH   = BASE_URL + "/v1/files/backup/health";
 
     /** How many downloaded backups to keep on the phone. Older local copies
      *  are pruned only AFTER a newer one has downloaded successfully, so the
