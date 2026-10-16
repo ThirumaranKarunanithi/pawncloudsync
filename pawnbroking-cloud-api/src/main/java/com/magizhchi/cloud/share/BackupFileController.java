@@ -281,12 +281,49 @@ public class BackupFileController {
                 "SELECT max(uploaded_at) FROM backup_files " +
                 " WHERE lower(file_name) NOT LIKE '%.pdf'" + where,
                 java.sql.Timestamp.class, a));
+            // The day the shop last CLOSED, which is the thing that makes a
+            // dump at all: pg_dump runs from closing the day in Today's
+            // Account and from nowhere else in either desktop app. Printing
+            // the day writes the PDFs; closing it writes the .backup. A shop
+            // that prints and never closes therefore sends reports for ever
+            // and a database dump never once — with a correct folder, a
+            // healthy agent and an empty box, so every other reading here
+            // looks fine. We already hold this row; it syncs like any other.
+            try {
+                m.put("last_closed_day", j.queryForObject(
+                    "SELECT max(payload->>'todays_date') FROM projections " +
+                    " WHERE table_name = 'company_todays_account' AND NOT deleted " +
+                    "   AND payload->>'ref_mark' = 'L'" +
+                    (where.isEmpty() ? "" : " AND payload->>'company_id' = ?"),
+                    String.class, a));
+            } catch (Exception ignored) {
+                // An older shop may not have synced this table yet. Saying
+                // nothing is right; guessing would not be.
+            }
             return m;
         });
 
         Object lastAny  = t.get("last_any");
         Object lastDump = t.get("last_dump");
         long dumpAgeDays = ageDays(lastDump);
+
+        // How long since the shop last closed a day. -1 means we could not
+        // tell, and an unknown must never be read as "not closed" — a shop
+        // that has simply not synced this table yet would otherwise be sent
+        // to close days it has already closed.
+        Object closedObj   = t.get("last_closed_day");
+        String closedIso   = closedObj == null ? null : closedObj.toString();
+        String lastClosedDay = null;
+        long closedDayAgeDays = -1;
+        if (closedIso != null && closedIso.length() >= 10) {
+            try {
+                java.time.LocalDate d = java.time.LocalDate.parse(closedIso.substring(0, 10));
+                closedDayAgeDays = java.time.temporal.ChronoUnit.DAYS.between(
+                        d, java.time.LocalDate.now());
+                // Shown the way the shop writes dates, not the way Postgres does.
+                lastClosedDay = d.format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+            } catch (Exception ignored) { /* leave it unknown */ }
+        }
 
         boolean full    = pct >= 98;
         boolean filling = pct >= 80 && pct < 98;
@@ -308,6 +345,17 @@ public class BackupFileController {
                    + ". A full box still accepts the small daily report and refuses the "
                    + "larger database backup, which is why reports keep arriving. "
                    + "Ask for the storage plan to be raised.";
+        } else if (lopsided && closedDayAgeDays >= 3) {
+            // Both halves agree: reports arriving, no dump, and no day closed
+            // either. Then it is not the folder and not the upload — the step
+            // that writes a dump has not been performed. Say so outright, and
+            // name the day, because that is a counter job and not an IT one.
+            reason = "DAY_NOT_CLOSED";
+            advice = "The day's account has not been closed since "
+                   + lastClosedDay + ". Closing the day in Today's Account is what "
+                   + "writes the database backup — printing the day only writes the "
+                   + "PDF reports, which is why those keep arriving. Close the days "
+                   + "that are still open and the backup will go up by itself.";
         } else if (lopsided) {
             reason = "DUMPS_NOT_ARRIVING";
             // What is NOT knowable from here: whether the agent tried to send a
@@ -343,6 +391,7 @@ public class BackupFileController {
         out.put("limitBytes", limit);
         out.put("percentUsed", pct);
         out.put("lastBackupAt", lastDump == null ? null : lastDump.toString());
+        out.put("lastClosedDay", lastClosedDay);
         out.put("lastAnyFileAt", lastAny == null ? null : lastAny.toString());
         out.put("daysSinceBackup", dumpAgeDays);
         return out;
