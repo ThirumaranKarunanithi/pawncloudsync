@@ -10,8 +10,12 @@ android {
         applicationId "com.pawnbroking.app"
         minSdk 21
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        // Bumped 16-10-2026. It had sat at 1/"1.0" through every build, so a
+        // phone could not be asked which app it was running and an update was
+        // indistinguishable from the app already on it. This build is the one
+        // that stops blaming the shop PC when the cloud box is the problem.
+        versionCode 2
+        versionName "1.1"
     }
 
     buildTypes {
