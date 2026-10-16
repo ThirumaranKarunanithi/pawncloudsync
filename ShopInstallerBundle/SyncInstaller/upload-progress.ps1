@@ -87,6 +87,42 @@ $svcColor = "Green"; if ($svcText -ne "Running") { $svcColor = "Red" }
 Say ("Sync agent : {0}" -f $svcText) $svcColor
 if ($health -and $health.last_error) { Say ("  last error: {0}" -f $health.last_error) "Yellow" }
 
+# ---- The BACKUP, reported on its own ------------------------------------
+# "Sync agent : Running" above is about event sync and nothing else. Reading
+# it as a verdict on the off-site backup is how shops went months without one:
+# the shop's cloud box was full, a full box still takes the small daily PDF
+# report and refuses the large database dump, and every screen anybody could
+# see said the agent was fine. It was fine. The backup was not.
+if ($health -and ($health.PSObject.Properties.Name -contains 'last_backup_at')) {
+    if ($health.backup_blocked_by_storage) {
+        Say "Backup    : BLOCKED - THE SHOP'S CLOUD STORAGE IS FULL" "Red"
+        Say "            Nothing is being saved off-site. The daily PDF report is" "Red"
+        Say "            small enough to still fit, so the phone looks healthy." "Red"
+        Say "            Raise this shop's box plan." "Red"
+    }
+    elseif ($health.last_backup_error) {
+        Say ("Backup    : FAILING - {0}" -f $health.last_backup_error) "Red"
+    }
+    elseif ($health.last_backup_at) {
+        $age = (New-TimeSpan -Start ([datetime]$health.last_backup_at) -End (Get-Date)).TotalHours
+        if ($age -gt 48) {
+            Say ("Backup    : last reached the cloud {0:N0} hours ago" -f $age) "Yellow"
+        } else {
+            Say ("Backup    : ok, last sent {0:N0} hours ago" -f $age) "Green"
+        }
+    }
+    else {
+        # No success and no failure: the agent has not found a file to send.
+        # Usually company.backup_file_path points somewhere with no dump in it.
+        Say "Backup    : nothing sent yet this run" "Yellow"
+        Say "            Check  SELECT id, backup_file_path FROM company;  points at" "Yellow"
+        Say "            the folder the database dump is written to." "Yellow"
+    }
+}
+elseif ($health) {
+    Say "Backup    : (this agent is older than 16-10-2026 and cannot report it)" "DarkGray"
+}
+
 if (-not (HasTable 'sync_outbox')) {
     Say ""
     Say "The agent has not set up this database yet (no sync_outbox table)." "Red"
