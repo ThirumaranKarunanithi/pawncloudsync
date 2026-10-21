@@ -49,6 +49,13 @@ public class HealthServer {
             body.put("last_backup_error_at",
                      s.lastBackupErrorAt == null ? null : s.lastBackupErrorAt.toString());
             body.put("backup_blocked_by_storage", s.backupBlockedByStorage);
+            // The three that turn "nothing is arriving" into a reason: a folder the
+            // service cannot read, what the last upload weighed and whether it was
+            // compressed, and the settings the scan is really using.
+            body.put("backup_folder_unreadable", s.backupFolderUnreadable);
+            body.put("last_backup_size", s.lastBackupSize);
+            body.put("backup_retention_days", s.backupRetentionDays);
+            body.put("backup_gzip", s.backupGzipOn);
             byte[] out = M.writeValueAsBytes(body);
             ex.getResponseHeaders().add("Content-Type", "application/json");
             ex.sendResponseHeaders(200, out.length);

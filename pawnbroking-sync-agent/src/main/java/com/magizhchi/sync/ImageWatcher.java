@@ -377,16 +377,32 @@ public class ImageWatcher implements Runnable {
     /** Walk each company's backup_file_path and POST any new file to
      *  /v1/files/backup. Shares the box rate-limit throttle with images. */
     private void scanBackupsOnce() throws Exception {
+        // What the scan is actually running with, so the progress report can show it
+        // rather than leave somebody guessing at a shop PC. retention.days=0 in
+        // particular is invisible and expensive: it means every dump ever written is
+        // offered again on every pass, so a month of dead files can sit in front of
+        // tonight's and never let it through.
+        Agent.STATE.get().backupRetentionDays = cfg.backupRetentionDays;
+        Agent.STATE.get().backupGzipOn        = cfg.backupGzip;
+
         List<CompanyRoot> roots = resolveBackupRoots();
         if (roots.isEmpty()) return;
         java.util.Map<String, long[]> alreadyUploaded = loadAlreadyUploadedBackups();
         int scanned = 0, uploaded = 0, skipped = 0;
+        StringBuilder unreadable = new StringBuilder();
         for (CompanyRoot cr : roots) {
             Path root = Paths.get(cr.root);
             if (!Files.isDirectory(root)) {
-                log.debug("backup root for {} does not exist: {}", cr.companyId, cr.root);
+                // Not debug any more. A folder the agent cannot read looks exactly
+                // like a folder with nothing new in it, and telling those two apart
+                // from the cloud is impossible — the cloud sees no upload either way.
+                // Say which folder, and say it where somebody will meet it.
+                if (unreadable.length() > 0) unreadable.append("; ");
+                unreadable.append(cr.companyId).append(": ").append(cr.root);
+                warnOncePerPath(cr.root, cr.companyId);
                 continue;
             }
+            forgetMoan(cr.root);
             // Only sync backups modified within the retention window — old
             // daily dumps (100MB+ each) would otherwise flood the box. Default
             // 30 days; override with backup.retention.days in sync.properties.
@@ -444,9 +460,40 @@ public class ImageWatcher implements Runnable {
                 }
             }
         }
+        Agent.STATE.get().backupFolderUnreadable =
+                unreadable.length() == 0 ? null : unreadable.toString();
         if (uploaded > 0 || scanned > 0) {
             log.info("backup scan: roots={} scanned={} uploaded={} skipped={}",
                      roots.size(), scanned, uploaded, skipped);
+        }
+    }
+
+    /**
+     * Complains about an unreadable backup folder once, not once a minute.
+     *
+     * <p>The scan runs every {@code image.scan.interval.ms}, so a plain warn would
+     * put the same line in the log sixty times an hour and bury everything else.
+     * The path is remembered; it goes quiet until the folder comes back or changes,
+     * and says so when it returns, because "it started working again" is the other
+     * half of the story and is just as worth having.
+     */
+    private final java.util.Set<String> moanedAbout =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    private void warnOncePerPath(String root, String companyId) {
+        if (moanedAbout.add(root)) {
+            log.warn("THE BACKUP FOLDER CANNOT BE READ: {} (company {}). Nothing from it "
+                   + "is being sent off-site. If this is a mapped drive letter, the agent "
+                   + "runs as a Windows service and cannot see one - give it a local path "
+                   + "or a UNC path it has rights to. Set it in company.backup_file_path.",
+                     root, companyId);
+        }
+    }
+
+    /** Called when a root reads again, so the log shows the recovery too. */
+    private void forgetMoan(String root) {
+        if (moanedAbout.remove(root)) {
+            log.info("the backup folder can be read again: {}", root);
         }
     }
 
@@ -502,6 +549,18 @@ public class ImageWatcher implements Runnable {
             log.info("gzipped {}: {} MB -> {} MB in {}s", fileName,
                      attrs.size() >> 20, Files.size(gzTmp) >> 20,
                      (System.currentTimeMillis() - t0) / 1000);
+        }
+        // Recorded BEFORE the post, so a refusal still leaves behind what was
+        // attempted and at what weight. A 502 from the proxy says nothing about
+        // size, and "was it compressed?" is the first thing worth knowing when a
+        // few hundred megabytes will not go up.
+        Agent.STATE.get().recordBackupSize(fileName, attrs.size(),
+                gzTmp != null ? Files.size(gzTmp) : attrs.size(), gzTmp != null);
+        if (gzTmp == null && attrs.size() >= cfg.backupGzipMinBytes) {
+            log.warn("sending {} UNCOMPRESSED at {} MB - backup.gzip is {} in "
+                   + "sync.properties. A dump this size is commonly refused with a 502 "
+                   + "by the proxy in front of the cloud; gzip takes it to a tenth.",
+                     fileName, attrs.size() >> 20, cfg.backupGzip ? "on but skipped here" : "OFF");
         }
         try {
             postBackup(gzTmp != null ? gzTmp : file,

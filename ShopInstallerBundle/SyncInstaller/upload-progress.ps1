@@ -238,7 +238,41 @@ if ($roots.Count -eq 0) {
 # =======================================================================
 Say ""
 Say ("BACKUPS  (files in the backup folder; only the last {0} days are sent - backup.retention.days)" -f $retentionDays) "Cyan"
-if ($retentionDays -le 0) { Say "  backup.retention.days = 0: every file is sent, whatever its age." }
+if ($retentionDays -le 0) {
+    Say "  backup.retention.days = 0: EVERY file is sent, whatever its age." "Yellow"
+    Say "  That is rarely wanted. A month of old dumps is offered again on every" "Yellow"
+    Say "  pass, and while they keep failing tonight's never gets its turn. Put" "Yellow"
+    Say "  backup.retention.days=30 in sync.properties unless you meant this." "Yellow"
+}
+
+# ---- What the AGENT says, which is not what this window can see --------------
+# This script runs as whoever is signed in. The agent runs as a Windows service,
+# and the two do not see the same drives: a mapped letter like M: belongs to a
+# logon session and simply is not there for a service. So a folder this window
+# scans happily can be invisible to the thing that does the uploading, and for a
+# day that difference looked like "the agent is ignoring our backups".
+if ($health) {
+    if ($health.PSObject.Properties.Name -contains 'backup_gzip') {
+        $gz = $health.backup_gzip
+        $gzText = "on"; $gzColour = "Green"
+        if (-not $gz) { $gzText = "OFF - a large dump will be refused with a 502"; $gzColour = "Red" }
+        Say ("  The agent is using: retention {0} days, gzip {1}" -f $health.backup_retention_days, $gzText) $gzColour
+    }
+    if ($health.backup_folder_unreadable) {
+        Say ""
+        Say ("  THE AGENT CANNOT READ: {0}" -f $health.backup_folder_unreadable) "Red"
+        Say "  This window may still list that folder quite happily - you are signed" "Red"
+        Say "  in and the agent is not. A mapped drive letter belongs to a logon" "Red"
+        Say "  session, so a service never sees one. Put the backups on a local path" "Red"
+        Say "  (D:\PAWNBROKING\BACKUP and the like) and set company.backup_file_path" "Red"
+        Say "  to it. Nothing from that folder is going off-site until you do." "Red"
+        Say ""
+    }
+    if ($health.last_backup_size) {
+        $c = "Green"; if ($health.last_backup_size -match 'UNCOMPRESSED') { $c = "Red" }
+        Say ("  Last one tried   : {0}" -f $health.last_backup_size) $c
+    }
+}
 $broots = @(Query "SELECT DISTINCT backup_file_path FROM company WHERE backup_file_path IS NOT NULL AND trim(backup_file_path) <> ''")
 $bTotal = 0; $bDone = 0; $bLeft = 0; $bLeftBytes = 0; $bOld = 0; $bOldBytes = 0; $newestOnDisk = $null; $bMissing = 0
 if ($broots.Count -eq 0) {
