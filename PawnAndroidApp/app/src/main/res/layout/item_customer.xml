@@ -50,4 +50,13 @@
         android:layout_height="wrap_content"
         android:textColor="@color/ink_mute"
         android:textSize="@dimen/t_small" />
+
+    <TextView
+        android:id="@+id/tvBills"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:fontFeatureSettings="tnum"
+        android:textColor="@color/ink_soft"
+        android:textSize="@dimen/t_small" />
 </LinearLayout>

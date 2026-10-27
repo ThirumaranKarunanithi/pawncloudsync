@@ -14,8 +14,10 @@ android {
         // phone could not be asked which app it was running and an update was
         // indistinguishable from the app already on it. This build is the one
         // that stops blaming the shop PC when the cloud box is the problem.
-        versionCode 2
-        versionName "1.1"
+        // 3 / 1.2 (27-10-2026): Customers found on the bills, not the near-empty
+        // customer_details table.
+        versionCode 3
+        versionName "1.2"
     }
 
     buildTypes {

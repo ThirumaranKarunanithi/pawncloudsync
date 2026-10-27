@@ -71,6 +71,17 @@
         android:textColor="@color/ink_soft"
         android:visibility="gone" />
 
+    <TextView
+        android:id="@+id/tvNote"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="@dimen/sp_md"
+        android:paddingEnd="@dimen/page_pad"
+        android:textColor="@color/ink_mute"
+        android:textSize="@dimen/t_small"
+        android:visibility="gone" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"

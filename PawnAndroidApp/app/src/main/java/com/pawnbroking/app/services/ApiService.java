@@ -1147,24 +1147,153 @@ public class ApiService {
 
     // ── Customers ─────────────────────────────────────────────────────────────
 
+    /** The most bills one cloud read hands over. */
+    public static final int CUSTOMER_BILLS_MAX = 500;
+
+    // The fields a person is found by. The cloud's q looks through the whole
+    // bill, so a bill also comes back when its nominee, referrer or closer
+    // shares the word; such a bill must not make its customer look like a match.
+    private static final String[] CUSTOMER_FOUND_BY = {
+        "customer_name", "customer_name_ta", "spouse_name", "spouse_name_ta",
+        "mobile_number", "mobile_number_2", "door_number", "street", "street_ta",
+        "area", "area_ta", "city", "city_ta", "customer_id" };
+
+    private static final java.util.Set<String> CLOSED_STATUSES = new java.util.HashSet<>(
+        java.util.Arrays.asList("CLOSED", "DELIVERED", "REBILLED", "REBILLED-ADDED",
+            "REBILLED-REMOVED", "REBILLED-MULTIPLE", "CANCELED", "CANCELLED"));
+
+    /**
+     * Customers are read off the BILLS, not customer_details. That table is
+     * filled only by the desktop's Customer Details screen, which shops hardly
+     * use - alwarpuram's cloud copy held one row against 41,808 bills, so every
+     * search here found nobody. The name, relation, mobile and address typed on
+     * each bill are the customer; bills with the same name and mobile are one
+     * person. The few customer_details rows a shop keeps are still listed.
+     *
+     * <p>Two bill reads, because the cloud stops at 500: by customer name alone,
+     * and through the whole bill (street, area, mobile). The whole-bill read on
+     * its own spent 216 of "latha"'s 500 on nominees and referrers and cut off
+     * older customers.
+     *
+     * <p>Each person comes back with {@code bills}, {@code open}, {@code owed}
+     * (the amount of the open bills), {@code last} (newest opening date) and
+     * {@code capped} (true when a read hit the 500 and older customers may be
+     * missing) beside the newest bill's customer fields.
+     */
     public static void searchCustomers(String companyId, String query, Callback<JSONArray> cb) {
         EXEC.execute(() -> {
             try {
-                JSONArray rows = fetchTableSync(AppConfig.TBL_CUSTOMER, query);
-                JSONArray flat = new JSONArray();
-                for (int i = 0; i < rows.length(); i++) {
-                    JSONObject body = unwrapPayload(rows.getJSONObject(i));
-                    sanitizeNulls(body);
+                String term = query == null ? "" : query.trim();
+                boolean digitsOnly = term.matches("[\\d\\s+-]+");
+                String table = AppConfig.TBL_BILL_OPENING;
+
+                List<JSONObject> bills = new ArrayList<>();
+                java.util.Set<String> seen = new java.util.HashSet<>();
+                boolean capped = false;
+                if (!digitsOnly) {
+                    JSONArray named = fetchTableSync(table, null, "opening_date:desc", companyId, null,
+                            null, null, null, null, /*customerName*/ term, null, null);
+                    capped = named.length() >= CUSTOMER_BILLS_MAX;
+                    addBills(named, bills, seen);
+                }
+                JSONArray any = fetchTableSync(table, term, "opening_date:desc", companyId, null,
+                        null, null, null, null, null, null, null);
+                if (digitsOnly) capped = any.length() >= CUSTOMER_BILLS_MAX;
+                addBills(any, bills, seen);
+                // Newest first across both reads: the first bill seen gives
+                // each person their current mobile and address.
+                java.util.Collections.sort(bills, (a, b) ->
+                        b.optString("opening_date", "").compareTo(a.optString("opening_date", "")));
+
+                String low = term.toLowerCase(java.util.Locale.ROOT);
+                String termDigits = digitsOf(term);
+                java.util.LinkedHashMap<String, JSONObject> people = new java.util.LinkedHashMap<>();
+                for (JSONObject b : bills) addPerson(people, b, true, low, termDigits);
+
+                JSONArray masters = fetchTableSync(AppConfig.TBL_CUSTOMER, term);
+                for (int i = 0; i < masters.length(); i++) {
+                    JSONObject m = unwrapPayload(masters.getJSONObject(i));
+                    sanitizeNulls(m);
                     if (companyId != null && !companyId.isEmpty()
                         && !"ALL".equalsIgnoreCase(companyId)
                         && !companyId.equalsIgnoreCase(currentShop())
-                        && !companyId.equalsIgnoreCase(body.optString("company_id", "")))
+                        && !companyId.equalsIgnoreCase(m.optString("company_id", "")))
                         continue;
-                    flat.put(body);
+                    addPerson(people, m, false, low, termDigits);
                 }
-                cb.onSuccess(flat);
+
+                // Names that start with what was typed first, then A-Z.
+                String up = norm(term);
+                List<JSONObject> list = new ArrayList<>(people.values());
+                java.util.Collections.sort(list, (a, b) -> {
+                    String na = norm(a.optString("customer_name")), nb = norm(b.optString("customer_name"));
+                    int ra = na.startsWith(up) ? 0 : na.contains(up) ? 1 : 2;
+                    int rb = nb.startsWith(up) ? 0 : nb.contains(up) ? 1 : 2;
+                    if (ra != rb) return ra - rb;
+                    int c = na.compareTo(nb);
+                    return c != 0 ? c : b.optInt("bills") - a.optInt("bills");
+                });
+                JSONArray out = new JSONArray();
+                for (JSONObject p : list) { p.put("capped", capped); out.put(p); }
+                cb.onSuccess(out);
             } catch (Exception e) { cb.onError(e.getMessage()); }
         });
+    }
+
+    private static void addBills(JSONArray rows, List<JSONObject> into, java.util.Set<String> seen)
+            throws org.json.JSONException {
+        for (int i = 0; i < rows.length(); i++) {
+            JSONObject b = unwrapPayload(rows.getJSONObject(i));
+            sanitizeNulls(b);
+            String key = b.optString("company_id") + "|" + b.optString("jewel_material_type")
+                    + "|" + b.optString("bill_number");
+            if (seen.add(key)) into.add(b);
+        }
+    }
+
+    private static void addPerson(java.util.Map<String, JSONObject> people, JSONObject r,
+                                  boolean isBill, String low, String termDigits)
+            throws org.json.JSONException {
+        String name = r.optString("customer_name", "").trim();
+        if (name.isEmpty() || !customerMatches(r, low, termDigits)) return;
+        // Same name and same mobile is the same person. With no mobile, the
+        // relation's name is the next best thing to tell two Lathas apart.
+        String mobile = digitsOf(r.optString("mobile_number", ""));
+        String key = norm(name) + "|" + (mobile.isEmpty() ? norm(r.optString("spouse_name", "")) : mobile);
+        JSONObject p = people.get(key);
+        if (p == null) {
+            p = new JSONObject(r.toString());
+            p.put("bills", 0); p.put("open", 0); p.put("owed", 0d); p.put("last", "");
+            people.put(key, p);
+        }
+        if (!isBill) return;
+        p.put("bills", p.optInt("bills") + 1);
+        if (!CLOSED_STATUSES.contains(r.optString("status", "").toUpperCase(java.util.Locale.ROOT))) {
+            p.put("open", p.optInt("open") + 1);
+            Double amount = parseDoubleOrNull(r.optString("amount", "").trim());
+            p.put("owed", p.optDouble("owed", 0) + (amount == null ? 0 : amount));
+        }
+        String opened = r.optString("opening_date", "");
+        if (opened.compareTo(p.optString("last", "")) > 0) p.put("last", opened);
+    }
+
+    private static boolean customerMatches(JSONObject r, String low, String termDigits) {
+        for (String k : CUSTOMER_FOUND_BY) {
+            String v = r.optString(k, "");
+            if (v.toLowerCase(java.util.Locale.ROOT).contains(low)) return true;
+            if (termDigits.length() >= 4 && digitsOf(v).contains(termDigits)) return true;
+        }
+        return false;
+    }
+
+    private static String norm(String v) {
+        return v == null ? "" : v.trim().replaceAll("\\s+", " ").toUpperCase(java.util.Locale.ROOT);
+    }
+
+    /** The last ten digits, so +91 98... and 98... are the same number. */
+    private static String digitsOf(String v) {
+        String d = v == null ? "" : v.replaceAll("\\D", "");
+        return d.length() > 10 ? d.substring(d.length() - 10) : d;
     }
 
     // ── Stock ─────────────────────────────────────────────────────────────────

@@ -61,6 +61,10 @@ public class BillsActivity extends AppCompatActivity {
         toolbar.setNavigationOnClickListener(v -> finish());
 
         etSearch    = findViewById(R.id.etSearch);
+        // Customers sends one person's mobile (or name) here. Set before the
+        // watcher is attached, so it is read once, by the load below.
+        String search = getIntent().getStringExtra("search");
+        if (search != null) etSearch.setText(search);
         recyclerView= findViewById(R.id.recyclerView);
         progressBar = findViewById(R.id.progressBar);
         tvTotal     = findViewById(R.id.tvTotal);
