@@ -191,6 +191,7 @@ public class StockDetailsActivity extends AppCompatActivity {
         btnModeCompany.setOnClickListener(v  -> setMode(ViewMode.COMPANY_ALONE));
         btnModeRepledge.setOnClickListener(v -> setMode(ViewMode.REPLEDGE_ALONE));
         btnModeAll.setOnClickListener(v      -> setMode(ViewMode.ALL_DETAILS));
+        paintModes(currentMode); // before any tap, or all three opened looking chosen
 
         buildFilterTypeSpinner();
 
@@ -347,6 +348,23 @@ public class StockDetailsActivity extends AppCompatActivity {
         currentMode = mode;
         // A segmented control: the chosen mode is wine, the rest are the
         // parchment strip they sit on.
+        paintModes(mode);
+
+        layoutMaterial.setVisibility(mode == ViewMode.REPLEDGE_ALONE ? View.GONE : View.VISIBLE);
+
+        if (mode == ViewMode.COMPANY_ALONE)
+            activeFilters.removeIf(f -> f.type.equals(FILTER_REPL_DATE) || f.type.equals(FILTER_REPL_NAME));
+        else if (mode == ViewMode.REPLEDGE_ALONE)
+            activeFilters.removeIf(f -> f.type.equals(FILTER_COMP_DATE)   ||
+                                        f.type.equals(FILTER_COMP_AMOUNT) ||
+                                        f.type.equals(FILTER_CUSTOMER_NAME));
+
+        buildFilterTypeSpinner();
+        refreshChips();
+        load();
+    }
+
+    private void paintModes(ViewMode mode) {
         int gold = royal.wine, dark = royal.onWine;
         int inactive = royal.strip, grey = royal.inkBody;
 
@@ -361,19 +379,6 @@ public class StockDetailsActivity extends AppCompatActivity {
         btnModeAll.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
             mode == ViewMode.ALL_DETAILS    ? gold : inactive));
         btnModeAll.setTextColor(mode == ViewMode.ALL_DETAILS    ? dark : grey);
-
-        layoutMaterial.setVisibility(mode == ViewMode.REPLEDGE_ALONE ? View.GONE : View.VISIBLE);
-
-        if (mode == ViewMode.COMPANY_ALONE)
-            activeFilters.removeIf(f -> f.type.equals(FILTER_REPL_DATE) || f.type.equals(FILTER_REPL_NAME));
-        else if (mode == ViewMode.REPLEDGE_ALONE)
-            activeFilters.removeIf(f -> f.type.equals(FILTER_COMP_DATE)   ||
-                                        f.type.equals(FILTER_COMP_AMOUNT) ||
-                                        f.type.equals(FILTER_CUSTOMER_NAME));
-
-        buildFilterTypeSpinner();
-        refreshChips();
-        load();
     }
 
     // ── Filter type spinner ────────────────────────────────────────────────────

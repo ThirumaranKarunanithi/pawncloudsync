@@ -81,11 +81,11 @@ public class BillsActivity extends AppCompatActivity {
         BottomNav.attach(this, BottomNav.Tab.BILLS, companyId, companyName);
 
         adapter = new BillAdapter(bills, bill -> {
-            Intent i = new Intent(this, BillDetailActivity.class);
-            i.putExtra("companyId", companyId);
-            i.putExtra("companyName", companyName);
-            i.putExtra("billNumber",  bill.billNumber);
-            i.putExtra("type",        bill.materialType);
+            // The bill screen everything else opens, the one with the photos.
+            Intent i = new Intent(this, BillingActivity.class);
+            i.putExtra("companyId",    companyId);
+            i.putExtra("billNumber",   bill.billNumber);
+            i.putExtra("materialType", bill.materialType);
             startActivity(i);
         });
         recyclerView.setLayoutManager(new LinearLayoutManager(this));

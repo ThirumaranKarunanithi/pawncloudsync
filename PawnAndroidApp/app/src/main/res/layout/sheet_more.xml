@@ -29,7 +29,7 @@
     <LinearLayout
         android:id="@+id/moreCustomers"
         style="@style/MoreRow">
-        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic_customers" />
+        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic3d_customers" />
         <TextView style="@style/MoreRowLabel" android:text="Customers" />
         <ImageView style="@style/MoreRowChevron" />
     </LinearLayout>
@@ -37,7 +37,7 @@
     <LinearLayout
         android:id="@+id/moreStock"
         style="@style/MoreRow">
-        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic_stock" />
+        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic3d_stock" />
         <TextView style="@style/MoreRowLabel" android:text="Stock Details" />
         <ImageView style="@style/MoreRowChevron" />
     </LinearLayout>
@@ -45,7 +45,7 @@
     <LinearLayout
         android:id="@+id/moreTodays"
         style="@style/MoreRow">
-        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic_ledger" />
+        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic3d_ledger" />
         <TextView style="@style/MoreRowLabel" android:text="Today's Account" />
         <ImageView style="@style/MoreRowChevron" />
     </LinearLayout>
@@ -53,7 +53,7 @@
     <LinearLayout
         android:id="@+id/moreTrial"
         style="@style/MoreRow">
-        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic_scale" />
+        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic3d_scale" />
         <TextView style="@style/MoreRowLabel" android:text="Trial Balance" />
         <ImageView style="@style/MoreRowChevron" />
     </LinearLayout>
@@ -61,7 +61,7 @@
     <LinearLayout
         android:id="@+id/moreActivity"
         style="@style/MoreRow">
-        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic_clock" />
+        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic3d_clock" />
         <TextView style="@style/MoreRowLabel" android:text="Who Did What" />
         <ImageView style="@style/MoreRowChevron" />
     </LinearLayout>
@@ -78,7 +78,7 @@
     <LinearLayout
         android:id="@+id/moreNotifications"
         style="@style/MoreRow">
-        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic_bell" />
+        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic3d_bell" />
         <TextView style="@style/MoreRowLabel" android:text="Notifications" />
         <ImageView style="@style/MoreRowChevron" />
     </LinearLayout>
@@ -86,7 +86,7 @@
     <LinearLayout
         android:id="@+id/moreBackups"
         style="@style/MoreRow">
-        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic_cloud" />
+        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic3d_cloud" />
         <TextView style="@style/MoreRowLabel" android:text="Backups" />
         <ImageView style="@style/MoreRowChevron" />
     </LinearLayout>
@@ -94,7 +94,7 @@
     <LinearLayout
         android:id="@+id/moreSettings"
         style="@style/MoreRow">
-        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic_gear" />
+        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic3d_gear" />
         <TextView style="@style/MoreRowLabel" android:text="Settings" />
         <ImageView style="@style/MoreRowChevron" />
     </LinearLayout>

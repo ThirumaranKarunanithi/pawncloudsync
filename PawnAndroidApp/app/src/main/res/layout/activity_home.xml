@@ -20,7 +20,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:layout_margin="32dp"
-        android:indeterminateTint="@color/wine"
+        android:indeterminateTint="@color/gold_rule"
         android:visibility="gone" />
 
     <TextView
@@ -105,20 +105,20 @@
                     android:id="@+id/btnBilling"
                     style="@style/RoyalTile">
 
-                    <ImageView style="@style/RoyalTileIcon" android:src="@drawable/ic_search" />
+                    <ImageView style="@style/RoyalTileIcon" android:src="@drawable/ic3d_search" />
                     <TextView style="@style/RoyalTileTitle" android:text="Search Bill" />
                     <TextView style="@style/RoyalTileSub" android:text="One bill, every figure" />
                 </LinearLayout>
 
                 <Space
                     android:layout_width="@dimen/sp_md"
-                    android:layout_height="1dp" />
+                    android:layout_height="match_parent" />
 
                 <LinearLayout
                     android:id="@+id/btnStockDetails"
                     style="@style/RoyalTile">
 
-                    <ImageView style="@style/RoyalTileIcon" android:src="@drawable/ic_stock" />
+                    <ImageView style="@style/RoyalTileIcon" android:src="@drawable/ic3d_stock" />
                     <TextView style="@style/RoyalTileTitle" android:text="Stock Details" />
                     <TextView style="@style/RoyalTileSub" android:text="What is in the locker" />
                 </LinearLayout>
@@ -157,8 +157,7 @@
 
                     <ImageView
                         style="@style/RoyalTileIcon"
-                        android:src="@drawable/ic_ledger"
-                        android:tint="@color/emerald" />
+                        android:src="@drawable/ic3d_ledger" />
 
                     <TextView style="@style/RoyalTileTitle" android:text="Today's Account" />
                     <TextView style="@style/RoyalTileSub" android:text="Debits, credits, deficit" />
@@ -166,7 +165,7 @@
 
                 <Space
                     android:layout_width="@dimen/sp_md"
-                    android:layout_height="1dp" />
+                    android:layout_height="match_parent" />
 
                 <LinearLayout
                     android:id="@+id/btnMonthlyReport"
@@ -175,8 +174,7 @@
 
                     <ImageView
                         style="@style/RoyalTileIcon"
-                        android:src="@drawable/ic_chart"
-                        android:tint="@color/violet" />
+                        android:src="@drawable/ic3d_chart" />
 
                     <TextView style="@style/RoyalTileTitle" android:text="MIS Report" />
                     <TextView style="@style/RoyalTileSub" android:text="Month by month" />
@@ -196,8 +194,7 @@
 
                 <ImageView
                     style="@style/RoyalTileIcon"
-                    android:src="@drawable/ic_clock"
-                    android:tint="@color/navy" />
+                    android:src="@drawable/ic3d_clock" />
 
                 <LinearLayout
                     android:layout_width="0dp"

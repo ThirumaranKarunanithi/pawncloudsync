@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The rule as metal: a bar of gold with the light caught at one place along it. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient
+        android:angle="0"
+        android:centerColor="#FFF0DA9B"
+        android:centerX="0.72"
+        android:endColor="#FF8F7314"
+        android:startColor="#FF6E5710" />
+</shape>

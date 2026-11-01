@@ -250,7 +250,7 @@ public class EmployeeActivityActivity extends AppCompatActivity {
 
     private void fill(Spinner sp, String[] values) {
         ArrayAdapter<String> a = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, values);
+                R.layout.item_spinner_compact, values);
         a.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         sp.setAdapter(a);
     }
@@ -303,7 +303,8 @@ public class EmployeeActivityActivity extends AppCompatActivity {
             StatusPill.paintAction(h.action, text(r, "action"));
             h.screen.setText(text(r, "screen"));
             h.bill.setText(billNumber);
-            h.bill.setVisibility(billNumber.isEmpty() ? View.GONE : View.VISIBLE);
+            // INVISIBLE: it holds the ids to the right even with no bill to show.
+            h.bill.setVisibility(billNumber.isEmpty() ? View.INVISIBLE : View.VISIBLE);
             h.detail.setText(detail);
             h.detail.setVisibility(detail.isEmpty() ? View.GONE : View.VISIBLE);
 

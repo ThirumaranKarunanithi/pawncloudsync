@@ -168,6 +168,8 @@
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">@dimen/btn_h</item>
         <item name="android:background">@drawable/btn_wine</item>
+        <!-- Without this the Material button floods the drawable with colorPrimary and the lacquer is lost. -->
+        <item name="backgroundTint">@null</item>
         <item name="android:textColor">@color/on_wine</item>
         <item name="android:textSize">@dimen/t_lead</item>
         <item name="android:textStyle">bold</item>
@@ -316,17 +318,18 @@
     </style>
 
     <style name="RoyalTileIcon">
-        <item name="android:layout_width">23dp</item>
-        <item name="android:layout_height">23dp</item>
-        <!-- A glyph on parchment is ink, so it lightens after dark. -->
-        <item name="android:tint">@color/wine_ink</item>
+        <!-- A rendered object, not a glyph: large enough to read as one, and never tinted. -->
+        <item name="android:layout_width">60dp</item>
+        <item name="android:layout_height">60dp</item>
+        <item name="android:layout_marginStart">-4dp</item>
+        <item name="android:layout_marginTop">-4dp</item>
         <item name="android:contentDescription">@null</item>
     </style>
 
     <style name="RoyalTileTitle" parent="Royal.Font.Body">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_marginTop">9dp</item>
+        <item name="android:layout_marginTop">4dp</item>
         <item name="android:textColor">@color/ink</item>
         <item name="android:textSize">@dimen/t_body</item>
         <item name="android:textStyle">bold</item>
@@ -389,6 +392,14 @@
         <item name="android:textStyle">bold</item>
     </style>
 
+    <!-- SHOW, ROWS, CALCULATE: the small word before a run of chips. -->
+    <style name="MisOptLabel" parent="Royal.Cap.Quiet">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginStart">@dimen/sp_xs</item>
+        <item name="android:layout_marginEnd">@dimen/sp_sm</item>
+    </style>
+
     <!-- ── The More sheet ───────────────────────────────────────────── -->
 
     <style name="MoreRow">
@@ -405,9 +416,8 @@
     </style>
 
     <style name="MoreRowIcon">
-        <item name="android:layout_width">22dp</item>
-        <item name="android:layout_height">22dp</item>
-        <item name="android:tint">@color/gold_ink</item>
+        <item name="android:layout_width">36dp</item>
+        <item name="android:layout_height">36dp</item>
         <item name="android:contentDescription">@null</item>
     </style>
 

@@ -1488,7 +1488,9 @@ public class ApiService {
     public static void getMisReport(String companyId, Callback<JSONObject> cb) {
         EXEC.execute(() -> {
             try {
-                HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/mis-report").newBuilder();
+                // every month the shop has: the desktop lists them all, and 240 rows is only ten years
+                HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/mis-report").newBuilder()
+                        .addQueryParameter("limit", "600");
                 if (companyId != null && !companyId.isEmpty()
                     && !"ALL".equalsIgnoreCase(companyId)
                     && !companyId.equalsIgnoreCase(currentShop()))
@@ -1500,6 +1502,47 @@ public class ApiService {
                 }
             } catch (Exception e) { cb.onError(e.getMessage()); }
         });
+    }
+
+    /** Each month's expenses, assets and liabilities and the parts of its profit: what /mis-report does not carry. */
+    public static void getMisExtras(String companyId, Callback<JSONObject> cb) {
+        EXEC.execute(() -> {
+            try {
+                HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/mis-extras").newBuilder();
+                addCompany(b, companyId);
+                try (Response res = CLIENT.newCall(authed(b.build()).get().build()).execute()) {
+                    String raw = res.body() != null ? res.body().string() : "{}";
+                    checkStatus(res, raw);
+                    cb.onSuccess(new JSONObject(raw));
+                }
+            } catch (Exception e) { cb.onError(e.getMessage()); }
+        });
+    }
+
+    /** The list behind one MIS figure. material null = the month's TOTAL row. */
+    public static void getMisList(String companyId, String kind, String month, String material,
+                                  Callback<JSONObject> cb) {
+        EXEC.execute(() -> {
+            try {
+                HttpUrl.Builder b = HttpUrl.parse(AppConfig.DATA_BASE + "/mis-list").newBuilder()
+                        .addQueryParameter("kind", kind)
+                        .addQueryParameter("month", month);
+                if (material != null) b.addQueryParameter("material", material);
+                addCompany(b, companyId);
+                try (Response res = CLIENT.newCall(authed(b.build()).get().build()).execute()) {
+                    String raw = res.body() != null ? res.body().string() : "{}";
+                    checkStatus(res, raw);
+                    cb.onSuccess(new JSONObject(raw));
+                }
+            } catch (Exception e) { cb.onError(e.getMessage()); }
+        });
+    }
+
+    private static void addCompany(HttpUrl.Builder b, String companyId) {
+        if (companyId != null && !companyId.isEmpty()
+            && !"ALL".equalsIgnoreCase(companyId)
+            && !companyId.equalsIgnoreCase(currentShop()))
+            b.addQueryParameter("companyId", companyId);
     }
 
     public static void getTrialBalance(String companyId, String from, String to,

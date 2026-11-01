@@ -1,10 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- A lacquered button: wine under a sheen, a gold edge, and a ledge beneath so it stands off the page.
+     Flat and unlit while disabled: Royal.Button has no tint left to grey it, so this is the only sign. -->
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
     android:color="@color/gold_rule">
     <item>
-        <shape android:shape="rectangle">
-            <solid android:color="@color/wine" />
-            <corners android:radius="11dp" />
-        </shape>
+        <selector>
+            <item android:state_enabled="false">
+                <shape android:shape="rectangle">
+                    <solid android:color="@color/btn_off" />
+                    <corners android:radius="11dp" />
+                </shape>
+            </item>
+            <item>
+                <layer-list>
+                    <item android:top="2dp">
+                        <shape android:shape="rectangle">
+                            <solid android:color="@color/card_ledge" />
+                            <corners android:radius="11dp" />
+                        </shape>
+                    </item>
+                    <item android:bottom="2dp">
+                        <shape android:shape="rectangle">
+                            <gradient android:angle="270" android:startColor="@color/btn_top" android:centerColor="@color/btn_mid" android:endColor="@color/btn_foot" />
+                            <stroke android:width="1dp" android:color="@color/gold_wash_line" />
+                            <corners android:radius="11dp" />
+                        </shape>
+                    </item>
+                </layer-list>
+            </item>
+        </selector>
     </item>
 </ripple>

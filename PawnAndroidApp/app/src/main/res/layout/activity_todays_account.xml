@@ -13,6 +13,7 @@
   inside it would be thrown away.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/parchment"
@@ -60,11 +61,10 @@
                 android:paddingEnd="13dp">
 
                 <ImageView
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
                     android:contentDescription="@null"
-                    android:src="@drawable/ic_calendar"
-                    android:tint="@color/gold_ink" />
+                    android:src="@drawable/ic3d_calendar" />
 
                 <TextView
                     android:id="@+id/tvSelectedDate"
@@ -104,7 +104,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:layout_marginTop="32dp"
-        android:indeterminateTint="@color/wine"
+        android:indeterminateTint="@color/gold_rule"
         android:visibility="gone" />
 
     <ScrollView
@@ -170,8 +170,14 @@
                         <TextView
                             android:id="@+id/tvPreActual"
                             style="@style/Royal.Figure.Small"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
+                            android:layout_width="match_parent"
+                            android:layout_height="26dp"
+                            android:gravity="center_vertical"
+                            android:maxLines="1"
+                            app:autoSizeTextType="uniform"
+                            app:autoSizeMinTextSize="10sp"
+                            app:autoSizeMaxTextSize="@dimen/t_lead"
+                            app:autoSizeStepGranularity="1sp"
                             android:layout_marginTop="2dp" />
                     </LinearLayout>
 
@@ -199,8 +205,14 @@
                         <TextView
                             android:id="@+id/tvPreAvailable"
                             style="@style/Royal.Figure.Small"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
+                            android:layout_width="match_parent"
+                            android:layout_height="26dp"
+                            android:gravity="center_vertical"
+                            android:maxLines="1"
+                            app:autoSizeTextType="uniform"
+                            app:autoSizeMinTextSize="10sp"
+                            app:autoSizeMaxTextSize="@dimen/t_lead"
+                            app:autoSizeStepGranularity="1sp"
                             android:layout_marginTop="2dp" />
                     </LinearLayout>
 
@@ -228,8 +240,14 @@
                         <TextView
                             android:id="@+id/tvPreDeficit"
                             style="@style/Royal.Figure.Small"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
+                            android:layout_width="match_parent"
+                            android:layout_height="26dp"
+                            android:gravity="center_vertical"
+                            android:maxLines="1"
+                            app:autoSizeTextType="uniform"
+                            app:autoSizeMinTextSize="10sp"
+                            app:autoSizeMaxTextSize="@dimen/t_lead"
+                            app:autoSizeStepGranularity="1sp"
                             android:layout_marginTop="2dp" />
                     </LinearLayout>
                 </LinearLayout>
@@ -506,8 +524,14 @@
 
                         <TextView
                             android:id="@+id/tvActualBalance"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
+                            android:layout_width="match_parent"
+                            android:layout_height="30dp"
+                            android:gravity="center_vertical"
+                            android:maxLines="1"
+                            app:autoSizeTextType="uniform"
+                            app:autoSizeMinTextSize="10sp"
+                            app:autoSizeMaxTextSize="@dimen/t_figure"
+                            app:autoSizeStepGranularity="1sp"
                             android:layout_marginTop="1dp"
                             android:fontFeatureSettings="tnum"
                             android:textColor="@color/on_wine"
@@ -537,8 +561,14 @@
 
                         <TextView
                             android:id="@+id/tvAvailableBalance"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
+                            android:layout_width="match_parent"
+                            android:layout_height="30dp"
+                            android:gravity="center_vertical"
+                            android:maxLines="1"
+                            app:autoSizeTextType="uniform"
+                            app:autoSizeMinTextSize="10sp"
+                            app:autoSizeMaxTextSize="@dimen/t_figure"
+                            app:autoSizeStepGranularity="1sp"
                             android:layout_marginTop="1dp"
                             android:fontFeatureSettings="tnum"
                             android:textColor="@color/on_wine_good"
@@ -568,8 +598,14 @@
 
                         <TextView
                             android:id="@+id/tvDeficit"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
+                            android:layout_width="match_parent"
+                            android:layout_height="30dp"
+                            android:gravity="center_vertical"
+                            android:maxLines="1"
+                            app:autoSizeTextType="uniform"
+                            app:autoSizeMinTextSize="10sp"
+                            app:autoSizeMaxTextSize="15sp"
+                            app:autoSizeStepGranularity="1sp"
                             android:layout_marginTop="1dp"
                             android:fontFeatureSettings="tnum"
                             android:textColor="@color/on_wine_good"

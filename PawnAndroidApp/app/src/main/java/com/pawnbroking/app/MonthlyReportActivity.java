@@ -1,25 +1,26 @@
 package com.pawnbroking.app;
 
-import android.graphics.Color;
-import android.graphics.Typeface;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.TypedValue;
-import android.view.Gravity;
 import android.view.View;
+import android.webkit.WebView;
 import android.widget.*;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.pawnbroking.app.services.ApiService;
 import com.pawnbroking.app.util.BottomNav;
+import com.pawnbroking.app.util.GridRowView;
 import com.pawnbroking.app.util.Royal;
+import com.pawnbroking.app.util.TablePrint;
 
 import com.github.mikephil.charting.charts.BarChart;
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.charts.PieChart;
 import com.github.mikephil.charting.components.Description;
-import com.github.mikephil.charting.components.Legend;
 import com.github.mikephil.charting.components.XAxis;
 import com.github.mikephil.charting.data.BarData;
 import com.github.mikephil.charting.data.BarDataSet;
@@ -38,102 +39,95 @@ import org.json.JSONObject;
 
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
- * MIS Report — full 16-column desktop layout, one row per (month, jewel
- * type). Mirrors the user's desktop MIS SQL exactly.
+ * MIS Report: the desktop's MISReportController on a phone. One row per month
+ * and material, each month's TOTAL row under them, the section picked (Stock
+ * Details, Profit, Assets &amp; Liabilities), Split view or Totals only, ticks
+ * and the three Calculates, the total row, sort by a column's heading, Print.
  *
- * Columns:
- *  Month | Type |
- *  Pawn # | Pawn Amt | Redeem # | Redeem Amt | Interest |
- *  Repl # | Repl Amt | Repl Rdm # | Repl Rdm Amt | Repl Intr |
- *  Repl Stk # | Repl Stk Amt | Stock # | Stock Amt
- *
- * Tap a row to toggle its selection; the Summary card and mode buttons
- * (All / Selected / Deselected) total the chosen rows.
+ * <p>The sums are the desktop's, read from /mis-report and /mis-extras. A
+ * month's expenses, assets and liabilities sit on its GOLD row, so they count
+ * once. The total row adds running stock the way the desktop's does and shows
+ * the same columns; the "stock now" tile is the phone's own, the latest month's
+ * running figure, because a total of running balances answers nothing.
  */
 public class MonthlyReportActivity extends AppCompatActivity {
 
-    private ProgressBar progressBar;
-    private TableLayout tableMonthly;
-    private TextView tvCompanyName, tvRowCount, tvSummaryMonths;
-    private TextView tvSumPawnBills, tvSumPawnAmt;
-    private TextView tvSumRedeemBills, tvSumRedeemAmt;
-    private TextView tvSumProfit;
-    private TextView tvSumStockBills, tvSumStockAmt;
-    private TextView tvSumEarnedBills, tvSumEarnedAmt;
-    // The repledge leg and the locker/lender split: in MisRow all along,
-    // but the summary only ever showed five of the sixteen columns.
-    private TextView tvSumReplBills, tvSumReplAmt;
-    private TextView tvSumReplRdmBills, tvSumReplRdmAmt;
-    private TextView tvSumReplIntr;
-    private TextView tvSumReplStockBills, tvSumReplStockAmt;
-    private TextView tvSumTotalStockBills, tvSumTotalStockAmt;
-    private TextView tvSumGross;
-    private View layoutControls, layoutSummary;
-    private Button btnAll, btnSelected, btnDeselected;
-    private Button btnSelectAll, btnDeselectAll;
+    private static final String STOCK = "STOCK", PROFIT = "PROFIT", AL = "AL";
+    private static final String[] MONTH_NAMES =
+            {"JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"};
 
-    // View toggle (Table / Bar / Line / Pie) + chart views
-    private Button btnViewTable, btnViewBar, btnViewLine, btnViewPie;
-    private View   layoutChart, layoutTableScroll;
+    private ProgressBar progressBar;
+    private LinearLayout tableHead, tableMonthly, tableTotal, layoutTiles;
+    private TextView tvCompanyName, tvRowCount, tvCloudNote, tvTotalsOf;
+    private TextView chipStock, chipProfit, chipAL, chipSplit, chipTotals;
+    private TextView btnAll, btnSelected, btnDeselected, btnOptions;
+    private View layoutOptions, layoutTilesScroll;
+
+    // Table / Bar / Line / Pie
+    private TextView btnViewTable, btnViewBar, btnViewLine, btnViewPie;
+    private View layoutChart, layoutTableScroll;
     private TextView tvChartTitle;
-    private BarChart  misBarChart;
+    private BarChart misBarChart;
     private LineChart misLineChart;
-    private PieChart  misPieChart;
-    private String viewMode = "TABLE"; // TABLE | BAR | LINE | PIE
+    private PieChart misPieChart;
+    private String viewMode = "TABLE";
 
     // ── Data ──────────────────────────────────────────────────────────────────
 
     private static class MisRow {
-        String month, jwlType;
-        long   pawnBills, redeemBills, repledgeBills, repledgeRedeemBills,
-               repledgeStockBills, stockBills;
-        double pawnAmt, redeemAmt, interest,
-               repledgeAmt, repledgeRedeemAmt, repledgeInterest,
-               repledgeStockAmt, stockAmt;
-        boolean selected = true;
-        TableRow tableRow;
+        String month, material;
+        long pawnBills, redeemBills, repledgeBills, repledgeRedeemBills, repledgeStockBills, stockBills;
+        double pawnAmt, redeemAmt, interest, repledgeAmt, repledgeRedeemAmt, repledgeInterest,
+               repledgeStockAmt, stockAmt, expenses, assets, liabilities;
+        String expenseParts = "", profitParts = "", repledgeParts = "";
+        boolean checked = true;
+        List<MisRow> members;          // a month's TOTAL row: the rows it adds
+        boolean isTotal() { return members != null; }
+        double gross() { return interest - repledgeInterest; }
+        double net()   { return gross() - expenses; }
+        long   earnedBills() { return pawnBills - redeemBills; }
+        double earnedAmt()   { return pawnAmt - redeemAmt; }
     }
 
-    private final List<MisRow> rows = new ArrayList<>();
-    private String mode = "ALL"; // ALL | SELECTED | DESELECTED
+    /** One column: how wide, what it reads, which list it opens. */
+    private interface Read { double of(MisRow r); }
+    private static final class Col {
+        final String head, group, kind; final int width; final boolean count; final Read read; final int tone;
+        Col(String group, String head, int width, boolean count, String kind, int tone, Read read) {
+            this.group = group; this.head = head; this.width = width; this.count = count;
+            this.kind = kind; this.tone = tone; this.read = read;
+        }
+    }
+    private static final int TONE_PLAIN = 0, TONE_COUNT = 1, TONE_REPLEDGE = 2, TONE_EARNED = 3, TONE_SPENT = 4;
+
+    private final List<MisRow> master = new ArrayList<>();   // with the month TOTAL rows
+    private final List<MisRow> base = new ArrayList<>();     // without them
+    private final List<MisRow> shown = new ArrayList<>();
+    private final Map<MisRow, GridRowView> rowViews = new HashMap<>();
+    private String totalsOf = "ALL";     // ALL | SELECTED | DESELECTED
+    /** A tile's list reads each month from the cloud in turn, so it is asked for a sensible number. */
+    private static final int MAX_LIST_MONTHS = 24;
+    private String section = STOCK;
+    private boolean totalsOnly = false;
+    private int sortColumn = -1;         // index into columns(); -1 = month order
+    private boolean sortDown = false;
+    private boolean extrasLoaded = false;
     private String companyId, companyName;
+    private WebView printing;
 
-    // ── Column config (16 columns) ─────────────────────────────────────────────
-
-    private static final String[] HEADERS = {
-        "Month", "Type",
-        "Pawn\n#", "Pawn\nAmt", "Redeem\n#", "Redeem\nAmt", "Interest",
-        "Repl\n#", "Repl\nAmt", "ReplRdm\n#", "ReplRdm\nAmt", "Repl\nIntr",
-        "ReplStk\n#", "ReplStk\nAmt", "Stock\n#", "Stock\nAmt"
-    };
-    private static final int[] COL_WIDTHS_DP = {
-        70, 50,
-        46, 74, 50, 74, 74,
-        46, 74, 56, 74, 70,
-        56, 76, 50, 78
-    };
-
-    // ── Colours ───────────────────────────────────────────────────────────────
-    // Resolved in onCreate, not held as static hex. These were eleven
-    // Color.parseColor constants carrying the old navy scheme, which is
-    // why this table went on rendering dark after the app went light.
-    // Row backgrounds are drawables now (bg_table_row), so each row
-    // carries its own hairline instead of a zebra stripe.
     private Royal royal;
-    private int colHead;      // a header cell, sitting on wine
-    private int colMonth;     // the Month cell, and the TOTAL label
-    private int colCount;     // a count of bills
-    private int colAmount;    // a plain amount
-    private int colEarned;    // interest earned
-    private int colRepledge;  // a repledge amount
-    private int colMute;      // an inactive mode button
-
     private final NumberFormat fmt = NumberFormat.getNumberInstance(new Locale("en", "IN"));
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -145,15 +139,7 @@ public class MonthlyReportActivity extends AppCompatActivity {
 
         fmt.setMinimumFractionDigits(0);
         fmt.setMaximumFractionDigits(0);
-
-        royal       = new Royal(this);
-        colHead     = royal.onWineTitle;
-        colMonth    = royal.wineInk;
-        colCount    = royal.inkSoft;
-        colAmount   = royal.ink;
-        colEarned   = royal.emerald;
-        colRepledge = royal.violet;
-        colMute     = royal.inkMute;
+        royal = new Royal(this);
 
         companyId   = getIntent().getStringExtra("companyId");
         companyName = getIntent().getStringExtra("companyName");
@@ -171,57 +157,55 @@ public class MonthlyReportActivity extends AppCompatActivity {
             return false;
         });
 
-        tvCompanyName   = findViewById(R.id.tvCompanyName);
-        tvRowCount      = findViewById(R.id.tvRowCount);
-        progressBar     = findViewById(R.id.progressBar);
-        tableMonthly    = findViewById(R.id.tableMonthly);
-        layoutControls  = findViewById(R.id.layoutControls);
-        layoutSummary   = findViewById(R.id.layoutSummary);
+        tvCompanyName = findViewById(R.id.tvCompanyName);
+        tvRowCount    = findViewById(R.id.tvRowCount);
+        tvCloudNote   = findViewById(R.id.tvCloudNote);
+        tvTotalsOf    = findViewById(R.id.tvTotalsOf);
+        progressBar   = findViewById(R.id.progressBar);
+        tableHead     = findViewById(R.id.tableHead);
+        tableMonthly  = findViewById(R.id.tableMonthly);
+        tableTotal    = findViewById(R.id.tableTotal);
+        layoutTiles   = findViewById(R.id.layoutTiles);
+        layoutTilesScroll = findViewById(R.id.layoutTilesScroll);
+        layoutOptions = findViewById(R.id.layoutOptions);
 
-        tvSummaryMonths = findViewById(R.id.tvSummaryMonths);
-        tvSumPawnBills  = findViewById(R.id.tvSumPawnBills);
-        tvSumPawnAmt    = findViewById(R.id.tvSumPawnAmt);
-        tvSumRedeemBills= findViewById(R.id.tvSumRedeemBills);
-        tvSumRedeemAmt  = findViewById(R.id.tvSumRedeemAmt);
-        tvSumProfit     = findViewById(R.id.tvSumProfit);
-        tvSumStockBills = findViewById(R.id.tvSumStockBills);
-        tvSumStockAmt   = findViewById(R.id.tvSumStockAmt);
-        tvSumEarnedBills= findViewById(R.id.tvSumEarnedBills);
-        tvSumEarnedAmt  = findViewById(R.id.tvSumEarnedAmt);
-        tvSumReplBills       = findViewById(R.id.tvSumReplBills);
-        tvSumReplAmt         = findViewById(R.id.tvSumReplAmt);
-        tvSumReplRdmBills    = findViewById(R.id.tvSumReplRdmBills);
-        tvSumReplRdmAmt      = findViewById(R.id.tvSumReplRdmAmt);
-        tvSumReplIntr        = findViewById(R.id.tvSumReplIntr);
-        tvSumReplStockBills  = findViewById(R.id.tvSumReplStockBills);
-        tvSumReplStockAmt    = findViewById(R.id.tvSumReplStockAmt);
-        tvSumTotalStockBills = findViewById(R.id.tvSumTotalStockBills);
-        tvSumTotalStockAmt   = findViewById(R.id.tvSumTotalStockAmt);
-        tvSumGross           = findViewById(R.id.tvSumGross);
+        tvCompanyName.setText(companyName);
+        BottomNav.attach(this, BottomNav.Tab.REPORTS, companyId, companyName);
 
+        chipStock  = findViewById(R.id.chipStock);
+        chipProfit = findViewById(R.id.chipProfit);
+        chipAL     = findViewById(R.id.chipAL);
+        chipSplit  = findViewById(R.id.chipSplit);
+        chipTotals = findViewById(R.id.chipTotals);
         btnAll        = findViewById(R.id.btnAll);
         btnSelected   = findViewById(R.id.btnSelected);
         btnDeselected = findViewById(R.id.btnDeselected);
-        btnSelectAll   = findViewById(R.id.btnSelectAll);
-        btnDeselectAll = findViewById(R.id.btnDeselectAll);
+        btnOptions    = findViewById(R.id.btnOptions);
 
-        tvCompanyName.setText(companyName);
+        chipStock.setOnClickListener(v  -> showSection(STOCK));
+        chipProfit.setOnClickListener(v -> showSection(PROFIT));
+        chipAL.setOnClickListener(v     -> showSection(AL));
+        chipSplit.setOnClickListener(v  -> showRows(false));
+        chipTotals.setOnClickListener(v -> showRows(true));
+        btnAll.setOnClickListener(v        -> calculate("ALL"));
+        btnSelected.setOnClickListener(v   -> calculate("SELECTED"));
+        btnDeselected.setOnClickListener(v -> calculate("DESELECTED"));
+        findViewById(R.id.btnSelectAll).setOnClickListener(v   -> selectAll(true));
+        findViewById(R.id.btnDeselectAll).setOnClickListener(v -> selectAll(false));
+        findViewById(R.id.btnPrint).setOnClickListener(v -> print());
+        btnOptions.setOnClickListener(v -> {
+            boolean open = layoutOptions.getVisibility() != View.VISIBLE;
+            layoutOptions.setVisibility(open ? View.VISIBLE : View.GONE);
+            paintChip(btnOptions, open);
+        });
+        paintChip(btnOptions, true);
 
-        BottomNav.attach(this, BottomNav.Tab.REPORTS, companyId, companyName);
-
-        btnAll.setOnClickListener(v        -> setMode("ALL"));
-        btnSelected.setOnClickListener(v   -> setMode("SELECTED"));
-        btnDeselected.setOnClickListener(v -> setMode("DESELECTED"));
-        btnSelectAll.setOnClickListener(v   -> selectAll(true));
-        btnDeselectAll.setOnClickListener(v -> selectAll(false));
-
-        // View toggle
         btnViewTable = findViewById(R.id.btnViewTable);
         btnViewBar   = findViewById(R.id.btnViewBar);
         btnViewLine  = findViewById(R.id.btnViewLine);
         btnViewPie   = findViewById(R.id.btnViewPie);
-        layoutChart        = findViewById(R.id.layoutChart);
-        layoutTableScroll  = findViewById(R.id.layoutTableScroll);
+        layoutChart       = findViewById(R.id.layoutChart);
+        layoutTableScroll = findViewById(R.id.layoutTableScroll);
         tvChartTitle = findViewById(R.id.tvChartTitle);
         misBarChart  = findViewById(R.id.misBarChart);
         misLineChart = findViewById(R.id.misLineChart);
@@ -232,6 +216,8 @@ public class MonthlyReportActivity extends AppCompatActivity {
         btnViewLine.setOnClickListener(v  -> setViewMode("LINE"));
         btnViewPie.setOnClickListener(v   -> setViewMode("PIE"));
 
+        paintChips();
+        paintViewChips();
         load();
     }
 
@@ -239,23 +225,30 @@ public class MonthlyReportActivity extends AppCompatActivity {
 
     private void load() {
         progressBar.setVisibility(View.VISIBLE);
+        tableHead.removeAllViews();
         tableMonthly.removeAllViews();
-        rows.clear();
-        layoutControls.setVisibility(View.GONE);
-        layoutSummary.setVisibility(View.GONE);
+        tableTotal.removeAllViews();
+        master.clear();
+        base.clear();
+        tvCloudNote.setVisibility(View.GONE);
 
         ApiService.getMisReport(companyId, new ApiService.Callback<JSONObject>() {
-            @Override public void onSuccess(JSONObject data) {
-                runOnUiThread(() -> {
-                    progressBar.setVisibility(View.GONE);
-                    bind(data);
+            @Override public void onSuccess(JSONObject report) {
+                // The months first; expenses and the parts add to them. A cloud
+                // without them still gives the rest of the report.
+                ApiService.getMisExtras(companyId, new ApiService.Callback<JSONObject>() {
+                    @Override public void onSuccess(JSONObject extras) {
+                        runOnUiThread(() -> { progressBar.setVisibility(View.GONE); bind(report, extras); });
+                    }
+                    @Override public void onError(String msg) {
+                        runOnUiThread(() -> { progressBar.setVisibility(View.GONE); bind(report, null); });
+                    }
                 });
             }
             @Override public void onError(String msg) {
                 runOnUiThread(() -> {
                     progressBar.setVisibility(View.GONE);
-                    Toast.makeText(MonthlyReportActivity.this,
-                        "Error: " + msg, Toast.LENGTH_LONG).show();
+                    Toast.makeText(MonthlyReportActivity.this, "Error: " + msg, Toast.LENGTH_LONG).show();
                 });
             }
         });
@@ -263,286 +256,715 @@ public class MonthlyReportActivity extends AppCompatActivity {
 
     // ── Bind ───────────────────────────────────────────────────────────────────
 
-    private void bind(JSONObject data) {
+    private void bind(JSONObject data, JSONObject extras) {
         JSONArray arr = data.optJSONArray("rows");
-        int total     = data.optInt("total", 0);
-        tvRowCount.setText(total + " rows");
-
-        if (arr == null || arr.length() == 0) return;
-
-        for (int i = 0; i < arr.length(); i++) {
-            JSONObject m = arr.optJSONObject(i);
-            if (m == null) continue;
-            MisRow r = new MisRow();
-            r.month               = m.optString("month", "");
-            r.jwlType             = m.optString("jwlType", "");
-            r.pawnBills           = m.optLong  ("pawnBills",            0);
-            r.pawnAmt             = m.optDouble("pawnAmount",           0);
-            r.redeemBills         = m.optLong  ("redeemBills",          0);
-            r.redeemAmt           = m.optDouble("redeemAmount",         0);
-            r.interest            = m.optDouble("interest",             0);
-            r.repledgeBills       = m.optLong  ("repledgeBills",        0);
-            r.repledgeAmt         = m.optDouble("repledgeAmount",       0);
-            r.repledgeRedeemBills = m.optLong  ("repledgeRedeemBills",  0);
-            r.repledgeRedeemAmt   = m.optDouble("repledgeRedeemAmount", 0);
-            r.repledgeInterest    = m.optDouble("repledgeInterest",     0);
-            r.repledgeStockBills  = m.optLong  ("repledgeStockBills",   0);
-            r.repledgeStockAmt    = m.optDouble("repledgeStockAmount",  0);
-            r.stockBills          = m.optLong  ("stockBills",           0);
-            r.stockAmt            = m.optDouble("stockAmount",          0);
-            r.selected            = true;
-            rows.add(r);
+        if (arr != null) {
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject m = arr.optJSONObject(i);
+                if (m == null) continue;
+                MisRow r = new MisRow();
+                r.month               = m.optString("month", "");
+                r.material            = m.optString("jwlType", "");
+                r.pawnBills           = m.optLong  ("pawnBills",            0);
+                r.pawnAmt             = m.optDouble("pawnAmount",           0);
+                r.redeemBills         = m.optLong  ("redeemBills",          0);
+                r.redeemAmt           = m.optDouble("redeemAmount",         0);
+                r.interest            = m.optDouble("interest",             0);
+                r.repledgeBills       = m.optLong  ("repledgeBills",        0);
+                r.repledgeAmt         = m.optDouble("repledgeAmount",       0);
+                r.repledgeRedeemBills = m.optLong  ("repledgeRedeemBills",  0);
+                r.repledgeRedeemAmt   = m.optDouble("repledgeRedeemAmount", 0);
+                r.repledgeInterest    = m.optDouble("repledgeInterest",     0);
+                r.repledgeStockBills  = m.optLong  ("repledgeStockBills",   0);
+                r.repledgeStockAmt    = m.optDouble("repledgeStockAmount",  0);
+                r.stockBills          = m.optLong  ("stockBills",           0);
+                r.stockAmt            = m.optDouble("stockAmount",          0);
+                base.add(r);
+            }
         }
-
-        tableMonthly.addView(buildHeaderRow());
-        for (int i = 0; i < rows.size(); i++) {
-            MisRow r = rows.get(i);
-            TableRow tr = buildDataRow(r, i);
-            r.tableRow = tr;
-            final int idx = i;
-            tr.setOnClickListener(v -> onRowTap(idx));
-            tableMonthly.addView(tr);
+        extrasLoaded = extras != null;
+        if (extras != null) {
+            putExpenses(extras.optJSONArray("expenses"));
+            putAssets(extras.optJSONArray("assets"));
+            putProfitParts(extras.optJSONArray("interestParts"));
+            putRepledgeParts(extras.optJSONArray("repledgeParts"));
         }
-        tableMonthly.addView(buildDivider());
-        tableMonthly.addView(buildTotalsRow());
+        addMonthTotals();
 
-        layoutControls.setVisibility(View.VISIBLE);
-        layoutSummary.setVisibility(View.VISIBLE);
-        refreshSummary();
-        refreshModeButtons();
+        Set<String> months = new HashSet<>();
+        for (MisRow r : base) months.add(r.month);
+        tvRowCount.setText(months.size() + (months.size() == 1 ? " month" : " months"));
+
+        tvCloudNote.setText("Expenses, net profit, assets and liabilities come with the next cloud update.");
+        tvCloudNote.setVisibility(extrasLoaded ? View.GONE : View.VISIBLE);
+
+        rebuild();
     }
 
-    // ── Row tap ─────────────────────────────────────────────────────────────────
+    /** A month-level figure goes on the month's GOLD row, else its first; else a row of its own. */
+    private MisRow monthRow(String month) {
+        MisRow target = null;
+        for (MisRow b : base) {
+            if (!month.equals(b.month)) continue;
+            if (target == null || "GOLD".equals(b.material)) target = b;
+        }
+        if (target == null) {
+            target = new MisRow();
+            target.month = month;
+            target.material = "—";
+            base.add(target);
+        }
+        return target;
+    }
 
-    private void onRowTap(int idx) {
-        MisRow r = rows.get(idx);
-        r.selected = !r.selected;
-        paintRow(r.tableRow, r.selected);
-        refreshSummary();
+    private void putExpenses(JSONArray a) {
+        if (a == null) return;
+        String[] names = {"Company expenses", "Salaries", "Daily allowance", "Other to employees", "Repledge bill charges"};
+        String[] keys  = {"company", "salary", "allowance", "employee", "repledge"};
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject o = a.optJSONObject(i);
+            if (o == null) continue;
+            double sum = 0;
+            StringBuilder parts = new StringBuilder();
+            for (int k = 0; k < keys.length; k++) {
+                double v = o.optDouble(keys[k], 0);
+                sum += v;
+                if (v != 0) parts.append(parts.length() == 0 ? "" : "\n").append(names[k]).append(": ").append(money(v));
+            }
+            if (sum == 0) continue;
+            MisRow r = monthRow(o.optString("month"));
+            r.expenses = sum;
+            r.expenseParts = parts.toString();
+        }
+    }
+
+    private void putAssets(JSONArray a) {
+        if (a == null) return;
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject o = a.optJSONObject(i);
+            if (o == null) continue;
+            double as = o.optDouble("assets", 0), li = o.optDouble("liabilities", 0);
+            if (as == 0 && li == 0) continue;
+            MisRow r = monthRow(o.optString("month"));
+            r.assets = as;
+            r.liabilities = li;
+        }
+    }
+
+    private void putProfitParts(JSONArray a) {
+        if (a == null) return;
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject o = a.optJSONObject(i);
+            if (o == null) continue;
+            double open = o.optDouble("opening", 0), doc = o.optDouble("docCharge", 0);
+            String text = "Taken at opening: " + money(open)
+                    + (doc != 0 ? "\n   of it document charge: " + money(doc) + "\n   of it interest: " + money(open - doc) : "")
+                    + "\nInterest at closing: " + money(o.optDouble("closing", 0))
+                    + "\nOther charges (fine, notice ...): " + money(o.optDouble("other", 0))
+                    + "\nLess discount: " + money(o.optDouble("discount", 0));
+            for (MisRow b : base) {
+                if (o.optString("month").equals(b.month) && o.optString("material").equals(b.material)) b.profitParts = text;
+            }
+        }
+    }
+
+    private void putRepledgeParts(JSONArray a) {
+        if (a == null) return;
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject o = a.optJSONObject(i);
+            if (o == null) continue;
+            String text = "Interest taken at opening: " + money(o.optDouble("opening", 0))
+                    + "\nReceived less than due at opening: " + money(o.optDouble("lessAtOpening", 0))
+                    + "\nInterest at closing: " + money(o.optDouble("closing", 0))
+                    + "\nGiven more than due at closing: " + money(o.optDouble("moreAtClosing", 0));
+            for (MisRow b : base) {
+                if (o.optString("month").equals(b.month) && "GOLD".equals(b.material)) b.repledgeParts = text;
+            }
+        }
+    }
+
+    /** Newest month first, GOLD, SILVER, then the month's TOTAL row when it has more than one. */
+    private void addMonthTotals() {
+        Collections.sort(base, (a, b) -> {
+            int c = monthKey(b.month) - monthKey(a.month);
+            return c != 0 ? c : materialRank(a.material) - materialRank(b.material);
+        });
+        master.clear();
+        int i = 0;
+        while (i < base.size()) {
+            int end = i;
+            while (end < base.size() && base.get(end).month.equals(base.get(i).month)) end++;
+            List<MisRow> members = new ArrayList<>(base.subList(i, end));
+            master.addAll(members);
+            if (members.size() > 1) master.add(monthTotal(members));
+            i = end;
+        }
+    }
+
+    private static MisRow monthTotal(List<MisRow> rows) {
+        MisRow t = new MisRow();
+        t.month = rows.get(0).month;
+        t.material = "TOTAL";
+        t.members = rows;
+        StringBuilder ex = new StringBuilder();
+        for (MisRow p : rows) add(t, p);
+        for (MisRow p : rows) if (!p.expenseParts.isEmpty()) ex.append(ex.length() == 0 ? "" : "\n").append(p.expenseParts);
+        t.expenseParts = ex.toString();
+        return t;
+    }
+
+    private static void add(MisRow t, MisRow p) {
+        t.pawnBills += p.pawnBills;                     t.pawnAmt += p.pawnAmt;
+        t.redeemBills += p.redeemBills;                 t.redeemAmt += p.redeemAmt;
+        t.interest += p.interest;
+        t.repledgeBills += p.repledgeBills;             t.repledgeAmt += p.repledgeAmt;
+        t.repledgeRedeemBills += p.repledgeRedeemBills; t.repledgeRedeemAmt += p.repledgeRedeemAmt;
+        t.repledgeInterest += p.repledgeInterest;
+        t.repledgeStockBills += p.repledgeStockBills;   t.repledgeStockAmt += p.repledgeStockAmt;
+        t.stockBills += p.stockBills;                   t.stockAmt += p.stockAmt;
+        t.expenses += p.expenses;
+        t.assets += p.assets;
+        t.liabilities += p.liabilities;
+    }
+
+    private static int monthKey(String label) {
+        try {
+            String[] p = label.split("-");
+            return Integer.parseInt(p[1]) * 12 + Arrays.asList(MONTH_NAMES).indexOf(p[0]);
+        } catch (RuntimeException e) {
+            return 0;
+        }
+    }
+
+    private static int materialRank(String m) {
+        return "GOLD".equals(m) ? 0 : "SILVER".equals(m) ? 1 : "TOTAL".equals(m) ? 3 : 2;
+    }
+
+    // ── The columns ────────────────────────────────────────────────────────────
+
+    private List<Col> columns() {
+        List<Col> c = new ArrayList<>();
+        c.add(new Col("COMPANY", "Open\nCount", 54, true, "COMPANY_OPENED", TONE_COUNT, r -> r.pawnBills));
+        c.add(new Col("COMPANY", "Open\nCapital", 92, false, "COMPANY_OPENED", TONE_PLAIN, r -> r.pawnAmt));
+        c.add(new Col("COMPANY", "Redeem\nCount", 60, true, "COMPANY_REDEEMED", TONE_COUNT, r -> r.redeemBills));
+        c.add(new Col("COMPANY", "Redeem\nCapital", 92, false, "COMPANY_REDEEMED", TONE_PLAIN, r -> r.redeemAmt));
+        c.add(new Col("COMPANY", "Earned\nCount", 60, true, null, TONE_COUNT, MisRow::earnedBills));
+        c.add(new Col("COMPANY", "Earned\nCapital", 92, false, null, TONE_PLAIN, MisRow::earnedAmt));
+        c.add(new Col("REPLEDGE", "Open\nCount", 54, true, "REPLEDGE_OPENED", TONE_COUNT, r -> r.repledgeBills));
+        c.add(new Col("REPLEDGE", "Open\nCapital", 92, false, "REPLEDGE_OPENED", TONE_REPLEDGE, r -> r.repledgeAmt));
+        c.add(new Col("REPLEDGE", "Redeem\nCount", 60, true, "REPLEDGE_REDEEMED", TONE_COUNT, r -> r.repledgeRedeemBills));
+        c.add(new Col("REPLEDGE", "Redeem\nCapital", 92, false, "REPLEDGE_REDEEMED", TONE_REPLEDGE, r -> r.repledgeRedeemAmt));
+        if (STOCK.equals(section)) {
+            c.add(new Col("STOCK DETAILS", "Stock\nCount", 58, true, null, TONE_COUNT, r -> r.stockBills));
+            c.add(new Col("STOCK DETAILS", "Stock\nCapital", 100, false, null, TONE_PLAIN, r -> r.stockAmt));
+            c.add(new Col("STOCK DETAILS", "Repl\nCount", 54, true, null, TONE_COUNT, r -> r.repledgeStockBills));
+            c.add(new Col("STOCK DETAILS", "Repl\nCapital", 100, false, null, TONE_REPLEDGE, r -> r.repledgeStockAmt));
+        } else if (PROFIT.equals(section)) {
+            c.add(new Col("PROFIT", "Company\nProfit", 92, false, "COMPANY_PROFIT", TONE_EARNED, r -> r.interest));
+            c.add(new Col("PROFIT", "Repledge\nInt. Spent", 92, false, "REPLEDGE_INTEREST", TONE_SPENT, r -> r.repledgeInterest));
+            c.add(new Col("PROFIT", "Gross\nProfit", 92, false, MisListActivity.KIND_GROSS, TONE_EARNED, MisRow::gross));
+            c.add(new Col("PROFIT", "Expenses", 92, false, "EXPENSES", TONE_SPENT, r -> r.expenses));
+            c.add(new Col("PROFIT", "Net\nProfit", 96, false, MisListActivity.KIND_NET, TONE_EARNED, MisRow::net));
+        } else {
+            c.add(new Col("ASSETS & LIABILITIES", "Assets", 100, false, "ASSETS", TONE_PLAIN, r -> r.assets));
+            c.add(new Col("ASSETS & LIABILITIES", "Liabilities", 100, false, "LIABILITIES", TONE_PLAIN, r -> r.liabilities));
+        }
+        return c;
+    }
+
+    private static final int FIXED = 3;                    // tick, month, material
+    private static final int[] FIXED_W = {34, 78, 62};
+
+    private int[] widths(List<Col> cols) {
+        int[] w = new int[FIXED + cols.size()];
+        System.arraycopy(FIXED_W, 0, w, 0, FIXED);
+        for (int i = 0; i < cols.size(); i++) w[FIXED + i] = cols.get(i).width;
+        return w;
+    }
+
+    private boolean[] rightAlign(int n) {
+        boolean[] r = new boolean[n];
+        for (int i = FIXED; i < n; i++) r[i] = true;
+        return r;
+    }
+
+    private int toneColor(int tone, double v) {
+        if (v == 0) return royal.inkFaint;
+        if (v < 0) return royal.ruby;
+        switch (tone) {
+            case TONE_COUNT:    return royal.inkSoft;
+            case TONE_REPLEDGE: return royal.violet;
+            case TONE_EARNED:   return royal.emerald;
+            case TONE_SPENT:    return royal.ruby;
+            default:            return royal.ink;
+        }
+    }
+
+    // ── Drawing the table ──────────────────────────────────────────────────────
+
+    /** Which rows are on screen, in the order picked. */
+    private void pickShown() {
+        shown.clear();
+        Set<String> withTotal = new HashSet<>();
+        for (MisRow b : master) if (b.isTotal()) withTotal.add(b.month);
+        for (MisRow b : master) {
+            if (totalsOnly && !(b.isTotal() || !withTotal.contains(b.month))) continue;
+            shown.add(b);
+        }
+        if (sortColumn >= 0) {
+            List<Col> cols = columns();
+            Comparator<MisRow> by;
+            if (sortColumn == 0)      by = Comparator.comparingInt(r -> monthKey(r.month));
+            else if (sortColumn == 1) by = Comparator.comparingInt(r -> materialRank(r.material));
+            else {
+                int i = sortColumn - 2;
+                if (i >= cols.size()) return;
+                Read read = cols.get(i).read;
+                by = Comparator.comparingDouble(read::of);
+            }
+            // equal rows keep their order, so a month's TOTAL stays under its GOLD and SILVER
+            Collections.sort(shown, sortDown ? by.reversed() : by);
+        }
+    }
+
+    private void rebuild() {
+        List<Col> cols = columns();
+        int[] w = widths(cols);
+        boolean[] right = rightAlign(w.length);
+
+        // The group band over the headings: one cell a group, spanning its columns.
+        List<String> gLabels = new ArrayList<>();
+        List<Integer> gWidths = new ArrayList<>();
+        gLabels.add("MONTH / MATERIAL");
+        gWidths.add(FIXED_W[0] + FIXED_W[1] + FIXED_W[2]);
+        for (Col c : cols) {
+            int last = gLabels.size() - 1;
+            if (c.group.equals(gLabels.get(last))) gWidths.set(last, gWidths.get(last) + c.width);
+            else { gLabels.add(c.group); gWidths.add(c.width); }
+        }
+        int[] gw = new int[gWidths.size()];
+        int[] gc = new int[gw.length];
+        boolean[] gb = new boolean[gw.length], gr = new boolean[gw.length];
+        for (int i = 0; i < gw.length; i++) { gw[i] = gWidths.get(i); gc[i] = royal.onWineDim; gb[i] = true; }
+
+        tableHead.removeAllViews();
+        GridRowView band = new GridRowView(this).heightDp(24)
+                .set(gLabels.toArray(new String[0]), gw, gc, gr, gb);
+        band.setTextSizeSp(this, 10);
+        band.setBackgroundResource(R.drawable.bg_table_group);
+        tableHead.addView(band);
+
+        // The headings. Tap one to sort by it, again to turn it round, again for month order.
+        String[] heads = new String[w.length];
+        int[] hc = new int[w.length];
+        boolean[] hb = new boolean[w.length];
+        heads[0] = "✓"; heads[1] = "Month"; heads[2] = "Material";
+        for (int i = 0; i < cols.size(); i++) heads[FIXED + i] = cols.get(i).head;
+        if (sortColumn >= 0 && sortColumn + 1 < heads.length) heads[sortColumn + 1] += sortDown ? " ▼" : " ▲";
+        Arrays.fill(hc, royal.onWineTitle);
+        Arrays.fill(hb, true);
+        GridRowView head = new GridRowView(this).heightDp(42).set(heads, w, hc, right, hb);
+        head.setTextSizeSp(this, 11);
+        head.setBackgroundResource(R.drawable.bg_table_head);
+        head.setOnCell(new GridRowView.OnCell() {
+            @Override public void onTap(int column) {
+                if (column == 0) return;
+                int s = column - 1;
+                if (sortColumn != s)   { sortColumn = s; sortDown = false; }
+                else if (!sortDown)    { sortDown = true; }
+                else                   { sortColumn = -1; sortDown = false; }
+                rebuild();
+            }
+            @Override public void onLong(int column) { }
+        });
+        tableHead.addView(head);
+
+        pickShown();
+        tableMonthly.removeAllViews();
+        rowViews.clear();
+        for (MisRow r : shown) {
+            GridRowView row = new GridRowView(this);
+            drawRow(row, r, cols, w, right);
+            final MisRow target = r;
+            row.setOnCell(new GridRowView.OnCell() {
+                @Override public void onTap(int column) {
+                    if (column < FIXED) { toggle(target); return; }
+                    Col c = cols.get(column - FIXED);
+                    if (c.kind == null) { toggle(target); return; }
+                    openList(c.kind, target);
+                }
+                @Override public void onLong(int column) {
+                    if (column >= FIXED) showParts(cols.get(column - FIXED), target);
+                }
+            });
+            rowViews.put(r, row);
+            tableMonthly.addView(row);
+        }
+        refreshTotals();
+        paintChips();
+    }
+
+    private void drawRow(GridRowView row, MisRow r, List<Col> cols, int[] w, boolean[] right) {
+        String[] cells = new String[w.length];
+        int[] colors = new int[w.length];
+        boolean[] bold = new boolean[w.length];
+        cells[0] = r.checked ? "☑" : "☐";
+        colors[0] = r.checked ? royal.goldInk : royal.inkMute;
+        cells[1] = r.month;
+        colors[1] = royal.wineInk;
+        bold[1] = true;
+        cells[2] = r.material;
+        colors[2] = "SILVER".equals(r.material) ? royal.navy : r.isTotal() ? royal.wineInk : royal.goldInk;
+        bold[2] = r.isTotal();
+        for (int i = 0; i < cols.size(); i++) {
+            Col c = cols.get(i);
+            double v = c.read.of(r);
+            cells[FIXED + i] = c.count ? (v == 0 ? "—" : fmt.format((long) v)) : (v == 0 ? "—" : money(v));
+            colors[FIXED + i] = toneColor(c.tone, v);
+            bold[FIXED + i] = r.isTotal();
+        }
+        row.set(cells, w, colors, right, bold);
+        row.setBackgroundResource(r.isTotal() ? R.drawable.bg_table_total
+                : r.checked ? R.drawable.bg_table_row_selected : R.drawable.bg_table_row);
+    }
+
+    private void repaintRows() {
+        List<Col> cols = columns();
+        int[] w = widths(cols);
+        boolean[] right = rightAlign(w.length);
+        for (Map.Entry<MisRow, GridRowView> e : rowViews.entrySet()) drawRow(e.getValue(), e.getKey(), cols, w, right);
+    }
+
+    /** What the total row adds, as the desktop's setCompanyHeaderValues. */
+    private MisRow totalRow() {
+        MisRow t = new MisRow();
+        Set<String> months = new HashSet<>();
+        for (MisRow b : master) {
+            if (b.isTotal()) continue;                // its GOLD and SILVER rows count, not it
+            if (!counted(b)) continue;
+            months.add(b.month);
+            add(t, b);
+        }
+        t.month = String.valueOf(months.size());
+        t.material = months.size() == 1 ? "month" : "months";
+        return t;
+    }
+
+    private boolean counted(MisRow b) {
+        return "ALL".equals(totalsOf)
+                || ("SELECTED".equals(totalsOf)   &&  b.checked)
+                || ("DESELECTED".equals(totalsOf) && !b.checked);
+    }
+
+    private void refreshTotals() {
+        List<Col> cols = columns();
+        int[] w = widths(cols);
+        boolean[] right = rightAlign(w.length);
+        MisRow t = totalRow();
+
+        String[] cells = new String[w.length];
+        int[] colors = new int[w.length];
+        boolean[] bold = new boolean[w.length];
+        Arrays.fill(bold, true);
+        cells[0] = "";
+        cells[1] = t.month;
+        cells[2] = t.material;
+        colors[1] = colors[2] = royal.wineInk;
+        for (int i = 0; i < cols.size(); i++) {
+            Col c = cols.get(i);
+            double v = c.read.of(t);
+            cells[FIXED + i] = c.count ? fmt.format((long) v) : money(v);
+            colors[FIXED + i] = toneColor(c.tone, v);
+        }
+        // Stock Count and Capital: the desktop's total row leaves these blank.
+        if (STOCK.equals(section)) {
+            cells[FIXED + 10] = "";
+            cells[FIXED + 11] = "";
+        }
+        tableTotal.removeAllViews();
+        GridRowView row = new GridRowView(this).heightDp(40).set(cells, w, colors, right, bold);
+        row.setBackgroundResource(R.drawable.bg_table_grand);
+        tableTotal.addView(row);
+
+        tvTotalsOf.setVisibility(View.VISIBLE);
+        tvTotalsOf.setText("SELECTED".equals(totalsOf) ? "TOTAL FOR THE SELECTED MONTHS"
+                : "DESELECTED".equals(totalsOf) ? "TOTAL FOR THE MONTHS NOT SELECTED" : "TOTAL FOR ALL MONTHS");
+        layoutTilesScroll.setVisibility(View.VISIBLE);
+        drawTiles(t);
+    }
+
+    /** The section's figures, large. The same numbers as the total row beneath. */
+    private void drawTiles(MisRow t) {
+        layoutTiles.removeAllViews();
+        if (STOCK.equals(section)) {
+            MisRow now = stockNow();
+            tile("Stock now", now.stockBills + " bills", money(now.stockAmt), royal.wineInk, null);
+            tile("At the lender now", now.repledgeStockBills + " bills", money(now.repledgeStockAmt), royal.violet, null);
+            tile("Opened", t.pawnBills + " bills", money(t.pawnAmt), royal.ink, "COMPANY_OPENED");
+            tile("Redeemed", t.redeemBills + " bills", money(t.redeemAmt), royal.ink, "COMPANY_REDEEMED");
+            tile("Earned", t.earnedBills() + " bills", money(t.earnedAmt()), royal.ink, null);
+        } else if (PROFIT.equals(section)) {
+            tile("Company Profit", "", money(t.interest), royal.emerald, "COMPANY_PROFIT");
+            tile("Repledge Int. Spent", "", money(t.repledgeInterest), royal.ruby, "REPLEDGE_INTEREST");
+            tile("Gross Profit", "", money(t.gross()), t.gross() < 0 ? royal.ruby : royal.emerald, MisListActivity.KIND_GROSS);
+            tile("Expenses", "", extrasLoaded ? money(t.expenses) : "—", royal.ruby, "EXPENSES");
+            tile("Net Profit", "", extrasLoaded ? money(t.net()) : "—", t.net() < 0 ? royal.ruby : royal.emerald, MisListActivity.KIND_NET);
+        } else {
+            tile("Assets", "", extrasLoaded ? money(t.assets) : "—", royal.ink, "ASSETS");
+            tile("Liabilities", "", extrasLoaded ? money(t.liabilities) : "—", royal.ink, "LIABILITIES");
+        }
+    }
+
+    /** A tile's list: the rows behind its total, whichever ones Calculate has counted. */
+    private void openTotalList(String kind) {
+        if (!extrasLoaded) {
+            Toast.makeText(this, "This list comes with the next cloud update", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Map<String, List<String>> months = new LinkedHashMap<>();
+        for (MisRow b : master) {
+            if (b.isTotal() || !counted(b)) continue;
+            List<String> m = months.get(b.month);
+            if (m == null) { m = new ArrayList<>(); months.put(b.month, m); }
+            m.add(b.material);
+        }
+        if (months.isEmpty()) return;
+        if (months.size() > MAX_LIST_MONTHS) {
+            Toast.makeText(this, "That is " + months.size() + " months. Tick up to " + MAX_LIST_MONTHS
+                    + " and tap again", Toast.LENGTH_LONG).show();
+            return;
+        }
+        ArrayList<String> rows = new ArrayList<>();
+        for (Map.Entry<String, List<String>> e : months.entrySet()) {
+            // Both a month's rows counted is one read for the whole month, as its TOTAL row's list.
+            rows.add(e.getKey() + "|" + (e.getValue().size() == 1 ? e.getValue().get(0) : ""));
+        }
+        Intent i = new Intent(this, MisListActivity.class);
+        i.putExtra("companyId", companyId);
+        i.putExtra("companyName", companyName);
+        i.putExtra(MisListActivity.EXTRA_KIND, kind);
+        i.putStringArrayListExtra(MisListActivity.EXTRA_ROWS, rows);
+        startActivity(i);
+    }
+
+    /** The newest month's running figures: SILVER closes the running stock, GOLD carries the repledge. */
+    private MisRow stockNow() {
+        MisRow now = new MisRow();
+        if (base.isEmpty()) return now;
+        String month = base.get(0).month;
+        for (MisRow r : base) {
+            if (!month.equals(r.month)) break;
+            now.stockBills = r.stockBills;           // sorted GOLD, SILVER: the last one is the running total
+            now.stockAmt = r.stockAmt;
+            if ("GOLD".equals(r.material)) {
+                now.repledgeStockBills = r.repledgeStockBills;
+                now.repledgeStockAmt = r.repledgeStockAmt;
+            }
+        }
+        return now;
+    }
+
+    private void tile(String label, String count, String figure, int color, String listKind) {
+        View v = getLayoutInflater().inflate(R.layout.item_mis_tile, layoutTiles, false);
+        if (listKind != null) {
+            int l = v.getPaddingLeft(), t = v.getPaddingTop(), r = v.getPaddingRight(), b = v.getPaddingBottom();
+            v.setBackgroundResource(R.drawable.bg_tappable);
+            v.setPadding(l, t, r, b);
+            v.setOnClickListener(x -> openTotalList(listKind));
+        }
+        ((TextView) v.findViewById(R.id.tileLabel)).setText(label);
+        TextView c = v.findViewById(R.id.tileCount);
+        c.setText(count);
+        c.setVisibility(count.isEmpty() ? View.GONE : View.VISIBLE);
+        TextView f = v.findViewById(R.id.tileFigure);
+        f.setText(figure);
+        f.setTextColor(color);
+        layoutTiles.addView(v);
+    }
+
+    // ── Ticks and Calculate ────────────────────────────────────────────────────
+
+    /** A tick for a row; a month's TOTAL row ticks (or unticks) the whole month. */
+    private void toggle(MisRow r) {
+        boolean now = !r.checked;
+        if (r.isTotal()) for (MisRow m : r.members) m.checked = now;
+        r.checked = now;
+        syncMonthTotals();
+        totalsOf = "SELECTED";
+        repaintRows();
+        refreshTotals();
+        paintChips();
+    }
+
+    private void syncMonthTotals() {
+        for (MisRow b : master) {
+            if (!b.isTotal()) continue;
+            boolean all = true;
+            for (MisRow m : b.members) all &= m.checked;
+            b.checked = all;
+        }
     }
 
     private void selectAll(boolean select) {
-        for (int i = 0; i < rows.size(); i++) {
-            MisRow r = rows.get(i);
-            r.selected = select;
-            paintRow(r.tableRow, select);
+        for (MisRow b : master) b.checked = select;
+        totalsOf = "SELECTED";
+        repaintRows();
+        refreshTotals();
+        paintChips();
+    }
+
+    private void calculate(String which) {
+        totalsOf = which;
+        refreshTotals();
+        paintChips();
+    }
+
+    private void showSection(String which) {
+        section = which;
+        sortColumn = -1;
+        sortDown = false;
+        rebuild();
+    }
+
+    private void showRows(boolean only) {
+        totalsOnly = only;
+        rebuild();
+    }
+
+    private void paintChip(TextView chip, boolean on) {
+        chip.setBackgroundResource(on ? R.drawable.chip_selected : R.drawable.chip_unselected);
+        chip.setTextColor(on ? royal.onWine : royal.inkBody);
+    }
+
+    private void paintChips() {
+        paintChip(chipStock,  STOCK.equals(section));
+        paintChip(chipProfit, PROFIT.equals(section));
+        paintChip(chipAL,     AL.equals(section));
+        paintChip(chipSplit,  !totalsOnly);
+        paintChip(chipTotals, totalsOnly);
+        paintChip(btnAll,        "ALL".equals(totalsOf));
+        paintChip(btnSelected,   "SELECTED".equals(totalsOf));
+        paintChip(btnDeselected, "DESELECTED".equals(totalsOf));
+    }
+
+    private void paintViewChips() {
+        paintChip(btnViewTable, "TABLE".equals(viewMode));
+        paintChip(btnViewBar,   "BAR".equals(viewMode));
+        paintChip(btnViewLine,  "LINE".equals(viewMode));
+        paintChip(btnViewPie,   "PIE".equals(viewMode));
+    }
+
+    // ── A figure: its list, its parts ──────────────────────────────────────────
+
+    private void openList(String kind, MisRow r) {
+        if (!extrasLoaded) {
+            Toast.makeText(this, "This list comes with the next cloud update", Toast.LENGTH_SHORT).show();
+            return;
         }
-        refreshSummary();
+        Intent i = new Intent(this, MisListActivity.class);
+        i.putExtra("companyId", companyId);
+        i.putExtra("companyName", companyName);
+        i.putExtra(MisListActivity.EXTRA_KIND, kind);
+        i.putExtra(MisListActivity.EXTRA_MONTH, r.month);
+        boolean all = r.isTotal() || "—".equals(r.material);
+        if (!all) i.putExtra(MisListActivity.EXTRA_MATERIAL, r.material);
+        startActivity(i);
     }
 
-    private void setMode(String newMode) { mode = newMode; refreshModeButtons(); refreshSummary(); }
-
-    private void refreshModeButtons() {
-        btnAll.setTextColor(       "ALL".equals(mode)        ? colMonth : colMute);
-        btnSelected.setTextColor(  "SELECTED".equals(mode)   ? colMonth : colMute);
-        btnDeselected.setTextColor("DESELECTED".equals(mode) ? colMonth : colMute);
-    }
-
-    // ── Summary (reuses the existing 10 summary fields; maps the most useful
-    //     of the 16 columns onto them) ─────────────────────────────────────────
-
-    private void refreshSummary() {
-        long months = 0;
-        long pawnBills = 0, redeemBills = 0, earnedBills = 0;
-        double pawnAmt = 0, redeemAmt = 0, interest = 0, earnedAmt = 0;
-        long lastStockBills = 0; double lastStockAmt = 0;
-        long replBills = 0, replRdmBills = 0;
-        double replAmt = 0, replRdmAmt = 0, replIntr = 0;
-        // Stock is a position, not a flow, so it is carried not summed -
-        // same convention as the company stock above it.
-        long lastReplStockBills = 0; double lastReplStockAmt = 0;
-
-        for (MisRow r : rows) {
-            boolean include = "ALL".equals(mode)
-                    || ("SELECTED".equals(mode)   &&  r.selected)
-                    || ("DESELECTED".equals(mode) && !r.selected);
-            if (include) {
-                months++;
-                pawnBills   += r.pawnBills;   pawnAmt   += r.pawnAmt;
-                redeemBills += r.redeemBills; redeemAmt += r.redeemAmt;
-                interest    += r.interest;
-                earnedBills += (r.pawnBills - r.redeemBills);
-                earnedAmt   += (r.pawnAmt   - r.redeemAmt);
-                lastStockBills = r.stockBills;   // cumulative — last wins
-                lastStockAmt   = r.stockAmt;
-
-                replBills    += r.repledgeBills;       replAmt    += r.repledgeAmt;
-                replRdmBills += r.repledgeRedeemBills; replRdmAmt += r.repledgeRedeemAmt;
-                replIntr     += r.repledgeInterest;
-                lastReplStockBills = r.repledgeStockBills;
-                lastReplStockAmt   = r.repledgeStockAmt;
-            }
+    /** The desktop shows these on hover; a phone has the long press. */
+    private void showParts(Col c, MisRow r) {
+        String parts = "";
+        if ("Expenses".equals(c.head)) parts = r.expenseParts;
+        else if ("COMPANY_PROFIT".equals(c.kind)) {
+            if (r.isTotal()) {
+                StringBuilder s = new StringBuilder();
+                for (MisRow m : r.members) {
+                    if (!m.profitParts.isEmpty()) s.append(s.length() == 0 ? "" : "\n\n").append(m.material).append("\n").append(m.profitParts);
+                }
+                parts = s.toString();
+            } else parts = r.profitParts;
         }
-
-        tvSummaryMonths.setText("(" + months + " row" + (months != 1 ? "s" : "") + ")");
-        tvSumPawnBills.setText(String.valueOf(pawnBills));
-        tvSumPawnAmt.setText("₹" + fmt.format(pawnAmt));
-        tvSumRedeemBills.setText(String.valueOf(redeemBills));
-        tvSumRedeemAmt.setText("₹" + fmt.format(redeemAmt));
-        tvSumProfit.setText("₹" + fmt.format(interest));
-        tvSumStockBills.setText(String.valueOf(lastStockBills));
-        tvSumStockAmt.setText("₹" + fmt.format(lastStockAmt));
-        tvSumEarnedBills.setText(String.valueOf(earnedBills));
-        tvSumEarnedAmt.setText("₹" + fmt.format(earnedAmt));
-
-        tvSumReplBills.setText(String.valueOf(replBills));
-        tvSumReplAmt.setText("₹" + fmt.format(replAmt));
-        tvSumReplRdmBills.setText(String.valueOf(replRdmBills));
-        tvSumReplRdmAmt.setText("₹" + fmt.format(replRdmAmt));
-        tvSumReplIntr.setText("₹" + fmt.format(replIntr));
-
-        tvSumReplStockBills.setText(String.valueOf(lastReplStockBills));
-        tvSumReplStockAmt.setText("₹" + fmt.format(lastReplStockAmt));
-        // Total stock = what is in the locker plus what is at the lender.
-        // A jewel is in one place or the other, never both.
-        tvSumTotalStockBills.setText(String.valueOf(lastStockBills + lastReplStockBills));
-        tvSumTotalStockAmt.setText("₹" + fmt.format(lastStockAmt + lastReplStockAmt));
-
-        // Gross is what the shop earned less what it paid the lender,
-        // which is how the desktop MIS reads it.
-        tvSumGross.setText("₹" + fmt.format(interest - replIntr));
+        else if ("REPLEDGE_INTEREST".equals(c.kind)) {
+            if (r.isTotal()) { for (MisRow m : r.members) if (!m.repledgeParts.isEmpty()) parts = m.repledgeParts; }
+            else parts = r.repledgeParts;
+        }
+        if (parts.isEmpty()) return;
+        new AlertDialog.Builder(this)
+                .setTitle(c.head.replace('\n', ' ') + "  -  " + r.month + (r.isTotal() ? "" : "  -  " + r.material))
+                .setMessage(parts).setPositiveButton("Close", null).show();
     }
 
-    // ── Builders ─────────────────────────────────────────────────────────────────
+    // ── Print ──────────────────────────────────────────────────────────────────
 
     /**
-     * A row is parchment with a hairline under it; the picked one takes a
-     * gold wash. No zebra stripe — the rule does the separating.
+     * The section on screen, the rows as shown and sorted, each month's TOTAL,
+     * and the total row. Only the months the total was worked out from, so the
+     * rows above it add up to it.
      */
-    private void paintRow(View row, boolean selected) {
-        row.setBackgroundResource(selected
-                ? R.drawable.bg_table_row_selected : R.drawable.bg_table_row);
-    }
-
-    private TableRow buildHeaderRow() {
-        TableRow tr = new TableRow(this);
-        tr.setBackgroundColor(royal.wine);
-        for (int j = 0; j < HEADERS.length; j++) {
-            TextView tv = new TextView(this);
-            tv.setText(HEADERS[j]);
-            tv.setTextColor(colHead);
-            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9);
-            tv.setTypeface(null, Typeface.BOLD);
-            tv.setGravity(j == 0 ? Gravity.START : Gravity.CENTER);
-            tv.setPadding(dp(6), dp(6), dp(6), dp(6));
-            tv.setMinWidth(dp(COL_WIDTHS_DP[j]));
-            tr.addView(tv);
+    private void print() {
+        List<Col> cols = columns();
+        int n = 2 + cols.size();
+        String[] heads = new String[n];
+        boolean[] right = new boolean[n];
+        heads[0] = "Month";
+        heads[1] = "Material";
+        for (int i = 0; i < cols.size(); i++) {
+            String group = cols.get(i).group;
+            heads[2 + i] = ("COMPANY".equals(group) || "REPLEDGE".equals(group) ? group.charAt(0) + group.substring(1).toLowerCase(Locale.ROOT) + " " : "")
+                    + cols.get(i).head;
+            right[2 + i] = true;
         }
-        return tr;
-    }
-
-    private TableRow buildDataRow(MisRow r, int idx) {
-        TableRow tr = new TableRow(this);
-        paintRow(tr, r.selected);
-
-        String[] vals = {
-            r.month, r.jwlType,
-            n(r.pawnBills),           a(r.pawnAmt),
-            n(r.redeemBills),         a(r.redeemAmt),
-            a(r.interest),
-            n(r.repledgeBills),       a(r.repledgeAmt),
-            n(r.repledgeRedeemBills), a(r.repledgeRedeemAmt),
-            a(r.repledgeInterest),
-            n(r.repledgeStockBills),  a(r.repledgeStockAmt),
-            n(r.stockBills),          a(r.stockAmt)
-        };
-
-        for (int j = 0; j < vals.length; j++) {
-            TextView tv = new TextView(this);
-            tv.setText(vals[j]);
-            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
-            tv.setPadding(dp(6), dp(5), dp(6), dp(5));
-            tv.setMinWidth(dp(COL_WIDTHS_DP[j]));
-            tv.setTextColor(colorFor(j));
-            if (j == 0) { tv.setTypeface(null, Typeface.BOLD); tv.setGravity(Gravity.START); }
-            else if (j == 1) { tv.setGravity(Gravity.CENTER); }
-            else { tv.setGravity(Gravity.END); }
-            tr.addView(tv);
+        TablePrint p = new TablePrint(heads, right);
+        Set<String> months = new HashSet<>();
+        int first = Integer.MAX_VALUE, last = 0;
+        String firstLabel = "", lastLabel = "";
+        for (MisRow r : shown) {
+            boolean in = "ALL".equals(totalsOf) || ("SELECTED".equals(totalsOf) && r.checked)
+                    || ("DESELECTED".equals(totalsOf) && !r.checked);
+            if (!in) continue;
+            months.add(r.month);
+            int key = monthKey(r.month);
+            if (key < first) { first = key; firstLabel = r.month; }
+            if (key > last)  { last = key;  lastLabel = r.month; }
+            p.row(r.isTotal() ? TablePrint.Kind.SUBTOTAL : TablePrint.Kind.ROW, cells(r, cols));
         }
-        return tr;
-    }
-
-    private TableRow buildTotalsRow() {
-        TableRow tr = new TableRow(this);
-        tr.setBackgroundResource(R.drawable.bg_table_total);
-
-        long pawnBills=0, redeemBills=0, replBills=0, replRdmBills=0;
-        double pawnAmt=0, redeemAmt=0, interest=0, replAmt=0, replRdmAmt=0, replIntr=0;
-        long lastStockBills=0, lastReplStockBills=0;
-        double lastStockAmt=0, lastReplStockAmt=0;
-        for (MisRow r : rows) {
-            pawnBills+=r.pawnBills;   pawnAmt+=r.pawnAmt;
-            redeemBills+=r.redeemBills; redeemAmt+=r.redeemAmt;
-            interest+=r.interest;
-            replBills+=r.repledgeBills; replAmt+=r.repledgeAmt;
-            replRdmBills+=r.repledgeRedeemBills; replRdmAmt+=r.repledgeRedeemAmt;
-            replIntr+=r.repledgeInterest;
-            lastStockBills=r.stockBills; lastStockAmt=r.stockAmt;
-            lastReplStockBills=r.repledgeStockBills; lastReplStockAmt=r.repledgeStockAmt;
+        if (p.size() == 0) {
+            Toast.makeText(this, "SELECTED".equals(totalsOf) ? "No month is ticked, so there is nothing to print."
+                    : "Every month is ticked, so there is nothing left to print.", Toast.LENGTH_LONG).show();
+            return;
         }
+        MisRow t = totalRow();
+        String[] total = cells(t, cols);
+        total[0] = "TOTAL";
+        total[1] = t.month + " " + t.material;
+        if (STOCK.equals(section)) { total[12] = ""; total[13] = ""; }
+        p.row(TablePrint.Kind.TOTAL, total);
 
-        String[] vals = {
-            "TOTAL", "",
-            n(pawnBills),    a(pawnAmt),
-            n(redeemBills),  a(redeemAmt),
-            a(interest),
-            n(replBills),    a(replAmt),
-            n(replRdmBills), a(replRdmAmt),
-            a(replIntr),
-            n(lastReplStockBills), a(lastReplStockAmt),
-            n(lastStockBills),     a(lastStockAmt)
-        };
+        String name = PROFIT.equals(section) ? "Profit" : AL.equals(section) ? "Assets & Liabilities" : "Stock Details";
+        String sub = firstLabel + " to " + lastLabel + "  ·  " + months.size() + (months.size() == 1 ? " month" : " months")
+                + "  ·  " + (totalsOnly ? "Totals only (one row a month)" : "Gold and silver rows, with each month's total")
+                + "  ·  TOTAL row: " + ("SELECTED".equals(totalsOf) ? "the ticked months"
+                    : "DESELECTED".equals(totalsOf) ? "the months not ticked" : "all months");
+        printing = p.show(this, "MIS REPORT  ·  " + name.toUpperCase(Locale.ROOT), sub, "MIS Report - " + name);
+    }
 
-        for (int j = 0; j < vals.length; j++) {
-            TextView tv = new TextView(this);
-            tv.setText(vals[j]);
-            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
-            tv.setPadding(dp(6), dp(6), dp(6), dp(6));
-            tv.setTypeface(null, Typeface.BOLD);
-            tv.setMinWidth(dp(COL_WIDTHS_DP[j]));
-            tv.setTextColor(j == 0 ? colMonth : colorFor(j));
-            tv.setGravity(j == 0 ? Gravity.START : j == 1 ? Gravity.CENTER : Gravity.END);
-            tr.addView(tv);
+    private String[] cells(MisRow r, List<Col> cols) {
+        String[] out = new String[2 + cols.size()];
+        out[0] = r.month;
+        out[1] = r.material;
+        for (int i = 0; i < cols.size(); i++) {
+            Col c = cols.get(i);
+            double v = c.read.of(r);
+            out[2 + i] = c.count ? fmt.format((long) v) : money(v);
         }
-        return tr;
+        return out;
     }
 
-    /** Counts read quiet, money reads ink, interest green, repledge violet. */
-    private int colorFor(int j) {
-        switch (j) {
-            case 0: return colMonth;                          // Month
-            case 1: return colAmount;                         // Type
-            case 2: case 4: return colCount;                  // pawn#, redeem#
-            case 6: return colEarned;                         // interest
-            case 7: case 9: case 12: case 14: return colCount; // repl#, replRdm#, replStk#, stock#
-            case 11: return colEarned;                        // repl interest
-            case 8: case 10: case 13: return colRepledge;     // repledge amounts
-            default: return colAmount;                        // plain amounts
-        }
-    }
-
-    private View buildDivider() {
-        View v = new View(this);
-        v.setLayoutParams(new TableLayout.LayoutParams(
-            TableLayout.LayoutParams.MATCH_PARENT, dp(1)));
-        v.setBackgroundColor(royal.line);
-        return v;
-    }
-
-    // ── View mode (Table / Bar / Line / Pie) ───────────────────────────────────
+    // ── Table / Bar / Line / Pie ───────────────────────────────────────────────
 
     private void setViewMode(String m) {
         viewMode = m;
-        // A segmented control: the chosen one is wine, the rest are the
-        // parchment strip it sits on.
-        Button[] btns = { btnViewTable, btnViewBar, btnViewLine, btnViewPie };
-        String[] keys = { "TABLE", "BAR", "LINE", "PIE" };
-        for (int i = 0; i < btns.length; i++) {
-            boolean on = keys[i].equals(m);
-            btns[i].setBackgroundTintList(android.content.res.ColorStateList.valueOf(
-                    on ? royal.wine : royal.strip));
-            btns[i].setTextColor(on ? royal.onWine : royal.inkBody);
-        }
+        paintViewChips();
 
         boolean isTable = "TABLE".equals(m);
         layoutTableScroll.setVisibility(isTable ? View.VISIBLE : View.GONE);
@@ -551,23 +973,22 @@ public class MonthlyReportActivity extends AppCompatActivity {
         misLineChart.setVisibility("LINE".equals(m) ? View.VISIBLE : View.GONE);
         misPieChart.setVisibility("PIE".equals(m)  ? View.VISIBLE : View.GONE);
 
-        if (rows.isEmpty()) return;
+        if (base.isEmpty()) return;
         switch (m) {
             case "BAR":  buildBarChart();  break;
             case "LINE": buildLineChart(); break;
             case "PIE":  buildPieChart();  break;
-            default: /* table already populated */ break;
+            default: break;
         }
     }
 
     /** One bar group per month: Pawn vs Redeem amount (gold+silver merged). */
     private void buildBarChart() {
         tvChartTitle.setText("Pawn vs Redeem Amount (by month)");
-        // Merge the GOLD+SILVER rows for the same month into one bucket.
         Map<String,double[]> byMonth = new LinkedHashMap<>(); // month → {pawn, redeem}
         // rows are newest-first; reverse for left-to-right time order.
-        for (int i = rows.size() - 1; i >= 0; i--) {
-            MisRow r = rows.get(i);
+        for (int i = base.size() - 1; i >= 0; i--) {
+            MisRow r = base.get(i);
             double[] v = byMonth.computeIfAbsent(r.month, k -> new double[2]);
             v[0] += r.pawnAmt; v[1] += r.redeemAmt;
         }
@@ -581,9 +1002,9 @@ public class MonthlyReportActivity extends AppCompatActivity {
             idx++;
         }
         BarDataSet dsP = new BarDataSet(pawn,   "Pawn");
-        dsP.setColor(royal.goldRule); dsP.setValueTextColor(royal.inkSoft); dsP.setValueTextSize(8);
+        dsP.setColor(royal.goldRule); dsP.setDrawValues(false);
         BarDataSet dsR = new BarDataSet(redeem, "Redeem");
-        dsR.setColor(royal.navy); dsR.setValueTextColor(royal.inkSoft); dsR.setValueTextSize(8);
+        dsR.setColor(royal.navy); dsR.setDrawValues(false);
         BarData bd = new BarData(dsP, dsR);
         float groupSpace = 0.3f, barSpace = 0.05f, barWidth = 0.3f;
         bd.setBarWidth(barWidth);
@@ -592,20 +1013,18 @@ public class MonthlyReportActivity extends AppCompatActivity {
         misBarChart.getXAxis().setCenterAxisLabels(true);
         misBarChart.getXAxis().setAxisMinimum(0f);
         misBarChart.getXAxis().setAxisMaximum(labels.size());
-        misBarChart.getXAxis().setLabelCount(labels.size());
         misBarChart.setData(bd);
         if (labels.size() > 0) misBarChart.groupBars(0f, groupSpace, barSpace);
         misBarChart.animateY(400);
         misBarChart.invalidate();
     }
 
-    /** Two lines over months: cumulative Stock Amount + cumulative Repledge Stock. */
+    /** Two lines over months: running Stock Amount + running Repledge Stock. */
     private void buildLineChart() {
-        tvChartTitle.setText("Stock Amount Trend (cumulative)");
+        tvChartTitle.setText("Stock Amount Trend (running)");
         Map<String,double[]> byMonth = new LinkedHashMap<>(); // month → {stock, replStock}
-        for (int i = rows.size() - 1; i >= 0; i--) {
-            MisRow r = rows.get(i);
-            // cumulative columns: take the max seen for the month (gold row carries repl)
+        for (int i = base.size() - 1; i >= 0; i--) {
+            MisRow r = base.get(i);
             double[] v = byMonth.computeIfAbsent(r.month, k -> new double[2]);
             v[0] = Math.max(v[0], r.stockAmt);
             v[1] = Math.max(v[1], r.repledgeStockAmt);
@@ -620,14 +1039,11 @@ public class MonthlyReportActivity extends AppCompatActivity {
             idx++;
         }
         LineDataSet dsS = new LineDataSet(stock, "Stock Amount");
-        dsS.setColor(royal.violet); dsS.setCircleColor(royal.violet); dsS.setLineWidth(2f);
-        dsS.setValueTextColor(royal.inkSoft); dsS.setValueTextSize(8);
+        dsS.setColor(royal.violet); dsS.setDrawCircles(false); dsS.setLineWidth(2f); dsS.setDrawValues(false);
         LineDataSet dsR = new LineDataSet(repl, "Repledge Stock");
-        dsR.setColor(royal.goldRule); dsR.setCircleColor(royal.goldRule); dsR.setLineWidth(2f);
-        dsR.setValueTextColor(royal.inkSoft); dsR.setValueTextSize(8);
+        dsR.setColor(royal.goldRule); dsR.setDrawCircles(false); dsR.setLineWidth(2f); dsR.setDrawValues(false);
         styleChart(misLineChart);
         misLineChart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
-        misLineChart.getXAxis().setLabelCount(labels.size(), false);
         misLineChart.setData(new LineData(dsS, dsR));
         misLineChart.animateY(400);
         misLineChart.invalidate();
@@ -637,24 +1053,24 @@ public class MonthlyReportActivity extends AppCompatActivity {
     private void buildPieChart() {
         tvChartTitle.setText("Pawn Amount Share — Gold vs Silver");
         double gold = 0, silver = 0;
-        for (MisRow r : rows) {
-            if ("GOLD".equalsIgnoreCase(r.jwlType))   gold   += r.pawnAmt;
-            if ("SILVER".equalsIgnoreCase(r.jwlType)) silver += r.pawnAmt;
+        for (MisRow r : base) {
+            if ("GOLD".equalsIgnoreCase(r.material))   gold   += r.pawnAmt;
+            if ("SILVER".equalsIgnoreCase(r.material)) silver += r.pawnAmt;
         }
         List<PieEntry> entries = new ArrayList<>();
         if (gold   > 0) entries.add(new PieEntry((float) gold,   "Gold"));
         if (silver > 0) entries.add(new PieEntry((float) silver, "Silver"));
         PieDataSet ds = new PieDataSet(entries, "");
-        ds.setColors(royal.goldRule, royal.navy);
-        ds.setValueTextColor(royal.onWine); ds.setValueTextSize(12f);
+        ds.setColors(royal.goldRule, royal.silver);
+        ds.setValueTextColor(0xFF17090D); ds.setValueTextSize(12f);
         ds.setSliceSpace(2f);
         PieData pd = new PieData(ds);
         pd.setValueFormatter(new ValueFormatter() {
-            @Override public String getFormattedValue(float v) { return "₹" + fmt.format(v); }
+            @Override public String getFormattedValue(float v) { return fmt.format(v); }
         });
         misPieChart.setData(pd);
         misPieChart.getDescription().setEnabled(false);
-        misPieChart.setEntryLabelColor(royal.onWine);
+        misPieChart.setEntryLabelColor(0xFF17090D);
         misPieChart.setHoleColor(0x00000000);
         misPieChart.setHoleRadius(45f);
         misPieChart.setTransparentCircleRadius(48f);
@@ -665,7 +1081,6 @@ public class MonthlyReportActivity extends AppCompatActivity {
         misPieChart.invalidate();
     }
 
-    /** Common dark-theme styling for the bar/line charts. */
     private void styleChart(com.github.mikephil.charting.charts.BarLineChartBase<?> chart) {
         Description d = new Description(); d.setText("");
         chart.setDescription(d);
@@ -688,9 +1103,10 @@ public class MonthlyReportActivity extends AppCompatActivity {
 
     // ── Helpers ─────────────────────────────────────────────────────────────────
 
-    private String n(long v) { return fmt.format(v); }
-    private String a(double v) { return fmt.format(v); }
+    /** Indian grouping for a loss too: -6,98,100. */
+    private String money(double v) { return v < 0 ? "-" + fmt.format(-v) : fmt.format(v); }
 
+    @SuppressWarnings("unused")
     private int dp(int val) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, val,
             getResources().getDisplayMetrics());

@@ -13,7 +13,7 @@
     <!-- ── Wine ─────────────────────────────────────────────────────── -->
     <color name="wine_deepest">#2B151C</color>
     <color name="wine_deep">#2B151C</color>
-    <color name="wine">#3E0E18</color>
+    <color name="wine">#6A1C2C</color>
     <color name="wine_light">#5A1A26</color>
     <color name="crimson">#8E2A3A</color>
 
@@ -21,6 +21,17 @@
          The accent becomes pale gold - the one highlight colour the
          night palette has, and what the design uses for figures. -->
     <color name="wine_ink">#F0DA9B</color>
+
+    <!-- ── Depth: the ledge a card stands on, and the light on its top edge ── -->
+    <color name="cinema_black">#0D0508</color>
+    <color name="page_foot">#1F0B0D</color>
+    <color name="card_top">#30181F</color>
+    <color name="card_edge_hi">#6A4A42</color>
+    <color name="card_ledge">#E0070304</color>
+    <color name="btn_top">#A33A4C</color>
+    <color name="btn_mid">#7A2233</color>
+    <color name="btn_foot">#4A1320</color>
+    <color name="btn_off">#4A2F38</color>
 
     <!-- ── Gold ─────────────────────────────────────────────────────── -->
     <!-- gold_ink must be readable on the #211016 surface, so at night it

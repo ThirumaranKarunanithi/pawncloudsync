@@ -47,9 +47,11 @@ public class SettingsActivity extends AppCompatActivity {
     private void refreshButtons() {
         boolean dark = PawnApp.isDark(this);
 
-        int activeColor   = getResources().getColor(R.color.gold, getTheme());
-        int inactiveColor = getResources().getColor(R.color.white54, getTheme());
+        int activeColor   = getResources().getColor(R.color.on_wine, getTheme());
+        int inactiveColor = getResources().getColor(R.color.ink_body, getTheme());
 
+        btnDark.setBackgroundResource(dark ? R.drawable.btn_wine : R.drawable.btn_quiet);
+        btnLight.setBackgroundResource(!dark ? R.drawable.btn_wine : R.drawable.btn_quiet);
         btnDark.setTextColor( dark ? activeColor : inactiveColor);
         btnLight.setTextColor(!dark ? activeColor : inactiveColor);
 

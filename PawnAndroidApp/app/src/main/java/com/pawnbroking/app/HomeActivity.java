@@ -342,7 +342,7 @@ public class HomeActivity extends AppCompatActivity {
                              java.util.List<Entry> a, java.util.List<Entry> b, java.util.List<Entry> c,
                              String labelA, String labelB, String labelC) {
         if (labels.isEmpty()) { chart.clear(); chart.invalidate(); return; }
-        LineDataSet dsTotal = makeSet(a, labelA, royal.wine);     // both metals
+        LineDataSet dsTotal = makeSet(a, labelA, royal.ink);      // both metals; wine vanished on the night card
         LineDataSet dsGold  = makeSet(b, labelB, royal.goldRule); // gold
         LineDataSet dsSilver= makeSet(c, labelC, royal.navy);     // silver
         LineData ld = new LineData(dsTotal, dsGold, dsSilver);

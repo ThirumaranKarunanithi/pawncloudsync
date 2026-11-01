@@ -114,7 +114,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:layout_marginTop="32dp"
-        android:indeterminateTint="@color/wine"
+        android:indeterminateTint="@color/gold_rule"
         android:visibility="gone" />
 
     <TextView
