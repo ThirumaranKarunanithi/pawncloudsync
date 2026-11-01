@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The list behind one MIS figure. Group by / Sort by above, the table in the
+  middle with its heading pinned, the totals and Print below.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/parchment"
+    android:orientation="vertical">
+
+    <include layout="@layout/view_band" />
+
+    <TextView
+        android:id="@+id/tvListTitle"
+        style="@style/Royal.Title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="@dimen/sp_md"
+        android:paddingEnd="@dimen/page_pad" />
+
+    <LinearLayout
+        android:id="@+id/layoutPicks"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:baselineAligned="false"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/page_pad"
+        android:paddingTop="@dimen/sp_sm"
+        android:paddingEnd="@dimen/page_pad"
+        android:paddingBottom="@dimen/sp_sm">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                style="@style/Royal.Cap.Quiet"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="GROUP BY" />
+
+            <Spinner
+                android:id="@+id/spGroup"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:popupBackground="@color/surface" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                style="@style/Royal.Cap.Quiet"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="SORT BY" />
+
+            <Spinner
+                android:id="@+id/spSort"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:popupBackground="@color/surface" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                style="@style/Royal.Cap.Quiet"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ORDER" />
+
+            <Spinner
+                android:id="@+id/spOrder"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:popupBackground="@color/surface" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_margin="24dp"
+        android:indeterminateTint="@color/gold_rule"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/tvEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:padding="32dp"
+        android:textColor="@color/ink_soft"
+        android:textSize="@dimen/t_body"
+        android:visibility="gone" />
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:id="@+id/tableHead"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <ScrollView
+                android:layout_width="wrap_content"
+                android:layout_height="0dp"
+                android:layout_weight="1">
+
+                <LinearLayout
+                    android:id="@+id/tableRows"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </ScrollView>
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_table_total"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="@dimen/sp_md">
+
+        <TextView
+            android:id="@+id/tvFoot"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fontFeatureSettings="tnum"
+            android:textColor="@color/ink_body"
+            android:textSize="@dimen/t_fine" />
+
+        <Button
+            android:id="@+id/btnPrint"
+            style="@style/Royal.Button.Outline"
+            android:layout_width="88dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="@dimen/sp_sm"
+            android:text="PRINT"
+            android:textSize="12sp" />
+    </LinearLayout>
+</LinearLayout>

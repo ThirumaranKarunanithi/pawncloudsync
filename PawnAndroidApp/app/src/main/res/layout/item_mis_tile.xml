@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One figure of the MIS total, large enough to read without scrolling across. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginEnd="@dimen/sp_sm"
+    android:background="@drawable/bg_card"
+    android:minWidth="124dp"
+    android:orientation="vertical"
+    android:paddingStart="@dimen/sp_md"
+    android:paddingTop="@dimen/sp_sm"
+    android:paddingEnd="@dimen/sp_md"
+    android:paddingBottom="@dimen/sp_sm">
+
+    <TextView
+        android:id="@+id/tileLabel"
+        style="@style/Royal.Cap.Quiet"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+    <TextView
+        android:id="@+id/tileFigure"
+        style="@style/Royal.Figure.Small"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textSize="17sp" />
+
+    <TextView
+        android:id="@+id/tileCount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFeatureSettings="tnum"
+        android:textColor="@color/ink_mute"
+        android:textSize="@dimen/t_fine" />
+</LinearLayout>

@@ -27,9 +27,10 @@
 
         <!-- The band runs under the status bar, so it is wine in both
              modes and its icons must stay light in both. -->
-        <item name="android:statusBarColor">@color/wine_deepest</item>
+        <item name="android:statusBarColor">@color/cinema_black</item>
+        <item name="android:windowAnimationStyle">@style/CinemaWindow</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
-        <item name="android:navigationBarColor">@color/wine_deep</item>
+        <item name="android:navigationBarColor">@color/cinema_black</item>
 
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
@@ -40,6 +41,13 @@
         <item name="android:editTextStyle">@style/RoyalEditText</item>
         <item name="android:buttonStyle">@style/RoyalButton</item>
         <item name="toolbarStyle">@style/RoyalToolbar</item>
+    </style>
+
+    <style name="CinemaWindow" parent="@android:style/Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@anim/cinema_open_enter</item>
+        <item name="android:activityOpenExitAnimation">@anim/cinema_open_exit</item>
+        <item name="android:activityCloseEnterAnimation">@anim/cinema_close_enter</item>
+        <item name="android:activityCloseExitAnimation">@anim/cinema_close_exit</item>
     </style>
 
     <style name="RoyalTextView" parent="Widget.AppCompat.TextView">

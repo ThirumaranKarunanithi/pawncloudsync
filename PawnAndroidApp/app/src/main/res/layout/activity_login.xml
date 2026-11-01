@@ -1,13 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Sign in. Wine above, a parchment sheet rising over it, like a letter
-  laid on the counter. The sheet overlaps the wine by 26dp so the gold
-  edge reads as a fold rather than a seam.
+  laid on the counter. No negative margin on the sheet: a weighted child's
+  negative margin is not taken off the total, so the sheet stops short of
+  the foot by that much and the black shows under it.
+
+  Behind it all the rendered hero, which slides against the phone's tilt.
 -->
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/wine_deep"
+    android:background="@color/cinema_black">
+
+    <com.pawnbroking.app.util.PlateView
+        android:id="@+id/heroPlate"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+<ScrollView
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
     android:fillViewport="true">
 
     <LinearLayout
@@ -24,29 +36,23 @@
             android:paddingStart="28dp"
             android:paddingTop="54dp"
             android:paddingEnd="28dp"
-            android:paddingBottom="44dp">
+            android:paddingBottom="18dp">
 
-            <LinearLayout
-                android:layout_width="86dp"
-                android:layout_height="86dp"
-                android:background="@drawable/bg_emblem"
-                android:gravity="center">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="₹"
-                    android:textColor="@color/gold_bright"
-                    android:textSize="44sp"
-                    android:textStyle="bold"
-                    style="@style/Royal.Font.Display" />
-            </LinearLayout>
+            <ImageView
+                android:id="@+id/ivEmblem"
+                android:layout_width="118dp"
+                android:layout_height="118dp"
+                android:contentDescription="@null"
+                android:src="@drawable/emblem" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="14dp"
                 android:gravity="center"
+                android:shadowColor="#FF000000"
+                android:shadowDy="2"
+                android:shadowRadius="8"
                 android:text="@string/app_name"
                 android:textColor="@color/on_wine_title"
                 android:textSize="25sp"
@@ -87,6 +93,9 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="11dp"
                 android:letterSpacing="0.22"
+                android:shadowColor="#FF000000"
+                android:shadowDy="1"
+                android:shadowRadius="6"
                 android:text="BILL &amp; REPLEDGE"
                 android:textColor="@color/on_wine_dim"
                 android:textSize="11sp"
@@ -97,7 +106,6 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_marginTop="-26dp"
             android:layout_weight="1"
             android:background="@drawable/bg_sheet"
             android:minHeight="430dp"
@@ -130,11 +138,10 @@
                 android:layout_marginTop="6dp">
 
                 <ImageView
-                    android:layout_width="19dp"
-                    android:layout_height="19dp"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
                     android:contentDescription="@null"
-                    android:src="@drawable/ic_user"
-                    android:tint="@color/ink_mute" />
+                    android:src="@drawable/ic3d_user" />
 
                 <EditText
                     android:id="@+id/etUsername"
@@ -162,11 +169,10 @@
                 android:paddingEnd="4dp">
 
                 <ImageView
-                    android:layout_width="19dp"
-                    android:layout_height="19dp"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
                     android:contentDescription="@null"
-                    android:src="@drawable/ic_lock"
-                    android:tint="@color/gold_ink" />
+                    android:src="@drawable/ic3d_lock" />
 
                 <EditText
                     android:id="@+id/etPassword"
@@ -206,7 +212,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
                 android:layout_marginTop="16dp"
-                android:indeterminateTint="@color/wine"
+                android:indeterminateTint="@color/gold_rule"
                 android:visibility="gone" />
 
             <Button
@@ -284,3 +290,4 @@
         </LinearLayout>
     </LinearLayout>
 </ScrollView>
+</FrameLayout>

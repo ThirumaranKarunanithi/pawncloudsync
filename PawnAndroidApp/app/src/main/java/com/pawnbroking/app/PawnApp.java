@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import androidx.appcompat.app.AppCompatDelegate;
 
 import com.pawnbroking.app.services.ApiService;
+import com.pawnbroking.app.util.Cinema;
 
 public class PawnApp extends Application {
 
@@ -19,6 +20,7 @@ public class PawnApp extends Application {
         super.onCreate();
         applyTheme(this);
         ApiService.bindContext(this);
+        Cinema.install(this);
     }
 
     /** Call this whenever the saved preference changes. */

@@ -1,0 +1,7 @@
+masters/
+preview/
+out/
+luts/
+out2/
+*.log
+*.err

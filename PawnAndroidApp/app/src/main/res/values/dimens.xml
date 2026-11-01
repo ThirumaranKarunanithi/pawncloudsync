@@ -19,6 +19,8 @@
     <dimen name="r_lg">12dp</dimen>
     <dimen name="r_pill">20dp</dimen>
 
+    <!-- The band: tall enough for a rendered plate to show its subject under the title -->
+    <dimen name="band_h">94dp</dimen>
     <!-- The gold rule under every band -->
     <dimen name="gold_rule_h">3dp</dimen>
     <!-- The metal edge down the left of a bill row -->

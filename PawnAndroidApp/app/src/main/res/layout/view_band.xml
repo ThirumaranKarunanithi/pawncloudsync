@@ -1,30 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The band every screen starts with: wine, with its gold rule under it.
+  The band every screen starts with: its own rendered plate, its title over
+  the plate's dark side, and the gold rule under it.
   <include layout="@layout/view_band" /> at the top of a screen, then
   findViewById(R.id.toolbar) works exactly as it did before.
 
-  The rule lives here so no screen can forget it.
+  The rule and the plate live here so no screen can forget them. Cinema picks
+  which plate, by the screen.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/band"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical">
 
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/wine"
-        android:theme="@style/ToolbarTheme"
-        app:popupTheme="@style/ThemeOverlay.MaterialComponents.Light"
-        app:subtitleTextAppearance="@style/ToolbarSubtitle"
-        app:titleTextAppearance="@style/ToolbarTitle" />
+        android:layout_height="@dimen/band_h"
+        android:background="@color/cinema_black">
+
+        <com.pawnbroking.app.util.PlateView
+            android:id="@+id/bandPlate"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@android:color/transparent"
+            android:theme="@style/ToolbarTheme"
+            app:popupTheme="@style/ThemeOverlay.MaterialComponents.Light"
+            app:subtitleTextAppearance="@style/ToolbarSubtitle"
+            app:titleTextAppearance="@style/ToolbarTitle" />
+    </FrameLayout>
 
     <View
         android:layout_width="match_parent"
         android:layout_height="@dimen/gold_rule_h"
-        android:background="@color/gold_rule" />
+        android:background="@drawable/bg_gold_rule" />
 
 </LinearLayout>

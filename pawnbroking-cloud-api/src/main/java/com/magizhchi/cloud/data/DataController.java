@@ -579,7 +579,9 @@ public class DataController {
                     "  0 pawn_total_bill, 0 pawn_amount, 0 redeem_total_bills, 0 redeem_amt, 0 interest, " +
                     "  count(*) repledge_total_bill, sum(" + num.apply("amount") + ") repledge_amount, " +
                     "  0 repledge_redeem_total_bills, 0 repledge_redeem_amt, " +
-                    "  sum(" + num.apply("open_taken_amount") + ") repledge_interest " +
+                    // the desktop's: interest taken + received less than due
+                    "  sum(" + num.apply("open_taken_amount") + " + CASE WHEN " + num.apply("toget_amount") + " > 0 THEN " +
+                    num.apply("toget_amount") + " - " + num.apply("got_amount") + " ELSE 0 END) repledge_interest " +
                     "FROM projections WHERE table_name='repledge_billing' AND NOT deleted " +
                     "  AND payload->>'opening_date' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' " +
                     "  AND upper(COALESCE(payload->>'jewel_material_type',''))='GOLD' " +
@@ -590,7 +592,9 @@ public class DataController {
                     "  0 pawn_total_bill, 0 pawn_amount, 0 redeem_total_bills, 0 redeem_amt, 0 interest, " +
                     "  0 repledge_total_bill, 0 repledge_amount, " +
                     "  count(*) repledge_redeem_total_bills, sum(" + num.apply("amount") + ") repledge_redeem_amt, " +
-                    "  (sum(" + num.apply("given_amount") + ")-sum(" + num.apply("amount") + ")) repledge_interest " +
+                    // the desktop's: closing interest + paid more than due
+                    "  sum(" + num.apply("close_taken_amount") + " + " + num.apply("given_amount") + " - " +
+                    num.apply("togive_amount") + ") repledge_interest " +
                     "FROM projections WHERE table_name='repledge_billing' AND NOT deleted " +
                     "  AND payload->>'closing_date' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' " +
                     "  AND upper(COALESCE(payload->>'jewel_material_type',''))='GOLD' " +

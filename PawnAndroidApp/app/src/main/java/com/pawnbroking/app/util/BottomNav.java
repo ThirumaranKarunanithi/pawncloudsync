@@ -64,12 +64,19 @@ public final class BottomNav {
                 () -> showMore(a, companyId, companyName));
     }
 
-    /** The chosen tab goes gold; the rest stay the quiet wine-pink. */
+    /**
+     * The chosen tab comes up to full light; the rest stand back. The icons are rendered
+     * objects with their own colour, so they are dimmed, never tinted.
+     */
     private static void light(Activity a, boolean on, @IdRes int icon, @IdRes int label) {
         int c = ContextCompat.getColor(a, on ? R.color.on_wine_title : R.color.nav_inactive);
         ImageView iv = a.findViewById(icon);
         TextView  tv = a.findViewById(label);
-        if (iv != null) iv.setColorFilter(c);
+        if (iv != null) {
+            iv.setAlpha(on ? 1f : 0.62f);
+            iv.setScaleX(on ? 1.12f : 1f);
+            iv.setScaleY(on ? 1.12f : 1f);
+        }
         if (tv != null) {
             tv.setTextColor(c);
             tv.setTypeface(tv.getTypeface(), on ? android.graphics.Typeface.BOLD

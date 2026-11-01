@@ -18,12 +18,12 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="2dp"
-        android:background="@color/gold_rule" />
+        android:background="@drawable/bg_gold_rule" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/wine_deep"
+        android:background="@drawable/bg_nav"
         android:orientation="horizontal"
         android:paddingTop="6dp"
         android:paddingBottom="8dp">
@@ -39,22 +39,21 @@
             android:gravity="center"
             android:minHeight="@dimen/tap_min"
             android:orientation="vertical"
-            android:paddingTop="6dp"
+            android:paddingTop="2dp"
             android:paddingBottom="2dp">
 
             <ImageView
                 android:id="@+id/navHomeIcon"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
                 android:contentDescription="@null"
-                android:src="@drawable/ic_home"
-                android:tint="@color/nav_inactive" />
+                android:src="@drawable/ic3d_home" />
 
             <TextView
                 android:id="@+id/navHomeLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
+                android:layout_marginTop="1dp"
                 android:text="Home"
                 android:textColor="@color/nav_inactive"
                 android:textSize="10sp" />
@@ -71,22 +70,21 @@
             android:gravity="center"
             android:minHeight="@dimen/tap_min"
             android:orientation="vertical"
-            android:paddingTop="6dp"
+            android:paddingTop="2dp"
             android:paddingBottom="2dp">
 
             <ImageView
                 android:id="@+id/navBillsIcon"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
                 android:contentDescription="@null"
-                android:src="@drawable/ic_bills"
-                android:tint="@color/nav_inactive" />
+                android:src="@drawable/ic3d_bills" />
 
             <TextView
                 android:id="@+id/navBillsLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
+                android:layout_marginTop="1dp"
                 android:text="Bills"
                 android:textColor="@color/nav_inactive"
                 android:textSize="10sp" />
@@ -103,22 +101,21 @@
             android:gravity="center"
             android:minHeight="@dimen/tap_min"
             android:orientation="vertical"
-            android:paddingTop="6dp"
+            android:paddingTop="2dp"
             android:paddingBottom="2dp">
 
             <ImageView
                 android:id="@+id/navReportsIcon"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
                 android:contentDescription="@null"
-                android:src="@drawable/ic_chart"
-                android:tint="@color/nav_inactive" />
+                android:src="@drawable/ic3d_chart" />
 
             <TextView
                 android:id="@+id/navReportsLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
+                android:layout_marginTop="1dp"
                 android:text="Reports"
                 android:textColor="@color/nav_inactive"
                 android:textSize="10sp" />
@@ -135,22 +132,21 @@
             android:gravity="center"
             android:minHeight="@dimen/tap_min"
             android:orientation="vertical"
-            android:paddingTop="6dp"
+            android:paddingTop="2dp"
             android:paddingBottom="2dp">
 
             <ImageView
                 android:id="@+id/navMoreIcon"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
                 android:contentDescription="@null"
-                android:src="@drawable/ic_more"
-                android:tint="@color/nav_inactive" />
+                android:src="@drawable/ic3d_more" />
 
             <TextView
                 android:id="@+id/navMoreLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
+                android:layout_marginTop="1dp"
                 android:text="More"
                 android:textColor="@color/nav_inactive"
                 android:textSize="10sp" />

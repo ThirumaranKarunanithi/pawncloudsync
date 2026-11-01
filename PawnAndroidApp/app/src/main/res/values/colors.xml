@@ -12,7 +12,8 @@
        every layout is on the semantic names.
 
   Contrast: every text colour here clears 4.5:1 on the surface it is meant
-  for. ink_mute on parchment is 5.1:1, ink_soft is 6.5:1. Do not lighten
+  for, and that surface includes the darkest corner of the rendered paper
+  page (#E9E2D5): ink_mute is 5.1:1 there, gold_ink 4.7:1. Do not lighten
   them "to look softer" — that is the exact change that fails the check.
 -->
 <resources>
@@ -31,10 +32,21 @@
          for this whenever wine is the colour of a word. -->
     <color name="wine_ink">#611A28</color>
 
+    <!-- ── Depth: the ledge a card stands on, and the light on its top edge ── -->
+    <color name="cinema_black">#0D0508</color>
+    <color name="page_foot">#ECE4D7</color>
+    <color name="card_top">#FFFFFF</color>
+    <color name="card_edge_hi">#F4E7CE</color>
+    <color name="card_ledge">#40281208</color>
+    <color name="btn_top">#8E2A3A</color>
+    <color name="btn_mid">#6E1F2E</color>
+    <color name="btn_foot">#3E0E18</color>
+    <color name="btn_off">#8C7B6E</color>
+
     <!-- ── Gold: rules, titles on wine ──────────────────────────────── -->
     <!-- gold_ink is the only gold readable as text ON parchment (4.9:1).
          gold_rule and brighter are for fills, rules and text on wine. -->
-    <color name="gold_ink">#8F7314</color>
+    <color name="gold_ink">#7A6110</color>
     <color name="gold_rule">#C9A227</color>
     <color name="gold_bright">#DDBE5C</color>
     <color name="gold_pale">#F0DA9B</color>
@@ -53,7 +65,7 @@
     <color name="ink">#2B1A14</color>
     <color name="ink_body">#4C382D</color>
     <color name="ink_soft">#6B5648</color>
-    <color name="ink_mute">#7C6655</color>
+    <color name="ink_mute">#6E5949</color>
     <color name="ink_faint">#C9BCB0</color>
 
     <!-- ── Silver side of the shop ──────────────────────────────────── -->

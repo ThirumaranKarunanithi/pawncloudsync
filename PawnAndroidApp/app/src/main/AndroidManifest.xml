@@ -25,7 +25,7 @@
         <activity android:name=".ShopPickerActivity" android:exported="false" />
         <activity android:name=".HomeActivity" android:exported="false" />
         <activity android:name=".BillsActivity" android:exported="false" />
-        <activity android:name=".BillDetailActivity" android:exported="false" />
+        <activity android:name=".MisListActivity" android:exported="false" />
         <activity android:name=".TodaysAccountActivity" android:exported="false" />
         <activity android:name=".AccountDetailActivity"  android:exported="false" />
         <activity android:name=".StockDetailsActivity"   android:exported="false" />

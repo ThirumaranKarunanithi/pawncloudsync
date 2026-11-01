@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Back: the screen underneath returns from past the camera. -->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:interpolator="@android:interpolator/decelerate_cubic">
+    <alpha android:fromAlpha="0.25" android:toAlpha="1" android:duration="260" />
+    <scale android:fromXScale="1.05" android:toXScale="1" android:fromYScale="1.05" android:toYScale="1"
+        android:pivotX="50%" android:pivotY="42%" android:duration="260" />
+</set>

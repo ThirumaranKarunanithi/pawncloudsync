@@ -325,7 +325,8 @@ public class TodaysAccountActivity extends AppCompatActivity {
                         tvActualBalance.setText    ("₹ " + fmt.format(actual));
                         tvAvailableBalance.setText ("₹ " + fmt.format(available));
                         tvDeficit.setText          ("₹ " + fmt.format(deficit));
-                        tvDeficit.setTextColor(deficit == 0 ? royal.emerald : royal.ruby);
+                        // On the wine panel: ledger ruby is unreadable there, in either theme.
+                        tvDeficit.setTextColor(getColor(deficit == 0 ? R.color.on_wine_good : R.color.on_wine_bad));
 
                         boolean closed = "CLOSED".equalsIgnoreCase(dayStatus);
                         layoutStatus.setVisibility(View.VISIBLE);

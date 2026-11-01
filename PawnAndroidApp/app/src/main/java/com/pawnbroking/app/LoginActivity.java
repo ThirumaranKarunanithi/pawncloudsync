@@ -79,6 +79,7 @@ public class LoginActivity extends AppCompatActivity {
                 ? android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
                 : android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;
             etPassword.setInputType(type);
+            etPassword.setTypeface(etUsername.getTypeface()); // a password input type resets it to monospace
             etPassword.setSelection(etPassword.getText().length());
             ibTogglePass.setImageResource(passVisible ? R.drawable.ic_eye : R.drawable.ic_lock);
         });
@@ -104,6 +105,7 @@ public class LoginActivity extends AppCompatActivity {
             etPassword.setHint("Password");
             etPassword.setInputType(android.text.InputType.TYPE_CLASS_TEXT
                     | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+            etPassword.setTypeface(etUsername.getTypeface());
             btnLogin.setText("Login");
             tvSwitchMode.setText("Use OTP instead");
             tvSetPassword.setVisibility(View.VISIBLE);
