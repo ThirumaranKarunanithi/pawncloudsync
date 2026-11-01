@@ -177,20 +177,13 @@
         <item name="android:stateListAnimator">@null</item>
     </style>
 
-    <!-- A Button in this theme inflates as a MaterialButton, whose default
-         style tints ANY background with colorPrimary. Royal.Button gets away
-         with it (wine on wine, and the tint greys it while disabled). These
-         two must clear the tint or they paint solid wine, hiding their fill
-         and border, and in light mode their wine text with them. -->
     <style name="Royal.Button.Outline">
         <item name="android:background">@drawable/btn_outline</item>
-        <item name="backgroundTint">@null</item>
         <item name="android:textColor">@color/wine_ink</item>
     </style>
 
     <style name="Royal.Button.Quiet">
         <item name="android:background">@drawable/btn_quiet</item>
-        <item name="backgroundTint">@null</item>
         <item name="android:textColor">@color/ink_body</item>
     </style>
 
