@@ -21,9 +21,6 @@
 --  notice_one_per_bill_setting.sql, and the history send (built on the
 --  balamurugan_full_backfill pattern, the one that stops repledges
 --  collapsing).
---
---  Not included on purpose: ledger_day_enforcement.sql. It refuses
---  back-dated entries, which is a separate decision per shop.
 -- =====================================================================
 
 
@@ -33,6 +30,8 @@ BEGIN
     IF to_regclass('public.company_billing') IS NULL THEN
         RAISE EXCEPTION 'Wrong database: this is "%", not the shop database. db.url in sync.properties must end in /pawnbroking. Nothing was changed.', current_database();
     END IF;
+    -- For this run only: the steps below alter the guarded tables, and S5o lays the guard down again.
+    PERFORM set_config('magizhchi.guard_change', 'yes', false);
 END $$;
 
 
@@ -1173,6 +1172,308 @@ BEGIN
     END;
 END $$;
 
+-- S5o The closed-day guard: what is written on a closed day stays written.
+--     The app checks this too, but only on its own screens; a write from
+--     pgAdmin or a script has to pass here. It refuses:
+--       - moving a date onto or off a closed day, deleting such a bill included;
+--       - changing the money that belongs to a closed day: the opening figures
+--         once the opening day is closed, the closing figures once the closing
+--         day is closed. A bill opened last year still closes today.
+--     A note, a name or an address goes straight through, and so does the
+--     advance total, which later days add to on purpose.
+--     The date setting (allow_to_change_*_date) is the one switch: where it
+--     is ON the guard steps aside, so a shop still entering old data carries
+--     on. A company with no closed day yet has nothing to protect, and is let
+--     through too: a guard the setup put there must not stop a new shop's
+--     first bill.
+--
+--     Dropping or disabling it is refused as well, and the app looks at every
+--     sign-in, puts it back if it has gone and writes a TO CHECK line, which
+--     reaches the cloud and the phone. This stops anyone who has the postgres
+--     password from doing it casually. It cannot stop someone who knows this
+--     file: the postgres account can do anything. Keeping that password from
+--     the staff is the one thing that does.
+--
+--     To take it off a shop on purpose:
+--       SELECT set_config('magizhchi.guard_change', 'yes', false);
+--       DROP EVENT TRIGGER magizhchi_guard_keep_drop;
+--       DROP EVENT TRIGGER magizhchi_guard_keep_alter;
+--       DROP TRIGGER trg_ledger_day_company_billing ON company_billing;
+--       DROP TRIGGER trg_ledger_day_repledge_billing ON repledge_billing;
+--       DROP TRIGGER trg_ledger_day_company_advance ON company_advance_amount;
+--       DELETE FROM company_settings WHERE setting_key = 'LEDGER_GUARD';
+CREATE OR REPLACE FUNCTION public.magizhchi_enforce_ledger_day() RETURNS trigger
+LANGUAGE plpgsql
+AS $fn$
+DECLARE
+    v_oldj      jsonb;
+    v_newj      jsonb;
+    v_rowj      jsonb;
+    v_company   text;
+    v_material  text;
+    v_flag_col  text;
+    v_date_col  text;
+    v_money_col text;
+    v_moved     text;
+    v_allowed   boolean;
+    v_last      date;
+    v_open      date;
+    v_old       date;
+    v_new       date;
+    i           int;
+BEGIN
+    IF TG_OP <> 'INSERT' THEN
+        v_oldj := to_jsonb(OLD);
+    END IF;
+    IF TG_OP <> 'DELETE' THEN
+        v_newj := to_jsonb(NEW);
+    END IF;
+    v_rowj := COALESCE(v_newj, v_oldj);
+
+    v_company  := v_rowj ->> 'company_id';
+    v_material := v_rowj ->> 'jewel_material_type';
+
+    -- Arguments arrive as (setting, date column, its money columns, ...).
+    FOR i IN 0 .. array_length(TG_ARGV, 1) - 3 BY 3 LOOP
+
+        v_flag_col := TG_ARGV[i];
+        v_date_col := TG_ARGV[i + 1];
+
+        v_old := NULLIF(v_oldj ->> v_date_col, '')::date;
+        v_new := NULLIF(v_newj ->> v_date_col, '')::date;
+
+        v_moved := NULL;
+        IF TG_OP = 'UPDATE' AND v_old IS NOT NULL THEN
+            FOREACH v_money_col IN ARRAY string_to_array(TG_ARGV[i + 2], ',') LOOP
+                IF (v_oldj -> v_money_col) IS DISTINCT FROM (v_newj -> v_money_col) THEN
+                    v_moved := v_money_col;
+                    EXIT;
+                END IF;
+            END LOOP;
+        END IF;
+
+        CONTINUE WHEN v_new IS NOT DISTINCT FROM v_old AND v_moved IS NULL;
+
+        SELECT bool_or((to_jsonb(s) ->> v_flag_col)::boolean)
+          INTO v_allowed
+          FROM company_other_settings s
+         WHERE s.company_id = v_company
+           AND (v_material IS NULL OR s.jewel_material_type::text = v_material);
+
+        CONTINUE WHEN COALESCE(v_allowed, false);
+
+        SELECT todays_date
+          INTO v_last
+          FROM company_todays_account
+         WHERE company_id = v_company
+           AND ref_mark = 'L';
+
+        CONTINUE WHEN v_last IS NULL;
+
+        v_open := v_last + 1;
+
+        IF v_new IS NOT DISTINCT FROM v_old THEN
+            IF v_old <= v_last THEN
+                RAISE EXCEPTION USING
+                    ERRCODE = 'MZ001',
+                    MESSAGE = format(
+                        '%s.%s cannot be changed: it belongs to %s, and that day has already been accounted.',
+                        TG_TABLE_NAME, v_moved, to_char(v_old, 'DD-MM-YYYY')),
+                    DETAIL  = format('Ledger is open on %s (company %s).',
+                                     to_char(v_open, 'DD-MM-YYYY'), v_company),
+                    HINT    = 'Changing it would change a printed day''s totals after the fact. Ask the owner to turn on entry mode if this really has to be corrected.';
+            END IF;
+            CONTINUE;
+        END IF;
+
+        IF v_new IS NOT NULL AND v_new <> v_open THEN
+            RAISE EXCEPTION USING
+                ERRCODE = 'MZ001',
+                MESSAGE = format(
+                    '%s.%s cannot be set to %s: the ledger is open on %s.',
+                    TG_TABLE_NAME, v_date_col,
+                    to_char(v_new, 'DD-MM-YYYY'), to_char(v_open, 'DD-MM-YYYY')),
+                DETAIL  = format('Last accounted day is %s (company %s).',
+                                 to_char(v_last, 'DD-MM-YYYY'), v_company),
+                HINT    = 'That day has already been accounted and printed. Close the bill on the open day, or ask the owner to turn on entry mode for this shop.';
+        END IF;
+
+        IF v_old IS NOT NULL AND v_old <> v_open THEN
+            RAISE EXCEPTION USING
+                ERRCODE = 'MZ001',
+                MESSAGE = format(
+                    '%s.%s cannot be moved off %s: that day has already been accounted.',
+                    TG_TABLE_NAME, v_date_col, to_char(v_old, 'DD-MM-YYYY')),
+                DETAIL  = format('Ledger is open on %s (company %s).',
+                                 to_char(v_open, 'DD-MM-YYYY'), v_company),
+                HINT    = 'Taking a bill out of a printed day changes that day''s totals after the fact. Ask the owner to turn on entry mode if this really has to be corrected.';
+        END IF;
+
+    END LOOP;
+
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+    RETURN NEW;
+END
+$fn$;
+
+-- Null when the guard is whole; otherwise what is wrong with it, in words for the activity line.
+CREATE OR REPLACE FUNCTION public.magizhchi_guard_state() RETURNS text
+LANGUAGE plpgsql
+AS $fn$
+DECLARE
+    v_bad text;
+BEGIN
+    SELECT string_agg(w.tg, ', ' ORDER BY w.tg)
+      INTO v_bad
+      FROM (VALUES ('company_billing',        'trg_ledger_day_company_billing'),
+                   ('repledge_billing',       'trg_ledger_day_repledge_billing'),
+                   ('company_advance_amount', 'trg_ledger_day_company_advance')) AS w(tb, tg)
+      LEFT JOIN pg_trigger t
+             ON t.tgname = w.tg AND t.tgrelid = to_regclass('public.' || w.tb)
+     WHERE to_regclass('public.' || w.tb) IS NOT NULL
+       AND (t.oid IS NULL OR t.tgenabled IN ('D', 'R'));
+    IF v_bad IS NOT NULL THEN
+        RETURN 'switched off or removed: ' || v_bad;
+    END IF;
+
+    -- Only a superuser can have made these, so only then can they be missed.
+    IF (SELECT rolsuper FROM pg_roles WHERE rolname = current_user)
+       AND (SELECT count(*) FROM pg_event_trigger
+             WHERE evtname IN ('magizhchi_guard_keep_drop', 'magizhchi_guard_keep_alter')
+               AND evtenabled <> 'D') < 2 THEN
+        RETURN 'its watch on the database was switched off or removed';
+    END IF;
+    RETURN NULL;
+END
+$fn$;
+
+-- Refuses what would take the guard away. The setup and this file's restore set
+-- magizhchi.guard_change; nothing else has a reason to.
+CREATE OR REPLACE FUNCTION public.magizhchi_guard_keep() RETURNS event_trigger
+LANGUAGE plpgsql
+AS $fn$
+DECLARE
+    r record;
+BEGIN
+    IF current_setting('magizhchi.guard_change', true) = 'yes' THEN
+        RETURN;
+    END IF;
+    IF TG_EVENT = 'sql_drop' THEN
+        FOR r IN SELECT * FROM pg_event_trigger_dropped_objects() LOOP
+            IF (r.object_type = 'trigger' AND r.object_identity LIKE 'trg\_ledger\_day\_%')
+               OR (r.object_type = 'function' AND r.object_identity ~ '^public\.magizhchi_(enforce_ledger_day|guard_)') THEN
+                RAISE EXCEPTION 'The closed-day guard cannot be removed (%). See S5o in shop_setup.sql.', r.object_identity;
+            END IF;
+        END LOOP;
+    ELSE
+        -- An ALTER that has nothing to do with the guard must not be stopped because the guard is
+        -- already off: only one on a guarded table, and only if that table's trigger is off now.
+        FOR r IN SELECT c.objid FROM pg_event_trigger_ddl_commands() c
+                  WHERE c.classid IN ('pg_class'::regclass, 'pg_trigger'::regclass) LOOP
+            IF EXISTS (SELECT 1 FROM pg_trigger t
+                        WHERE (t.tgrelid = r.objid OR t.oid = r.objid)
+                          AND t.tgname LIKE 'trg\_ledger\_day\_%'
+                          AND t.tgenabled IN ('D', 'R')) THEN
+                RAISE EXCEPTION 'The closed-day guard cannot be switched off. See S5o in shop_setup.sql.';
+            END IF;
+            IF EXISTS (SELECT 1 FROM pg_trigger t
+                        WHERE t.oid = r.objid AND t.tgname NOT LIKE 'trg\_ledger\_day\_%'
+                          AND t.tgrelid IN (to_regclass('public.company_billing'),
+                                            to_regclass('public.repledge_billing'),
+                                            to_regclass('public.company_advance_amount'))
+                          AND NOT EXISTS (SELECT 1 FROM pg_trigger g
+                                           WHERE g.tgrelid = t.tgrelid AND g.tgname LIKE 'trg\_ledger\_day\_%')) THEN
+                RAISE EXCEPTION 'The closed-day guard cannot be renamed. See S5o in shop_setup.sql.';
+            END IF;
+        END LOOP;
+    END IF;
+END
+$fn$;
+
+-- Lays the guard down, or puts it back. The setup calls this, and so does the app when it finds it gone.
+CREATE OR REPLACE FUNCTION public.magizhchi_guard_restore() RETURNS integer
+LANGUAGE plpgsql
+AS $fn$
+DECLARE
+    v_guards CONSTANT text[][] := ARRAY[
+        ['company_billing', 'trg_ledger_day_company_billing',
+         'allow_to_change_bill_opening_date', 'opening_date', 'amount,interest,document_charge,open_taken_amount,togive_amount,given_amount',
+         'allow_to_change_bill_closing_date', 'closing_date', 'close_taken_amount,toget_amount,got_amount,discount_amount,notice_charge_amount,fine_charge_amount,total_other_charges,card_lost_charge'],
+        ['repledge_billing', 'trg_ledger_day_repledge_billing',
+         'allow_to_change_repledge_bill_opening_date', 'opening_date', 'amount,interest,document_charge,open_taken_amount,toget_amount,got_amount',
+         'allow_to_change_repledge_bill_closing_date', 'closing_date', 'close_taken_amount,togive_amount,given_amount']];
+    v_hooked int := 0;
+    i        int;
+BEGIN
+    PERFORM set_config('magizhchi.guard_change', 'yes', true);
+
+    FOR i IN 1 .. array_length(v_guards, 1) LOOP
+        CONTINUE WHEN to_regclass('public.' || v_guards[i][1]) IS NULL;
+        EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', v_guards[i][2], v_guards[i][1]);
+        EXECUTE format('CREATE TRIGGER %I BEFORE INSERT OR UPDATE OR DELETE ON public.%I '
+                       'FOR EACH ROW EXECUTE FUNCTION public.magizhchi_enforce_ledger_day(%L, %L, %L, %L, %L, %L)',
+                       v_guards[i][2], v_guards[i][1],
+                       v_guards[i][3], v_guards[i][4], v_guards[i][5],
+                       v_guards[i][6], v_guards[i][7], v_guards[i][8]);
+        v_hooked := v_hooked + 1;
+    END LOOP;
+
+    IF to_regclass('public.company_advance_amount') IS NOT NULL THEN
+        DROP TRIGGER IF EXISTS trg_ledger_day_company_advance ON public.company_advance_amount;
+        CREATE TRIGGER trg_ledger_day_company_advance
+            BEFORE INSERT OR UPDATE OR DELETE ON public.company_advance_amount
+            FOR EACH ROW EXECUTE FUNCTION public.magizhchi_enforce_ledger_day(
+                'allow_to_change_advance_amount_date', 'paid_date', 'bill_amount,paid_amount,total_amount');
+        v_hooked := v_hooked + 1;
+    END IF;
+
+    BEGIN
+        DROP EVENT TRIGGER IF EXISTS magizhchi_guard_keep_drop;
+        DROP EVENT TRIGGER IF EXISTS magizhchi_guard_keep_alter;
+        CREATE EVENT TRIGGER magizhchi_guard_keep_drop ON sql_drop
+            WHEN TAG IN ('DROP TRIGGER', 'DROP FUNCTION')
+            EXECUTE FUNCTION public.magizhchi_guard_keep();
+        CREATE EVENT TRIGGER magizhchi_guard_keep_alter ON ddl_command_end
+            WHEN TAG IN ('ALTER TABLE', 'ALTER TRIGGER')
+            EXECUTE FUNCTION public.magizhchi_guard_keep();
+    EXCEPTION WHEN insufficient_privilege THEN
+        RAISE NOTICE 'closed-day guard: only a superuser can add its watch on the database';
+    END;
+    RETURN v_hooked;
+END
+$fn$;
+
+DO $$
+DECLARE
+    hooked int;
+    free   bigint;
+BEGIN
+    hooked := public.magizhchi_guard_restore();
+
+    -- How the app tells "removed" from "never installed", should every other piece go.
+    IF to_regclass('public.company_settings') IS NOT NULL AND to_regclass('public.company') IS NOT NULL THEN
+        INSERT INTO company_settings (company_id, setting_key, setting_value)
+        SELECT c.id, 'LEDGER_GUARD', 'ON' FROM company c
+        ON CONFLICT (company_id, setting_key) DO NOTHING;
+    END IF;
+
+    -- Said in the report so whoever runs the exe sees which shops are not held to it.
+    SELECT count(*) INTO free
+      FROM company_other_settings s
+     WHERE 'true' IN (to_jsonb(s) ->> 'allow_to_change_bill_opening_date',
+                      to_jsonb(s) ->> 'allow_to_change_bill_closing_date',
+                      to_jsonb(s) ->> 'allow_to_change_repledge_bill_opening_date',
+                      to_jsonb(s) ->> 'allow_to_change_repledge_bill_closing_date',
+                      to_jsonb(s) ->> 'allow_to_change_advance_amount_date');
+    PERFORM set_config('mb.ledger_guard',
+        format('%s table(s) guarded%s', hooked,
+               CASE WHEN free > 0
+                    THEN format(' - date setting ON in %s line(s) of Other Settings: those are NOT held to it', free)
+                    ELSE '' END), false);
+END $$;
+
 -- S6  Send the history to the cloud - when, and only when, it is right to.
 --
 --     Everything is inside one block so that a "not yet" never undoes
@@ -1497,6 +1798,7 @@ SELECT step, item, status FROM (
     (28, 'Cash drawer opening',        COALESCE(current_setting('mb.drawer_kick', true), 'ok')),
     (29, 'Employee activity',          COALESCE(current_setting('mb.activity', true), 'ok')),
     (30, 'Who wrote this row',         COALESCE(current_setting('mb.who_wrote', true), 'ok')),
-    (31, 'Screen lines reworded',      COALESCE(current_setting('mb.screen_words', true), 'ok'))
+    (31, 'Screen lines reworded',      COALESCE(current_setting('mb.screen_words', true), 'ok')),
+    (32, 'Closed-day guard',           COALESCE(current_setting('mb.ledger_guard', true), 'ok'))
 ) AS report(step, item, status)
 ORDER BY step;

@@ -33,10 +33,16 @@
 --    When the shop's allow_to_change_*_date setting is TRUE. That is
 --    entry mode, for migration, and it is the one switch: turn it on and
 --    dates move freely, turn it off and they are held to the open day.
---    Every shop is currently TRUE, so installing this changes no
---    behaviour today. It starts working the day you turn a flag off.
 --
---  IT FAILS CLOSED
+--  SINCE 02-11-2026 THE SETUP EXE INSTALLS THIS AT EVERY SHOP
+--    shop_setup.sql S5o holds the live copy, which lets a company with
+--    no closed day through instead of refusing it. Running this file
+--    replaces the guard with this older version, which judges dates only
+--    and has no watch against being removed. DO NOT run it at a shop the
+--    exe has set up. Keep it for the report in section 5. The way to take
+--    the guard off is at the top of S5o in shop_setup.sql.
+--
+--  THIS COPY FAILS CLOSED
 --    No ledger marker, or a setting row that does not exist, means the
 --    write is REFUSED rather than waved through. That is deliberate, and
 --    it has a cost: a shop with no ref_mark = 'L' row cannot write any

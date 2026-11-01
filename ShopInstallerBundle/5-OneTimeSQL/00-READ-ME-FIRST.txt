@@ -60,8 +60,11 @@
      repledge_id_lists_which_is_closed.sql
          'REPBILL1,REPBILL2' on one bill — which of them is closed.
      ledger_day_enforcement.sql
-         Refuses entries dated outside the open day. A policy: turn it
-         on per shop, and NOT while a shop is still entering history.
+         Since 02-11-2026 PawnBrokingSyncSetup.exe installs this guard at
+         every shop (shop_setup.sql S5o). DO NOT run this older copy at
+         such a shop; its section 5 report is all it is still good for.
+         A shop still entering history keeps its date setting ON, and the
+         guard steps aside.
      todays_account_deficit_check.sql
          Lists closed days whose Deficit disagrees with Available −
          Actual. The repair is already inside every shop file (X5).
