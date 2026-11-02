@@ -109,6 +109,34 @@ public class AgentState {
                                   : " sent UNCOMPRESSED");
     }
 
+    // ── Photos ───────────────────────────────────────────────────────────────
+    //
+    // Their own fields for the same reason as the backup's. Annanagar's agent sent
+    // data all day, every day, for five months, and in that time not one photo: the
+    // folder it had been given did not exist, and the only place that said so was
+    // a debug line nobody keeps.
+
+    /** A photo folder the agent cannot find, named in full. Null when all are found. */
+    public volatile String photoFolderUnreadable;
+    /** Photos on disk not yet sent, as of the last pass. -1 until the first pass ends. */
+    public volatile int photosWaiting = -1;
+    /** When a photo last reached the cloud. */
+    public volatile Instant lastPhotoAt;
+    /** Why the last photo upload failed, in the cloud's own words. */
+    public volatile String lastPhotoError;
+    public volatile Instant lastPhotoErrorAt;
+
+    public void recordPhotoSuccess() {
+        lastPhotoAt = Instant.now();
+        lastPhotoError = null;
+        lastPhotoErrorAt = null;
+    }
+
+    public void recordPhotoFailure(String why) {
+        lastPhotoError = why;
+        lastPhotoErrorAt = Instant.now();
+    }
+
     /**
      * One word for whoever is looking: ok, degraded, or failing.
      *

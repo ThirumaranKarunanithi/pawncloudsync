@@ -163,6 +163,17 @@ public final class Setup {
         for (Map.Entry<String, String> e : set.entrySet()) {
             replaceOrAppend(lines, e.getKey(), e.getValue());
         }
+
+        // A photo folder written by hand with single backslashes reads back as
+        // C:UsersShop..., which does not exist; the agent skipped it without a word
+        // and annanagar sent no photo for five months. Write it the way the file
+        // needs it. (The agent now reads the plain form too; this keeps the file honest.)
+        String rawRoot = Config.rawValue(lines, "image.root");
+        if (rawRoot != null && Config.hasLoneBackslash(rawRoot)) {
+            replaceOrAppend(lines, "image.root", rawRoot);
+            say("image.root was written with single backslashes, which reads as a folder that "
+              + "does not exist - rewritten with doubled ones: " + rawRoot);
+        }
         // Anything the file has never heard of gets the safe default.
         List<String> added = new ArrayList<>();
         for (String[] d : DEFAULTS) {
@@ -255,6 +266,7 @@ public final class Setup {
 
         Properties p = new Properties();
         try (InputStream in = Files.newInputStream(Paths.get(configPath))) { p.load(in); }
+        List<String> cfgLines = Files.readAllLines(Paths.get(configPath), StandardCharsets.ISO_8859_1);
         String shopId   = required(p, "shop.id");
         String dbUrl    = required(p, "db.url");
         String dbUser   = required(p, "db.user");
@@ -358,7 +370,7 @@ public final class Setup {
             // 6. Photos and backups are files, not rows.
             head(writes ? "6. Photo and backup folders" : "4. Photo and backup folders");
             try (Connection c = ds.getConnection()) {
-                checkFolders(c, p, !writes);
+                checkFolders(c, p, cfgLines, !writes);
                 backupDetail(c, p, "backups".equals(mode), a);
             }
 
@@ -569,8 +581,9 @@ public final class Setup {
 
     // ── photos and backups ────────────────────────────────────────────────────
 
-    private static void checkFolders(Connection c, Properties p, boolean lookOnly) {
-        String override = p.getProperty("image.root", "").trim();
+    private static void checkFolders(Connection c, Properties p, List<String> cfgLines, boolean lookOnly) {
+        // Read the way the agent reads it, so the report names the folder the agent uses.
+        String override = Config.windowsPath(p, cfgLines, "image.root");
         Map<String, String> photoRoots = new LinkedHashMap<>();
         if (!override.isEmpty()) photoRoots.put("(image.root)", override);
         else photoRoots.putAll(query2(c,
@@ -584,8 +597,12 @@ public final class Setup {
                 Path root = Paths.get(e.getValue());
                 if (!Files.isDirectory(root)) {
                     warn("photo folder for " + e.getKey() + " does not exist on this PC: " + e.getValue() +
-                         " - copy the images from the old machine to that exact path, or correct " +
-                         "camera_temp_file_name for this company. Photos cannot upload until then.");
+                         (override.isEmpty()
+                            ? " - copy the images from the old machine to that exact path, or correct " +
+                              "camera_temp_file_name for this company."
+                            : " - this is image.root in sync.properties, which overrides every company's " +
+                              "photo folder; correct it or remove the line.") +
+                         " Photos cannot upload until then.");
                     say("photos " + e.getKey() + ": MISSING " + e.getValue());
                 } else {
                     long[] n = countFiles(root, true);

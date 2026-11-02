@@ -56,6 +56,12 @@ public class HealthServer {
             body.put("last_backup_size", s.lastBackupSize);
             body.put("backup_retention_days", s.backupRetentionDays);
             body.put("backup_gzip", s.backupGzipOn);
+            // Photos, apart from both: data can be flowing and the backup current
+            // while no photo has gone for months.
+            body.put("photo_folder_unreadable", s.photoFolderUnreadable);
+            body.put("photos_waiting", s.photosWaiting);
+            body.put("last_photo_at", s.lastPhotoAt == null ? null : s.lastPhotoAt.toString());
+            body.put("last_photo_error", s.lastPhotoError);
             byte[] out = M.writeValueAsBytes(body);
             ex.getResponseHeaders().add("Content-Type", "application/json");
             ex.sendResponseHeaders(200, out.length);

@@ -55,7 +55,18 @@ if ($cfg['backup.retention.days']) { $retentionDays = [int]$cfg['backup.retentio
 $healthPort = 17654
 if ($cfg['health.port']) { $healthPort = [int]$cfg['health.port'] }
 $imageRootOverride = $null
-if ($cfg['image.root']) { $imageRootOverride = $cfg['image.root'].Replace('\\', '\') }
+if ($cfg['image.root']) {
+    # Read the way the agent reads it: a lone backslash means a plain Windows path,
+    # taken as written; backslashes that all come in pairs were escaped for the file.
+    $raw = $cfg['image.root']
+    $plain = $false
+    for ($i = 0; $i -lt $raw.Length; $i++) {
+        if ($raw[$i] -ne '\') { continue }
+        if ($i + 1 -lt $raw.Length -and $raw[$i + 1] -eq '\') { $i++; continue }
+        $plain = $true; break
+    }
+    if ($plain) { $imageRootOverride = $raw } else { $imageRootOverride = $raw.Replace('\\', '\') }
+}
 
 if ($cfg['db.url'] -match 'jdbc:postgresql://([^:/]+)(?::(\d+))?/([^?]+)') {
     $dbHost = $matches[1]
@@ -169,10 +180,12 @@ $summary += ("Data {0}" -f (Pct $sent ($sent + $waiting)))
 # =======================================================================
 Say ""
 Say "PHOTOS  (bill and customer photos)" "Cyan"
-$roots = @()
+# Folder -> the companies that use it. Companies often share one folder, and the
+# agent walks each folder once, so this does too (customer photos counted once).
+$folders = [ordered]@{}
 $seen = @{}
 foreach ($r in (Query "SELECT DISTINCT company_id, camera_temp_file_name FROM company_other_settings WHERE camera_temp_file_name IS NOT NULL AND trim(camera_temp_file_name) <> ''")) {
-    $p = $r.Split('|', 2); $cid = $p[0]; $root = $p[1]
+    $p = $r.Split('|', 2); $cid = $p[0]; $root = $p[1].Trim()
     if ($imageRootOverride) { $root = $imageRootOverride }
     if ($seen.ContainsKey($cid)) {
         if ($seen[$cid] -ne $root) {
@@ -181,19 +194,35 @@ foreach ($r in (Query "SELECT DISTINCT company_id, camera_temp_file_name FROM co
         continue
     }
     $seen[$cid] = $root
-    $roots += , @($cid, $root)
+    $key = $root.ToLower()
+    if (-not $folders.Contains($key)) { $folders[$key] = @{ Path = $root; Companies = @() } }
+    $folders[$key].Companies += $cid
+}
+if ($imageRootOverride) {
+    Say ("  image.root in sync.properties sets the photo folder for every company: {0}" -f $imageRootOverride) "Yellow"
+}
+# What the agent itself says. The folder line is the one that matters: a folder the
+# agent cannot find used to look exactly like a folder with nothing new in it.
+if ($health -and ($health.PSObject.Properties.Name -contains 'photo_folder_unreadable')) {
+    if ($health.photo_folder_unreadable) {
+        Say ("  THE AGENT CANNOT FIND THE PHOTO FOLDER: {0}" -f $health.photo_folder_unreadable) "Red"
+        Say  "  No photo from it is being sent. The agent runs as a Windows service, so a mapped" "Red"
+        Say  "  drive letter is invisible to it; and image.root in sync.properties, if set, overrides" "Red"
+        Say  "  the company's camera_temp_file_name." "Red"
+    }
+    if ($health.last_photo_error) { Say ("  Last photo error  : {0}" -f $health.last_photo_error) "Yellow" }
 }
 
 $photoTotal = 0; $photoDone = 0; $photoLeft = 0; $photoLeftBytes = 0; $photoIgnored = 0; $photoMissing = 0
-if ($roots.Count -eq 0) {
+if ($folders.Count -eq 0) {
     Say "  No photo folder set (company_other_settings.camera_temp_file_name) - nothing to upload." "Yellow"
 } else {
     $uploaded = @{}
     if (HasTable 'sync_image_uploads') {
         foreach ($p in (Query "SELECT abs_path FROM sync_image_uploads")) { $uploaded[$p.Trim().Replace('/', '\').ToLower()] = $true }
     }
-    foreach ($pair in $roots) {
-        $cid = $pair[0]; $root = $pair[1]
+    foreach ($key in $folders.Keys) {
+        $root = $folders[$key].Path; $cids = $folders[$key].Companies; $cid = $cids -join ','
         if (-not (Test-Path -LiteralPath $root -PathType Container)) {
             Say ("  {0}: folder {1} DOES NOT EXIST on this PC - its photos cannot upload" -f $cid, $root) "Red"
             $photoMissing++
@@ -211,7 +240,7 @@ if ($roots.Count -eq 0) {
             for ($i = 0; $i -lt $n; $i++) {
                 if ($segs[$i] -ieq 'CUSTOMERS' -or $segs[$i] -ieq 'CUSTOMER') { $isCustomer = ($i + 1 -lt $n); break }
             }
-            $counted = ($n -le 5) -and ($isCustomer -or ($n -eq 4 -and $segs[0] -ieq $cid))
+            $counted = ($n -le 5) -and ($isCustomer -or ($n -eq 4 -and ($cids -contains $segs[0])))
             if (-not $counted) { $photoIgnored++; continue }
             $photoTotal++
             if ($uploaded.ContainsKey($f.FullName.ToLower())) { $photoDone++ }
@@ -227,7 +256,7 @@ if ($roots.Count -eq 0) {
     Say ("  Uploaded          : {0:N0}   (last one {1})" -f $photoDone, $lastPhoto)
     $c = "Green"; if ($photoLeft -gt 0) { $c = "Yellow" }
     Say ("  Still to upload   : {0:N0} ({1})   -> {2} done, {3}" -f $photoLeft, (Mb $photoLeftBytes), (Pct $photoDone $photoTotal), (Eta $photoLeft $photoPerMin)) $c
-    if ($photoLeft -gt 0) { Say ("  Uploading at      : {0:N1} per minute (last 10 minutes; the agent's ceiling is about 54)" -f $photoPerMin) }
+    if ($photoLeft -gt 0) { Say ("  Uploading at      : {0:N1} per minute (last 10 minutes; the agent's ceiling is about 54; newest photos go first)" -f $photoPerMin) }
     if ($photoIgnored -gt 0) { Say ("  Not uploaded, by design: {0:N0} image files outside the folder layout the agent reads" -f $photoIgnored) }
     if ($photoMissing -gt 0) { $summary += ("Photos {0} - {1} FOLDER(S) MISSING" -f (Pct $photoDone $photoTotal), $photoMissing) }
     else { $summary += ("Photos {0}" -f (Pct $photoDone $photoTotal)) }

@@ -111,88 +111,216 @@ public class ImageWatcher implements Runnable {
         backupThread.setDaemon(true);
         backupThread.start();
 
+        if (cfg.imageRootWrittenPlain) {
+            log.info("image.root in sync.properties is written with single backslashes; "
+                   + "reading it as the plain Windows path {}", cfg.imageRootOverride);
+        }
         while (running) {
-            try { scanOnce(); } catch (Throwable t) { log.warn("image scan failed: {}", t.toString()); }
+            boolean more = false;
+            try { more = scanOnce(); } catch (Throwable t) { log.warn("image scan failed: {}", t.toString()); }
+            // A full pass went up and more are waiting: look again straight away, so
+            // the newest are picked afresh rather than sitting out the interval.
+            if (more) continue;
             try { Thread.sleep(cfg.imageScanIntervalMs); }
             catch (InterruptedException ie) { Thread.currentThread().interrupt(); break; }
         }
         log.info("ImageWatcher stopped");
     }
 
-    private void scanOnce() throws Exception {
-        // 1. Build the list of {companyId, root} pairs to walk.
+    /** A photo on disk that has not gone up yet. */
+    private record Photo(Path path, String companyId, String material, String billNumber,
+                         String imageName, long mtime) {}
+
+    /** A file that failed is left alone this long, so a few bad files at the head of
+     *  the queue (the newest go first) cannot take every pass for themselves. */
+    private static final long RETRY_FAILED_AFTER_MS = 30L * 60L * 1000L;
+    /** Failures in a row that end a pass: the line is down, or the cloud is refusing. */
+    private static final int GIVE_UP_AFTER_FAILURES = 10;
+    private final java.util.Map<String, Long> failedAt = new java.util.concurrent.ConcurrentHashMap<>();
+    private long lastQuietReport = 0L;
+
+    /**
+     * One pass: find every photo not yet sent, send the newest first, at most
+     * {@code image.batch.size} of them.
+     *
+     * <p>The newest go first because a shop clearing a backlog of years (annanagar's
+     * was about 100,000 photos, a day and a half) wants today's bills on the phone
+     * today; folder order sent 2017 before 2026. The pass is bounded so that a photo
+     * taken while the backlog drains is found within minutes.
+     *
+     * @return true when a full pass went up and more are waiting
+     */
+    private boolean scanOnce() throws Exception {
+        AgentState state = Agent.STATE.get();
         List<CompanyRoot> roots = resolveRoots();
         if (roots.isEmpty()) {
-            log.debug("no image roots configured");
-            return;
+            if (moanedAbout.add("photo:none")) {
+                log.warn("NO PHOTO FOLDER IS SET - camera_temp_file_name is empty for every "
+                       + "company and image.root is not set, so no bill photo can upload.");
+            }
+            state.photoFolderUnreadable = "no photo folder is set (camera_temp_file_name)";
+            return false;
+        }
+        moanedAbout.remove("photo:none");
+
+        // Companies often share one folder (annanagar's CMP2 and CMP3 both use
+        // SW IMAGES). Walk each folder once and let the path say whose photo it is.
+        java.util.Map<String, List<String>> byFolder = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        for (CompanyRoot cr : roots) {
+            byFolder.computeIfAbsent(cr.root.trim(), k -> new ArrayList<>()).add(cr.companyId);
         }
 
         Set<String> alreadyUploaded = loadAlreadyUploadedPaths();
-        int scanned = 0, uploaded = 0, skipped = 0;
+        List<Photo> waiting = new ArrayList<>();
+        int[] onDisk = {0}, unreadable = {0}, restingAfterFailure = {0};
+        long now = System.currentTimeMillis();
+        StringBuilder missing = new StringBuilder();
 
-        for (CompanyRoot cr : roots) {
-            Path root = Paths.get(cr.root);
+        for (var e : byFolder.entrySet()) {
+            String folder = e.getKey();
+            List<String> companies = e.getValue();
+            java.util.Collections.sort(companies);
+            Path root = Paths.get(folder);
             if (!Files.isDirectory(root)) {
-                log.debug("image root for {} does not exist: {}", cr.companyId, cr.root);
+                if (missing.length() > 0) missing.append("; ");
+                missing.append(String.join(",", companies)).append(": ").append(folder);
+                warnPhotoFolderOnce(folder, companies);
                 continue;
             }
-            try (var stream = Files.walk(root, 5)) {
-                for (Path p : (Iterable<Path>) stream::iterator) {
-                    if (!Files.isRegularFile(p)) continue;
-                    String name = p.getFileName().toString().toLowerCase();
-                    if (!name.endsWith(".png") && !name.endsWith(".jpg")
-                        && !name.endsWith(".jpeg") && !name.endsWith(".webp")) continue;
-                    scanned++;
+            forgetPhotoMoan(folder);
+            Files.walkFileTree(root, java.util.EnumSet.noneOf(FileVisitOption.class), 5,
+                    new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path p, BasicFileAttributes a) {
+                    if (!a.isRegularFile() || !isImage(p)) return FileVisitResult.CONTINUE;
+                    Photo ph = classify(root, p, companies, a.lastModifiedTime().toMillis());
+                    if (ph == null) return FileVisitResult.CONTINUE;   // a stray file
+                    onDisk[0]++;
                     String abs = p.toAbsolutePath().toString();
-                    if (alreadyUploaded.contains(abs)) { skipped++; continue; }
-                    // Two supported layouts under the image root:
-                    //   BILLS:     <companyId>/<material>/<billNumber>/<imageName>   (4 levels)
-                    //   CUSTOMERS: …/CUSTOMERS/<customerId>/<imageName>             (a
-                    //              CUSTOMERS/CUSTOMER segment anywhere in the path)
-                    // Customer photos are stored in the box under
-                    //   bills/<companyId>/CUSTOMER/<customerId>/<file>
-                    // reusing the same upload pipeline + bill_images index.
-                    Path rel = root.relativize(p);
-                    int n = rel.getNameCount();
-                    String companyId, material, billNumber, imageName;
-
-                    int custIdx = -1;
-                    for (int i = 0; i < n; i++) {
-                        String seg = rel.getName(i).toString();
-                        if (seg.equalsIgnoreCase("CUSTOMERS") || seg.equalsIgnoreCase("CUSTOMER")) {
-                            custIdx = i; break;
-                        }
+                    if (alreadyUploaded.contains(abs)) return FileVisitResult.CONTINUE;
+                    Long failed = failedAt.get(abs);
+                    if (failed != null && now - failed < RETRY_FAILED_AFTER_MS) {
+                        restingAfterFailure[0]++;
+                        return FileVisitResult.CONTINUE;
                     }
+                    waiting.add(ph);
+                    return FileVisitResult.CONTINUE;
+                }
 
-                    if (custIdx >= 0 && custIdx + 1 < n) {
-                        // Customer photo.
-                        companyId  = cr.companyId;
-                        material   = "CUSTOMER";
-                        billNumber = rel.getName(custIdx + 1).toString(); // customerId
-                        imageName  = rel.getFileName().toString();
-                    } else if (n == 4) {
-                        // Bill photo (original layout).
-                        companyId  = rel.getName(0).toString();
-                        material   = rel.getName(1).toString();
-                        billNumber = rel.getName(2).toString();
-                        imageName  = rel.getName(3).toString();
-                        if (!companyId.equalsIgnoreCase(cr.companyId)) continue;
-                    } else {
-                        continue; // unknown layout — skip stray files
-                    }
+                // Files.walk gave up on the whole folder at the first entry it could
+                // not open, so one bad sub-folder stopped every photo. Count it, go on.
+                @Override
+                public FileVisitResult visitFileFailed(Path p, IOException ex) {
+                    unreadable[0]++;
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        }
+        state.photoFolderUnreadable = missing.length() == 0 ? null : missing.toString();
 
-                    try {
-                        uploadOne(p, companyId, material, billNumber, imageName);
-                        uploaded++;
-                    } catch (Exception ue) {
-                        log.warn("upload failed for {}: {}", abs, ue.getMessage());
-                    }
+        waiting.sort(java.util.Comparator.comparingLong(Photo::mtime).reversed());
+        int limit = Math.min(waiting.size(), Math.max(1, cfg.imageBatchSize));
+        int uploaded = 0, failed = 0, inARow = 0;
+        boolean stopped = false;
+        for (int i = 0; i < limit && running; i++) {
+            Photo ph = waiting.get(i);
+            String abs = ph.path().toAbsolutePath().toString();
+            try {
+                uploadOne(ph.path(), ph.companyId(), ph.material(), ph.billNumber(), ph.imageName());
+                uploaded++;
+                inARow = 0;
+                failedAt.remove(abs);
+                state.recordPhotoSuccess();
+            } catch (Exception ue) {
+                failed++;
+                inARow++;
+                String why = ue.getMessage() == null ? ue.toString() : ue.getMessage();
+                failedAt.put(abs, System.currentTimeMillis());
+                state.recordPhotoFailure(why);
+                if (noRoom(why)) {
+                    log.error("PHOTOS REFUSED - THE SHOP'S CLOUD STORAGE IS FULL. No photo can go up "
+                            + "until the shop's box plan is raised. File: {} - {}", abs, why);
+                    stopped = true;
+                    break;
+                }
+                log.warn("upload failed for {}: {}", abs, why);
+                if (inARow >= GIVE_UP_AFTER_FAILURES) {
+                    log.warn("{} photo uploads failed in a row - stopping this pass, trying again in {}s",
+                             inARow, cfg.imageScanIntervalMs / 1000);
+                    stopped = true;
+                    break;
                 }
             }
         }
-        if (uploaded > 0 || scanned > 0) {
-            log.info("image scan: roots={} scanned={} uploaded={} skipped={}",
-                     roots.size(), scanned, uploaded, skipped);
+
+        int left = waiting.size() - uploaded;
+        state.photosWaiting = left + restingAfterFailure[0];
+        if (uploaded > 0 || failed > 0) {
+            log.info("image scan: folders={} photos on disk={} waiting={} uploaded={} failed={} left={}{}",
+                     byFolder.size(), onDisk[0], waiting.size(), uploaded, failed, left,
+                     unreadable[0] > 0 ? " unreadable entries=" + unreadable[0] : "");
+        } else if (now - lastQuietReport > 60L * 60L * 1000L) {
+            // Once an hour, so "[image-watcher]" in the log always says something.
+            lastQuietReport = now;
+            log.info("image scan: folders={} photos on disk={} nothing new to send{}",
+                     byFolder.size(), onDisk[0],
+                     restingAfterFailure[0] > 0 ? " (" + restingAfterFailure[0] + " resting after a failure)" : "");
+        }
+        return !stopped && left > 0 && uploaded == limit;
+    }
+
+    private static boolean isImage(Path p) {
+        String name = p.getFileName().toString().toLowerCase();
+        return name.endsWith(".png") || name.endsWith(".jpg")
+            || name.endsWith(".jpeg") || name.endsWith(".webp");
+    }
+
+    /**
+     * Whose photo this is, from where it sits under the folder:
+     * <pre>
+     *   BILLS:     &lt;companyId&gt;/&lt;material&gt;/&lt;billNumber&gt;/&lt;imageName&gt;   (4 levels)
+     *   CUSTOMERS: .../CUSTOMERS/&lt;customerId&gt;/&lt;imageName&gt;            (a CUSTOMERS or
+     *              CUSTOMER segment anywhere in the path)
+     * </pre>
+     * Customer photos go to the box under {@code bills/<companyId>/CUSTOMER/<customerId>/},
+     * reusing the bill pipeline; a folder shared by several companies files them
+     * under the first company id. Null for anything else.
+     */
+    private static Photo classify(Path root, Path p, List<String> companies, long mtime) {
+        Path rel = root.relativize(p);
+        int n = rel.getNameCount();
+        for (int i = 0; i + 1 < n; i++) {
+            String seg = rel.getName(i).toString();
+            if (seg.equalsIgnoreCase("CUSTOMERS") || seg.equalsIgnoreCase("CUSTOMER")) {
+                return new Photo(p, companies.get(0), "CUSTOMER", rel.getName(i + 1).toString(),
+                                 rel.getFileName().toString(), mtime);
+            }
+        }
+        if (n != 4) return null;
+        String companyId = rel.getName(0).toString();
+        for (String c : companies) {
+            if (c.equalsIgnoreCase(companyId)) {
+                return new Photo(p, companyId, rel.getName(1).toString(), rel.getName(2).toString(),
+                                 rel.getName(3).toString(), mtime);
+            }
+        }
+        return null;
+    }
+
+    /** Says once, loudly, that a photo folder is missing; quiet again until it changes. */
+    private void warnPhotoFolderOnce(String folder, List<String> companies) {
+        if (moanedAbout.add("photo:" + folder.toLowerCase())) {
+            log.warn("THE PHOTO FOLDER CANNOT BE FOUND: {} (company {}). No photo from it is "
+                   + "being sent. Check camera_temp_file_name for the company{}. If it is a "
+                   + "mapped drive letter, the agent runs as a Windows service and cannot see one.",
+                     folder, String.join(",", companies),
+                     cfg.imageRootOverride != null ? ", and image.root in sync.properties (it overrides it)" : "");
+        }
+    }
+
+    private void forgetPhotoMoan(String folder) {
+        if (moanedAbout.remove("photo:" + folder.toLowerCase())) {
+            log.info("the photo folder can be found again: {}", folder);
         }
     }
 
