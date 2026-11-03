@@ -668,10 +668,63 @@ public class ApiService {
                 if (match == null) { cb.onError("Bill " + billNumber + " not found"); return; }
                 sanitizeNulls(match);
                 addBillAliases(match);
+                addUserNames(match);
                 mergeRepledgeInto(match);
                 cb.onSuccess(match);
             } catch (Exception e) { cb.onError(e.getMessage()); }
         });
+    }
+
+    /** Each shop's employees as the cloud has them: id (upper case) to name. */
+    private static final java.util.Map<String, java.util.Map<String, String>> USER_NAMES =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.Map<String, Long> USER_NAMES_READ =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Puts created_user_name, last_updated_user_name and closed_user_name beside the ids, written as the
+     * desktop writes them ("USR5 - PUSHPA"). An id the list does not know stays as it is, and so does a
+     * closed_user_id that is not an id at all - an old bill can carry a name there, as the desktop allows.
+     */
+    private static void addUserNames(JSONObject bill) {
+        String shop = String.valueOf(currentShop());
+        for (String key : new String[] {"created_user_id", "last_updated_user_id", "closed_user_id"}) {
+            String id = bill.optString(key, "").trim();
+            if (id.isEmpty() || "null".equals(id)) continue;
+            String k = id.toUpperCase(java.util.Locale.ROOT);
+            String name = userNames(shop, false).get(k);
+            // someone added since the list was read
+            if (name == null && k.startsWith("USR")) name = userNames(shop, true).get(k);
+            try {
+                bill.put(key.replace("_id", "_name"), name == null || name.isEmpty() ? id : id + " - " + name);
+            } catch (Exception ignored) { }
+        }
+    }
+
+    /** The shop's id-to-name list, read once and again at most once a minute when an id is missing. */
+    private static java.util.Map<String, String> userNames(String shop, boolean again) {
+        java.util.Map<String, String> have = USER_NAMES.get(shop);
+        Long read = USER_NAMES_READ.get(shop);
+        if (have != null && (!again || read == null || System.currentTimeMillis() - read < 60_000)) return have;
+        java.util.Map<String, String> got = new java.util.HashMap<>();
+        // /user-names, not the user_master table: the cloud sends the id and the name and nothing else.
+        try (Response res = CLIENT.newCall(authed(HttpUrl.parse(AppConfig.DATA_BASE + "/user-names")).get().build())
+                .execute()) {
+            String raw = res.body() != null ? res.body().string() : "[]";
+            checkStatus(res, raw);
+            JSONArray rows = new JSONArray(raw);
+            for (int i = 0; i < rows.length(); i++) {
+                JSONObject u = rows.getJSONObject(i);
+                String id = u.optString("id", "").trim();
+                String name = u.isNull("user_name") ? "" : u.optString("user_name", "").trim();
+                if (!id.isEmpty()) got.put(id.toUpperCase(java.util.Locale.ROOT), name);
+            }
+        } catch (Exception e) {
+            if (have != null) got = have;      // keep what was read; the ids alone still say who
+        }
+        USER_NAMES.put(shop, got);
+        USER_NAMES_READ.put(shop, System.currentTimeMillis());
+        return got;
     }
 
     /**

@@ -16,8 +16,10 @@ android {
         // that stops blaming the shop PC when the cloud box is the problem.
         // 3 / 1.2 (27-10-2026): Customers found on the bills, not the near-empty
         // customer_details table.
-        versionCode 4
-        versionName "1.3"
+        // 5 / 1.4 (03-11-2026): the bill screen shows re-billed from/to (a tap
+        // opens that bill) and who created, last updated and closed it, when.
+        versionCode 5
+        versionName "1.4"
     }
 
     buildTypes {

@@ -45,6 +45,9 @@ public class BillingActivity extends AppCompatActivity {
     private TextView tvMaterialType, tvOpeningDate;
     private TextView tvCreatedBy, tvCreatedAt;
     private LinearLayout layoutCreatedInfo;
+    // Who and when, as the desktop's bill screens show it
+    private TextView tvRebilledFrom, tvRebilledTo;
+    private TextView tvUpdatedBy, tvUpdatedAt, tvClosedWho, tvClosedAt;
 
     // Customer (read-only)
     private TextView tvCustomerName, tvGender, tvSpouseType, tvSpouseName;
@@ -141,6 +144,12 @@ public class BillingActivity extends AppCompatActivity {
         layoutCreatedInfo = findViewById(R.id.layoutCreatedInfo);
         tvCreatedBy       = findViewById(R.id.tvCreatedBy);
         tvCreatedAt       = findViewById(R.id.tvCreatedAt);
+        tvRebilledFrom    = findViewById(R.id.tvRebilledFrom);
+        tvRebilledTo      = findViewById(R.id.tvRebilledTo);
+        tvUpdatedBy       = findViewById(R.id.tvUpdatedBy);
+        tvUpdatedAt       = findViewById(R.id.tvUpdatedAt);
+        tvClosedWho       = findViewById(R.id.tvClosedWho);
+        tvClosedAt        = findViewById(R.id.tvClosedAt);
 
         // Customer
         tvCustomerName    = findViewById(R.id.tvCustomerName);
@@ -326,14 +335,21 @@ public class BillingActivity extends AppCompatActivity {
         tvMaterialType.setText(r.optString("material_type", ""));
         tvOpeningDate.setText(r.optString("opening_date", ""));
 
-        String createdAt = r.optString("created_date", "");
-        if (!createdAt.isEmpty() && !"null".equals(createdAt)) {
-            tvCreatedAt.setText(DateFmt.stamp(createdAt));
-            tvCreatedBy.setText(r.optString("created_user_id", ""));
-            layoutCreatedInfo.setVisibility(View.VISIBLE);
-        } else {
-            layoutCreatedInfo.setVisibility(View.GONE);
-        }
+        // Who and when: re-billed from/to, created, last updated, closed. The names come from the
+        // shop's employee list ("USR5 - PUSHPA", ApiService.addUserNames); the id alone when it has none.
+        showRebill(tvRebilledFrom, r.optString("rebilled_from", ""));
+        showRebill(tvRebilledTo,   r.optString("rebilled_to",   ""));
+        tvCreatedBy.setText(orDash(r.optString("created_user_name", r.optString("created_user_id", ""))));
+        tvCreatedAt.setText(orDash(DateFmt.stamp(r.optString("created_date", ""))));
+        tvUpdatedBy.setText(orDash(r.optString("last_updated_user_name", r.optString("last_updated_user_id", ""))));
+        tvUpdatedAt.setText(orDash(DateFmt.stamp(r.optString("last_updated_date", ""))));
+        // An open bill carries a closed_date from the day it was opened, so the time is shown only once it closed.
+        String st = r.optString("status", "");
+        boolean stillOpen = st.isEmpty() || "OPENED".equals(st) || "LOCKED".equals(st);
+        String closedName = r.optString("closed_user_name", r.optString("closed_user_id", ""));
+        tvClosedWho.setText(stillOpen ? "Not yet closed" : orDash(closedName));
+        tvClosedAt.setText(stillOpen ? "—" : orDash(DateFmt.stamp(r.optString("closed_date", ""))));
+        layoutCreatedInfo.setVisibility(View.VISIBLE);
 
         // Customer
         tvCustomerName.setText(r.optString("customer_name", ""));
@@ -400,7 +416,7 @@ public class BillingActivity extends AppCompatActivity {
         final double dbDiscount      = r.optDouble("discount_amount",           0);
         final double dbGot           = r.optDouble("got_amount",                0);
         final String dbCustomerCopy  = r.optString("customer_copy",             "");
-        final String dbClosedBy      = r.optString("closed_user_id",            "");
+        final String dbClosedBy      = r.optString("closed_user_name", r.optString("closed_user_id", ""));
         final String dbClosingDate   = r.optString("closing_date",              "");
 
         if (fetchFromDb) {
@@ -637,6 +653,42 @@ public class BillingActivity extends AppCompatActivity {
     }
 
     private String fmt(double v) { return inFmt.format(v); }
+
+    private static String orDash(String s) {
+        return s == null || s.trim().isEmpty() || "null".equals(s) ? "—" : s;
+    }
+
+    /**
+     * A re-billed from/to box: the bill number in wine, underlined, and a tap opens that bill on its own
+     * screen, so Back comes back here. A bill re-billed into several holds them all; a tap then asks which.
+     */
+    private void showRebill(TextView box, String value) {
+        String v = value == null || "null".equals(value) ? "" : value.trim();
+        box.setText(orDash(v));
+        box.setOnClickListener(null);
+        box.setClickable(false);
+        box.setPaintFlags(box.getPaintFlags() & ~android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        box.setTextColor(getResources().getColor(R.color.ink, getTheme()));
+        if (v.isEmpty()) return;
+        final String[] bills = v.split("[,\\s]+");
+        box.setTextColor(getResources().getColor(R.color.wine_ink, getTheme()));
+        box.setPaintFlags(box.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        box.setOnClickListener(x -> {
+            if (bills.length == 1) { openBill(bills[0]); return; }
+            new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Open which bill?")
+                .setItems(bills, (d, which) -> openBill(bills[which]))
+                .show();
+        });
+    }
+
+    private void openBill(String billNo) {
+        android.content.Intent i = new android.content.Intent(this, BillingActivity.class);
+        i.putExtra("companyId",    companyId);
+        i.putExtra("billNumber",   billNo);
+        i.putExtra("materialType", selectedMaterialType);
+        startActivity(i);
+    }
 
     // ── Bill images ───────────────────────────────────────────────────────────
 
