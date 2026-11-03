@@ -39,6 +39,28 @@ function Eta([double]$left, [double]$perMin) {
     return ("about {0:N1} days left" -f ($min / 1440.0))
 }
 function Mb([double]$bytes) { return ("{0:N1} MB" -f ($bytes / 1MB)) }
+# A Magizhchi Box drive (M:, N: ...) is a subst in the signed-in user's session.
+# The agent cannot see the letter, so it reads the folder behind it, from the list
+# the Box app keeps in ProgramData, and records THOSE paths as sent. Read the same
+# folder here, or every file it has sent would look unsent.
+function BoxPath([string]$p) {
+    if ($p -notmatch '^([A-Za-z]):[\\/]*(.*)$') { return $p }
+    $letter = $Matches[1]; $rest = $Matches[2]
+    $dir = Join-Path $env:ProgramData 'Magizhchi\Box\drives'
+    if (-not (Test-Path -LiteralPath $dir -PathType Container)) { return $p }
+    $found = @()
+    foreach ($f in Get-ChildItem -LiteralPath $dir -Filter *.json -File -ErrorAction SilentlyContinue) {
+        try { $doc = Get-Content -LiteralPath $f.FullName -Raw | ConvertFrom-Json } catch { continue }
+        foreach ($d in @($doc.drives)) {
+            if ($d.letter -ieq $letter -and $d.path) { $found += [pscustomobject]@{ Path = [string]$d.path; When = [string]$doc.updatedAt } }
+        }
+    }
+    foreach ($d in ($found | Sort-Object When -Descending)) {
+        $real = $d.Path; if ($rest) { $real = Join-Path $d.Path $rest }
+        if (Test-Path -LiteralPath $real -PathType Container) { return $real }
+    }
+    return $p
+}
 
 Say ""
 Say "=== Upload progress ===" "Cyan"
@@ -222,7 +244,8 @@ if ($folders.Count -eq 0) {
         foreach ($p in (Query "SELECT abs_path FROM sync_image_uploads")) { $uploaded[$p.Trim().Replace('/', '\').ToLower()] = $true }
     }
     foreach ($key in $folders.Keys) {
-        $root = $folders[$key].Path; $cids = $folders[$key].Companies; $cid = $cids -join ','
+        $root = BoxPath $folders[$key].Path; $cids = $folders[$key].Companies; $cid = $cids -join ','
+        if ($root -ne $folders[$key].Path) { Say ("  {0}: {1} is a Magizhchi Box drive - reading {2}, as the agent does" -f $cid, $folders[$key].Path, $root) }
         if (-not (Test-Path -LiteralPath $root -PathType Container)) {
             Say ("  {0}: folder {1} DOES NOT EXIST on this PC - its photos cannot upload" -f $cid, $root) "Red"
             $photoMissing++
@@ -293,8 +316,10 @@ if ($health) {
         Say "  This window may still list that folder quite happily - you are signed" "Red"
         Say "  in and the agent is not. A mapped drive letter belongs to a logon" "Red"
         Say "  session, so a service never sees one. Put the backups on a local path" "Red"
-        Say "  (D:\PAWNBROKING\BACKUP and the like) and set company.backup_file_path" "Red"
-        Say "  to it. Nothing from that folder is going off-site until you do." "Red"
+        Say "  (D:\PAWNBROKING\BACKUP and the like) or a Magizhchi Box drive (M:), and" "Red"
+        Say "  set company.backup_file_path to it. A Box drive is read through the" "Red"
+        Say "  folder behind it, once the Box app has been opened on this PC." "Red"
+        Say "  Nothing from that folder is going off-site until then." "Red"
         Say ""
     }
     if ($health.last_backup_size) {
@@ -316,7 +341,8 @@ if ($broots.Count -eq 0) {
     $epoch = [datetime]'1970-01-01'
     $cutoffMs = ((Get-Date).ToUniversalTime() - $epoch).TotalMilliseconds - [double]$retentionDays * 86400000
     foreach ($root in $broots) {
-        $root = $root.Trim()
+        $root = $root.Trim(); $set = $root; $root = BoxPath $root
+        if ($root -ne $set) { Say ("  {0} is a Magizhchi Box drive - reading {1}, as the agent does" -f $set, $root) }
         if (-not (Test-Path -LiteralPath $root -PathType Container)) {
             Say ("  Folder {0} DOES NOT EXIST on this PC - its backups cannot upload" -f $root) "Red"
             $bMissing++

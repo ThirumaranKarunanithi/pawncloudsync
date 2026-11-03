@@ -594,7 +594,9 @@ public final class Setup {
             warn("no photo folder is set (company_other_settings.camera_temp_file_name) - no photo can ever upload.");
         } else {
             for (Map.Entry<String, String> e : photoRoots.entrySet()) {
-                Path root = Paths.get(e.getValue());
+                Path root = BoxDrives.resolve(e.getValue());
+                String box = BoxDrives.explain(e.getValue());
+                if (box != null) say("photos " + e.getKey() + ": " + box);
                 if (!Files.isDirectory(root)) {
                     warn("photo folder for " + e.getKey() + " does not exist on this PC: " + e.getValue() +
                          (override.isEmpty()
@@ -647,7 +649,11 @@ public final class Setup {
         List<Path> toRequeue = new ArrayList<>();
 
         for (Map.Entry<String, String> e : roots.entrySet()) {
-            Path root = Paths.get(e.getValue());
+            // Read the way the agent reads it: this run is elevated, and an elevated
+            // window cannot see a Magizhchi Box letter any more than the service can.
+            Path root = BoxDrives.resolve(e.getValue());
+            String box = BoxDrives.explain(e.getValue());
+            if (box != null) say("  " + e.getKey() + ": " + box);
             if (!Files.isDirectory(root)) {
                 warn("backup folder for " + e.getKey() + " does not exist on this PC: " + e.getValue() +
                      " - the desktop app writes its dumps there, so check the path in Company Module. " +

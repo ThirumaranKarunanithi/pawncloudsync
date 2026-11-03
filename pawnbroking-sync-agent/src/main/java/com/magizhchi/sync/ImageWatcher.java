@@ -180,7 +180,7 @@ public class ImageWatcher implements Runnable {
             String folder = e.getKey();
             List<String> companies = e.getValue();
             java.util.Collections.sort(companies);
-            Path root = Paths.get(folder);
+            Path root = BoxDrives.resolve(folder);
             if (!Files.isDirectory(root)) {
                 if (missing.length() > 0) missing.append("; ");
                 missing.append(String.join(",", companies)).append(": ").append(folder);
@@ -312,7 +312,8 @@ public class ImageWatcher implements Runnable {
         if (moanedAbout.add("photo:" + folder.toLowerCase())) {
             log.warn("THE PHOTO FOLDER CANNOT BE FOUND: {} (company {}). No photo from it is "
                    + "being sent. Check camera_temp_file_name for the company{}. If it is a "
-                   + "mapped drive letter, the agent runs as a Windows service and cannot see one.",
+                   + "mapped drive letter, the agent runs as a Windows service and cannot see one "
+                   + "(a Magizhchi Box drive it can read, once the folder exists in it).",
                      folder, String.join(",", companies),
                      cfg.imageRootOverride != null ? ", and image.root in sync.properties (it overrides it)" : "");
         }
@@ -519,7 +520,9 @@ public class ImageWatcher implements Runnable {
         int scanned = 0, uploaded = 0, skipped = 0;
         StringBuilder unreadable = new StringBuilder();
         for (CompanyRoot cr : roots) {
-            Path root = Paths.get(cr.root);
+            // M:\Shops\...\BACKUP on a Magizhchi Box drive is read through the
+            // folder behind the letter: this service cannot see the letter itself.
+            Path root = BoxDrives.resolve(cr.root);
             if (!Files.isDirectory(root)) {
                 // Not debug any more. A folder the agent cannot read looks exactly
                 // like a folder with nothing new in it, and telling those two apart
@@ -611,10 +614,14 @@ public class ImageWatcher implements Runnable {
     private void warnOncePerPath(String root, String companyId) {
         if (moanedAbout.add(root)) {
             log.warn("THE BACKUP FOLDER CANNOT BE READ: {} (company {}). Nothing from it "
-                   + "is being sent off-site. If this is a mapped drive letter, the agent "
-                   + "runs as a Windows service and cannot see one - give it a local path "
-                   + "or a UNC path it has rights to. Set it in company.backup_file_path.",
-                     root, companyId);
+                   + "is being sent off-site. {}",
+                     root, companyId, BoxDrives.isBoxLetter(root)
+                       ? "That letter is a Magizhchi Box drive, but this folder is not in it yet - "
+                         + "close a day so the desktop app writes it, or correct the path in the "
+                         + "Company Module."
+                       : "If this is a mapped drive letter, the agent runs as a Windows service and "
+                         + "cannot see one - give it a local path, a UNC path it has rights to, or "
+                         + "a Magizhchi Box drive. Set it in company.backup_file_path.");
         }
     }
 
