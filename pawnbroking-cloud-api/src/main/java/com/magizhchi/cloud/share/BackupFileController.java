@@ -300,6 +300,21 @@ public class BackupFileController {
                 // An older shop may not have synced this table yet. Saying
                 // nothing is right; guessing would not be.
             }
+            // Whether the shop's bills are still arriving. Without it, no file
+            // for two days read as "the PC is off", and Alwarpuram was told
+            // exactly that for a fortnight while its bills and photos arrived
+            // every hour: only its backup folder had moved somewhere the agent
+            // could not read (a Magizhchi Box drive, M:).
+            m.put("last_sync", j.queryForObject(
+                "SELECT max(last_updated_at) FROM projections", java.sql.Timestamp.class));
+            try {
+                m.put("backup_folder", j.queryForObject(
+                    "SELECT string_agg(DISTINCT payload->>'backup_file_path', ', ') FROM projections " +
+                    " WHERE table_name = 'company' AND NOT deleted " +
+                    "   AND coalesce(payload->>'backup_file_path', '') <> ''" +
+                    (where.isEmpty() ? "" : " AND payload->>'id' = ?"),
+                    String.class, a));
+            } catch (Exception ignored) { /* named when known, left out when not */ }
             return m;
         });
 
@@ -330,6 +345,8 @@ public class BackupFileController {
         // Reports still landing while dumps are days behind: the box is the
         // suspect, not the shop PC, whatever the percentage happens to read.
         boolean lopsided = dumpAgeDays >= 3 && ageDays(lastAny) <= 1;
+        boolean billsArriving = ageDays(t.get("last_sync")) <= 1;
+        String backupFolder = (String) t.get("backup_folder");
 
         String reason, advice;
         // Blaming storage needs the storage figure to actually SAY so. An
@@ -370,10 +387,31 @@ public class BackupFileController {
                    + " Either the backup file is not being written where the sync agent "
                    + "looks for it, or its upload is failing. The agent's own progress "
                    + "window on the shop PC has a Backup line that says which.";
+        } else if (dumpAgeDays >= 2 && billsArriving && closedDayAgeDays >= 3) {
+            reason = "DAY_NOT_CLOSED";
+            advice = "Bills are reaching the cloud, but the day's account has not been closed since "
+                   + lastClosedDay + ". Closing the day in Today's Account is what writes the "
+                   + "backup files. Close the days that are still open and the backup will go "
+                   + "up by itself.";
+        } else if (dumpAgeDays >= 2 && billsArriving) {
+            // The PC is on, the agent is sending, days are being closed, and no
+            // file at all comes up: the files are being written somewhere the
+            // agent does not look, or cannot see. Name the folder; the agent's
+            // own progress window on the shop PC can say which it is.
+            reason = "FOLDER_NOT_READ";
+            advice = "Bills are reaching the cloud, so the shop PC and its sync agent are running, but "
+                   + (lastAny == null ? "no backup file has ever arrived"
+                                      : "no backup file has arrived for " + ageDays(lastAny) + " days")
+                   + ". The likeliest cause is that the sync agent cannot read the backup folder"
+                   + (backupFolder == null ? "" : " " + backupFolder) + ". On a Magizhchi Box drive "
+                   + "(M:, N: …) it needs the sync agent of 03-11-2026 or later: run "
+                   + "PawnBrokingSyncSetup.exe on the shop PC. On any other drive letter, choose a "
+                   + "folder on the PC's own disk in the Company Module.";
         } else if (dumpAgeDays >= 2) {
             reason = "STALE";
-            advice = "No backup has reached the cloud for " + dumpAgeDays
-                   + " days, and nothing else is arriving either — check that the shop PC "
+            advice = (lastDump == null ? "No backup has ever reached the cloud"
+                                       : "No backup has reached the cloud for " + dumpAgeDays + " days")
+                   + ", and nothing else is arriving either — check that the shop PC "
                    + "is switched on and the sync agent is running.";
         } else if (filling) {
             reason = "FILLING";
