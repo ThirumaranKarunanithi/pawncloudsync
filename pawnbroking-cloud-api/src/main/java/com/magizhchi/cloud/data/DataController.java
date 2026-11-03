@@ -349,6 +349,18 @@ public class DataController {
         return new WhereBuild(w.toString(), args);
     }
 
+    /**
+     * The shop's people as a bill names them: user_master id and name, nothing else. The phone's bill
+     * screen writes "USR5 - PUSHPA" beside created / last updated / closed, as the desktop does.
+     */
+    @GetMapping("/user-names")
+    public List<Map<String,Object>> userNames() {
+        return t.inTenant(j -> j.queryForList(
+            "SELECT payload->>'id' AS id, payload->>'user_name' AS user_name FROM projections " +
+            "WHERE table_name = 'user_master' AND NOT deleted AND COALESCE(payload->>'id', '') <> '' " +
+            "ORDER BY 1"));
+    }
+
     @GetMapping("/{table}/{rowPk}")
     public Map<String,Object> one(@PathVariable String table, @PathVariable String rowPk) {
         if (!table.matches("[a-z_]+")) throw new IllegalArgumentException("bad table");
@@ -1355,11 +1367,19 @@ public class DataController {
         return rows;
     }
 
+    /**
+     * Columns a shop's rows carry that no phone or browser needs: a sign-in's password hash and its salt,
+     * and the fingerprint picture (user_master). They are kept in the cloud as synced and are taken off
+     * every row on the way out, whichever table and whichever endpoint asked.
+     */
+    private static final List<String> NEVER_SENT = List.of("user_password", "salt_value", "user_finger_img");
+
     private static Map<String,Object> rehydrateOne(Map<String,Object> row) {
         Object p = row.get("payload");
         if (p instanceof PGobject pg && pg.getValue() != null) {
             try {
                 JsonNode node = M.readTree(pg.getValue());
+                if (node instanceof ObjectNode o) o.remove(NEVER_SENT);
                 row.put("payload", node);
             } catch (Exception ignored) {
                 row.put("payload", pg.getValue());
