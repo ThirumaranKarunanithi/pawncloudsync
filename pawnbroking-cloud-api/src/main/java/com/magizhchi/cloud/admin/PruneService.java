@@ -1,8 +1,11 @@
 package com.magizhchi.cloud.admin;
 
+import com.magizhchi.cloud.sync.StaleCopies;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -66,6 +69,40 @@ public class PruneService {
             // A failed prune must never take the API down with it.
             log.error("nightly prune failed: {}", e.toString(), e);
         }
+    }
+
+    /**
+     * Once at start-up, the sweep of older row copies alone (see StaleCopies): a deploy that fixes doubled
+     * figures should not leave the phone wrong until 02:30. It runs off the main thread so the API answers
+     * meanwhile, and steps aside when the volume is tight, as the nightly run would.
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void sweepOnStart() {
+        if (!scheduleEnabled) return;
+        Thread t = new Thread(() -> {
+            try {
+                String tight = spaceWarning();
+                if (tight != null) {
+                    log.warn("start-up sweep of older row copies skipped: {}", tight);
+                    return;
+                }
+                synchronized (this) {
+                    for (Map<String, Object> s : jdbc.queryForList(
+                            "SELECT shop_id, schema_name FROM public.tenants ORDER BY shop_id")) {
+                        try {
+                            long n = StaleCopies.sweep(jdbc, (String) s.get("schema_name"), false);
+                            if (n > 0) log.info("start-up sweep: {} retired {} older copies of rows", s.get("shop_id"), n);
+                        } catch (Exception e) {
+                            log.warn("start-up sweep failed for {}: {}", s.get("shop_id"), e.toString());
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.error("start-up sweep of older row copies failed: {}", e.toString(), e);
+            }
+        }, "stale-copies-sweep");
+        t.setDaemon(true);
+        t.start();
     }
 
     /**
@@ -148,7 +185,7 @@ public class PruneService {
                                       int eventDays, int notifDays, boolean vacuum) {
         long runId = -1;
         long deadline = System.currentTimeMillis() + BUDGET_MS;
-        long events = 0, notifs = 0, repledge = 0, bytesBefore = totalBytes(), shops = 0;
+        long events = 0, notifs = 0, repledge = 0, copies = 0, bytesBefore = totalBytes(), shops = 0;
         List<String> touched = new ArrayList<>();
         try {
             runId = jdbc.queryForObject(
@@ -164,13 +201,14 @@ public class PruneService {
                     continue;
                 }
                 shops++;
-                long e = 0, n = 0, r = 0;
+                long e = 0, n = 0, r = 0, c = 0;
                 try {
                     if (eventDays > 0)
                         e = prune(schema, "events", "received_at", eventDays, dryRun, deadline);
                     if (notifDays > 0)
                         n = prune(schema, "notifications", "created_at", notifDays, dryRun, deadline);
                     r = dropCollapsedRepledge(schema, dryRun);
+                    c = StaleCopies.sweep(jdbc, schema, dryRun);
                 } catch (Exception ex) {
                     // One shop's problem is not every shop's problem.
                     log.warn("prune failed for {}: {}", shopId, ex.toString());
@@ -178,8 +216,11 @@ public class PruneService {
                 events += e;
                 notifs += n;
                 repledge += r;
+                copies += c;
                 if (r > 0)
                     touched.add(shopId + " (" + r + " collapsed repledge rows)");
+                if (c > 0)
+                    touched.add(shopId + " (" + c + " older copies of rows retired)");
                 if (e > 0 || n > 0) {
                     touched.add(shopId + " (" + e + " events, " + n + " notifications)");
                     if (vacuum && !dryRun) {
@@ -198,6 +239,7 @@ public class PruneService {
             String note = (dryRun ? "DRY RUN. " : "") +
                     "events older than " + eventDays + " days, notifications older than " + notifDays +
                     (repledge > 0 ? ", plus " + repledge + " collapsed repledge rows" : "") +
+                    (copies > 0 ? ", plus " + copies + " older copies of rows" : "") +
                     (touched.isEmpty() ? ". Nothing needed pruning." : ". " + String.join("; ", touched));
             jdbc.update("UPDATE public.prune_runs SET finished_at = now(), events_deleted = ?, " +
                         "notifications_deleted = ?, bytes_after = ?, shops = ?, note = ? WHERE id = ?",

@@ -653,14 +653,17 @@ public class DataController {
                     "    sum(repledge_redeem_total_bills) total_repledge_redeem_total_bills, " +
                     "    sum(repledge_redeem_amt) total_repledge_redeem_amt, " +
                     "    sum(repledge_interest) total_repledge_interest, " +
+                    // Each metal's stock runs on its own. Without PARTITION BY the one sum ran
+                    // through GOLD and SILVER alike, so the GOLD row carried the silver of every
+                    // earlier month, the SILVER row was the whole shop, and their TOTAL was double.
                     "    sum(sum(repledge_total_bill)-sum(repledge_redeem_total_bills)) " +
-                    "      OVER (ORDER BY yyyy ASC, mon, jwl_type) total_repledge_stock_bills, " +
+                    "      OVER (PARTITION BY jwl_type ORDER BY yyyy ASC, mon) total_repledge_stock_bills, " +
                     "    sum(sum(repledge_amount)-sum(repledge_redeem_amt)) " +
-                    "      OVER (ORDER BY yyyy ASC, mon, jwl_type) total_repledge_stock_amount, " +
+                    "      OVER (PARTITION BY jwl_type ORDER BY yyyy ASC, mon) total_repledge_stock_amount, " +
                     "    sum(sum(pawn_total_bill)-sum(redeem_total_bills)) " +
-                    "      OVER (ORDER BY yyyy ASC, mon, jwl_type) total_stock_bills, " +
+                    "      OVER (PARTITION BY jwl_type ORDER BY yyyy ASC, mon) total_stock_bills, " +
                     "    sum(sum(pawn_amount)-sum(redeem_amt)) " +
-                    "      OVER (ORDER BY yyyy ASC, mon, jwl_type) total_stock_amount " +
+                    "      OVER (PARTITION BY jwl_type ORDER BY yyyy ASC, mon) total_stock_amount " +
                     "  FROM ( " + unionAll + " ) chi " +
                     "  GROUP BY chi.mon, chi.yyyy, chi.jwl_type " +
                     ") child " +
@@ -668,7 +671,9 @@ public class DataController {
                     "LIMIT ?";
 
                 List<Map<String,Object>> rows = j.queryForList(sql, args.toArray());
-                return Map.of("total", rows.size(), "rows", rows);
+                // stockByMetal: a phone from 1.5 adds GOLD and SILVER for "stock now" only when told
+                // the rows run per metal, so it is right whichever cloud it meets first.
+                return Map.of("total", rows.size(), "rows", rows, "stockByMetal", true);
             });
         } catch (Exception e) {
             log.error("misReport failed: {}", e.toString(), e);

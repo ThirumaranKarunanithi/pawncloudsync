@@ -110,6 +110,8 @@ public class SyncController {
                 "  deleted = FALSE",
                 table, rowPk, toJson(payload), op, eventId);
         }
+        // The same shop row may still be live under a key shape the shop has stopped sending.
+        StaleCopies.retireOlder(jdbc, table, rowPk, payload);
 
         // Skip agent/system tables — sync_image_uploads (and friends) are
         // internal bookkeeping; the user shouldn't see them in the bell.
