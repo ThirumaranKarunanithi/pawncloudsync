@@ -58,9 +58,10 @@ import java.util.Set;
  *
  * <p>The sums are the desktop's, read from /mis-report and /mis-extras. A
  * month's expenses, assets and liabilities sit on its GOLD row, so they count
- * once. The total row adds running stock the way the desktop's does and shows
- * the same columns; the "stock now" tile is the phone's own, the latest month's
- * running figure, because a total of running balances answers nothing.
+ * once. Each metal's stock runs on its own row, and a month's TOTAL row adds
+ * them. The total row leaves the stock columns blank, because a total of
+ * running balances answers nothing; the "stock now" tile is the phone's own,
+ * each metal's newest running figure added.
  */
 public class MonthlyReportActivity extends AppCompatActivity {
 
@@ -124,6 +125,7 @@ public class MonthlyReportActivity extends AppCompatActivity {
     private int sortColumn = -1;         // index into columns(); -1 = month order
     private boolean sortDown = false;
     private boolean extrasLoaded = false;
+    private boolean stockByMetal = false;    // the cloud's rows carry each metal's own running stock
     private String companyId, companyName;
     private WebView printing;
 
@@ -282,6 +284,7 @@ public class MonthlyReportActivity extends AppCompatActivity {
                 base.add(r);
             }
         }
+        stockByMetal = data.optBoolean("stockByMetal", false);
         extrasLoaded = extras != null;
         if (extras != null) {
             putExpenses(extras.optJSONArray("expenses"));
@@ -676,10 +679,10 @@ public class MonthlyReportActivity extends AppCompatActivity {
             cells[FIXED + i] = c.count ? fmt.format((long) v) : money(v);
             colors[FIXED + i] = toneColor(c.tone, v);
         }
-        // Stock Count and Capital: the desktop's total row leaves these blank.
+        // The four stock columns are running balances: added over months they answer nothing, so the
+        // total row leaves them blank and the tiles above say what is in stock now.
         if (STOCK.equals(section)) {
-            cells[FIXED + 10] = "";
-            cells[FIXED + 11] = "";
+            for (int k = 10; k <= 13; k++) cells[FIXED + k] = "";
         }
         tableTotal.removeAllViews();
         GridRowView row = new GridRowView(this).heightDp(40).set(cells, w, colors, right, bold);
@@ -747,16 +750,28 @@ public class MonthlyReportActivity extends AppCompatActivity {
         startActivity(i);
     }
 
-    /** The newest month's running figures: SILVER closes the running stock, GOLD carries the repledge. */
+    /**
+     * Each metal's stock runs on its own row, so the shop's stock is the newest GOLD row's figure plus the
+     * newest SILVER row's, whichever months those are (a month with no silver bills has no SILVER row).
+     * GOLD carries the repledge. A cloud from before 04-11-2026 ran one sum through both metals; there the
+     * newest month's last row (SILVER when it has one) is the whole shop.
+     */
     private MisRow stockNow() {
         MisRow now = new MisRow();
         if (base.isEmpty()) return now;
-        String month = base.get(0).month;
-        for (MisRow r : base) {
-            if (!month.equals(r.month)) break;
-            now.stockBills = r.stockBills;           // sorted GOLD, SILVER: the last one is the running total
-            now.stockAmt = r.stockAmt;
-            if ("GOLD".equals(r.material)) {
+        Set<String> seen = new HashSet<>();
+        String newest = base.get(0).month;
+        for (MisRow r : base) {                      // newest month first, GOLD before SILVER
+            if (stockByMetal) {
+                if (!seen.add(r.material)) continue;
+                now.stockBills += r.stockBills;
+                now.stockAmt += r.stockAmt;
+            } else {
+                if (!newest.equals(r.month)) break;
+                now.stockBills = r.stockBills;
+                now.stockAmt = r.stockAmt;
+            }
+            if ("GOLD".equals(r.material)) {           // either way only the GOLD row wanted gets here
                 now.repledgeStockBills = r.repledgeStockBills;
                 now.repledgeStockAmt = r.repledgeStockAmt;
             }

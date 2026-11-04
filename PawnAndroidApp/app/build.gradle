@@ -18,8 +18,8 @@ android {
         // customer_details table.
         // 5 / 1.4 (03-11-2026): the bill screen shows re-billed from/to (a tap
         // opens that bill) and who created, last updated and closed it, when.
-        versionCode 5
-        versionName "1.4"
+        versionCode 6
+        versionName "1.5"
     }
 
     buildTypes {
