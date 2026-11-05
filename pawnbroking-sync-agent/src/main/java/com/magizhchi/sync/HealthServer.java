@@ -56,6 +56,9 @@ public class HealthServer {
             body.put("last_backup_size", s.lastBackupSize);
             body.put("backup_retention_days", s.backupRetentionDays);
             body.put("backup_gzip", s.backupGzipOn);
+            // Sent events cleared after a month (OutboxPruner); left to grow, they
+            // made the nightly backup too big to upload.
+            body.put("outbox_cleared", s.outboxCleared);
             // Photos, apart from both: data can be flowing and the backup current
             // while no photo has gone for months.
             body.put("photo_folder_unreadable", s.photoFolderUnreadable);

@@ -34,6 +34,7 @@ public class Agent {
         ListenWorker listener = new ListenWorker(cfg, drainer);
         HealthServer health = new HealthServer(cfg.healthPort);
         ImageWatcher imageWatcher = new ImageWatcher(ds, cfg);
+        OutboxPruner pruner = new OutboxPruner(ds, cfg.outboxKeepSentDays);
 
         CountDownLatch stop = new CountDownLatch(1);
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -42,6 +43,7 @@ public class Agent {
             listener.stop();
             guard.stop();
             imageWatcher.stop();
+            pruner.stop();
             health.stop();
             ds.close();
             stop.countDown();
@@ -51,10 +53,13 @@ public class Agent {
         Thread tListen = new Thread(listener,     "listener");
         Thread tGuard  = new Thread(guard,        "schema-guard");
         Thread tImage  = new Thread(imageWatcher, "image-watcher");
+        Thread tPrune  = new Thread(pruner,       "outbox-pruner");
+        tPrune.setDaemon(true);
         tDrain.start();
         tListen.start();
         tGuard.start();
         tImage.start();
+        tPrune.start();
         health.start();
 
         stop.await();

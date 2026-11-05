@@ -675,8 +675,12 @@ public class ImageWatcher implements Runnable {
         // also cuts upload time and box storage by the same factor. The ORIGINAL
         // path and size are what we record, so dedupe/retention are unaffected.
         Path gzTmp = null;
+        // From 05-11-2026 the desktop app writes the dump compressed itself (pg_dump
+        // custom format). Gzipping that again gains nothing, and would hand the shop
+        // a .backup.gz to unpack before pgAdmin could restore it.
+        boolean compressedByPgDump = isCompressedDump(file);
         if (cfg.backupGzip && attrs.size() >= cfg.backupGzipMinBytes
-                && !isAlreadyCompressed(fileName)) {
+                && !isAlreadyCompressed(fileName) && !compressedByPgDump) {
             gzTmp = Files.createTempFile("pawnsync-backup-", ".gz");
             gzTmp.toFile().deleteOnExit();   // safety net if we die mid-upload
             long t0 = System.currentTimeMillis();
@@ -690,8 +694,11 @@ public class ImageWatcher implements Runnable {
         // size, and "was it compressed?" is the first thing worth knowing when a
         // few hundred megabytes will not go up.
         Agent.STATE.get().recordBackupSize(fileName, attrs.size(),
-                gzTmp != null ? Files.size(gzTmp) : attrs.size(), gzTmp != null);
-        if (gzTmp == null && attrs.size() >= cfg.backupGzipMinBytes) {
+                gzTmp != null ? Files.size(gzTmp) : attrs.size(), gzTmp != null, compressedByPgDump);
+        if (compressedByPgDump) {
+            log.info("{} is a compressed pg_dump archive ({} MB) - sent as it is",
+                     fileName, attrs.size() >> 20);
+        } else if (gzTmp == null && attrs.size() >= cfg.backupGzipMinBytes) {
             log.warn("sending {} UNCOMPRESSED at {} MB - backup.gzip is {} in "
                    + "sync.properties. A dump this size is commonly refused with a 502 "
                    + "by the proxy in front of the cloud; gzip takes it to a tenth.",
@@ -774,6 +781,22 @@ public class ImageWatcher implements Runnable {
                      new java.io.BufferedOutputStream(Files.newOutputStream(dst), 1 << 16), 1 << 16)) {
             in.transferTo(out);
         }
+    }
+
+    /**
+     * A pg_dump custom-format archive, which pg_dump compresses as it writes. Read
+     * from the file's first bytes, not its name: the desktop app keeps the name
+     * {@code ddMMyyyy.backup} for both formats, and a tar dump (older apps) starts
+     * with a file name, not with "PGDMP", so it is still gzipped as before.
+     */
+    static boolean isCompressedDump(Path file) {
+        byte[] head = new byte[5];
+        try (java.io.InputStream in = Files.newInputStream(file)) {
+            if (in.readNBytes(head, 0, 5) != 5) return false;
+        } catch (IOException e) {
+            return false;
+        }
+        return head[0] == 'P' && head[1] == 'G' && head[2] == 'D' && head[3] == 'M' && head[4] == 'P';
     }
 
     /** Re-compressing these burns CPU and usually makes the file slightly bigger. */

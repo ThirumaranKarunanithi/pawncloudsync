@@ -184,6 +184,11 @@ $dlq = 0; if (HasTable 'sync_outbox_dlq') { $dlq = [long](Scalar "SELECT count(*
 $marker = Scalar "SELECT COALESCE(obj_description('public.sync_outbox'::regclass, 'pg_class'), '')"
 
 Say ("  Sent to the cloud : {0:N0}   (last one {1})" -f $sent, $d[4])
+# Agent 1.3.1 clears sent events after a month, so the count above is the last
+# month's, not every one ever sent. Left to grow, they made the backup too big.
+if ($health -and ($health.PSObject.Properties.Name -contains 'outbox_cleared') -and $health.outbox_cleared) {
+    Say ("  Old sent cleared  : {0}" -f $health.outbox_cleared)
+}
 $c = "Green"; if ($waiting -gt 0) { $c = "Yellow" }
 Say ("  Waiting to send   : {0:N0}   -> {1} done, {2}" -f $waiting, (Pct $sent ($sent + $waiting)), (Eta $waiting $dataPerMin)) $c
 if ($waiting -gt 0) { Say ("  Sending at        : {0:N1} per minute (last 10 minutes)" -f $dataPerMin) }

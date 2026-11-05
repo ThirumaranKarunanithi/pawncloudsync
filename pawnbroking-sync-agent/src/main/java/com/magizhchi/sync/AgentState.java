@@ -103,11 +103,19 @@ public class AgentState {
     }
 
     /** What the last upload weighed, and whether gzip was applied on the way. */
-    public void recordBackupSize(String fileName, long rawBytes, long sentBytes, boolean gzipped) {
+    public void recordBackupSize(String fileName, long rawBytes, long sentBytes, boolean gzipped,
+                                 boolean compressedByPgDump) {
         lastBackupSize = fileName + ": " + (rawBytes >> 20) + " MB"
                        + (gzipped ? " -> " + (sentBytes >> 20) + " MB gzipped"
-                                  : " sent UNCOMPRESSED");
+                          : compressedByPgDump ? " (pg_dump compressed it)"
+                                               : " sent UNCOMPRESSED");
     }
+
+    /**
+     * The last clearing of sent events from sync_outbox, in words - when, and how many.
+     * See OutboxPruner. Null until the first pass, which is a few minutes after start.
+     */
+    public volatile String outboxCleared;
 
     // ── Photos ───────────────────────────────────────────────────────────────
     //

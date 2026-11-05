@@ -25,6 +25,8 @@ public final class Config {
     public final boolean backupGzip;
     /** Only gzip files at least this large — tiny files aren't worth the CPU. */
     public final long backupGzipMinBytes;
+    /** Sent events older than this many days are cleared from sync_outbox (0 = never). */
+    public final int outboxKeepSentDays;
 
     private Config(Properties p, List<String> lines) {
         this.dbUrl                 = require(p, "db.url");
@@ -56,11 +58,15 @@ public final class Config {
         String raw = rawValue(lines, "image.root");
         this.imageRootWrittenPlain = raw != null && hasLoneBackslash(raw);
         this.backupRetentionDays = Integer.parseInt(p.getProperty("backup.retention.days", "30"));
-        // Backups are pg_dump tar-format (uncompressed) and run 500MB+. Proxying
-        // that through the cloud fails with 502; gzip brings it to ~10-20% and
-        // cuts box storage by the same factor. Set backup.gzip=false to disable.
+        // Older desktop apps write pg_dump tar format (uncompressed), 500MB+.
+        // Proxying that through the cloud fails with 502; gzip brings it to
+        // ~10-20% and cuts box storage by the same factor. Set backup.gzip=false
+        // to disable. A dump the app already wrote compressed (pg_dump custom
+        // format, from 05-11-2026) is sent as it is - see ImageWatcher.
         this.backupGzip          = Boolean.parseBoolean(p.getProperty("backup.gzip", "true"));
         this.backupGzipMinBytes  = Long.parseLong(p.getProperty("backup.gzip.min.bytes", "5242880")); // 5 MB
+        // See OutboxPruner: events the cloud already has, kept a month, then cleared.
+        this.outboxKeepSentDays  = Integer.parseInt(p.getProperty("outbox.keep.sent.days", "30").trim());
     }
 
     private static String require(Properties p, String k) {
