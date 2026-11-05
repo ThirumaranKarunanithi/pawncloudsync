@@ -55,7 +55,7 @@ public class BackupFileController {
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Map<String,Object> upload(
+    public ResponseEntity<Map<String,Object>> upload(
             @RequestParam("file")          MultipartFile file,
             @RequestParam("companyId")     String companyId,
             @RequestParam(value="relativePath", required=false) String relativePath,
@@ -77,7 +77,15 @@ public class BackupFileController {
             // The box refuses the whole file when it would cross the account's
             // limit, so ask before pushing 21 MB up a shop's broadband only to
             // be told no at the end of it.
-            makeRoomFor(tt, companyId, file.getSize());
+            MagizhchiBoxClient.Usage u = makeRoomFor(tt, companyId, file.getSize());
+            // A plan that has ended with more stored than the free plan allows
+            // refuses everything; sending the file on to the box only to be told
+            // so would cost the upload and say nothing new.
+            String paused = BoxPlanWords.pausedWhy(u);
+            if (paused != null) {
+                log.warn("backup for {} {} not sent to the box: {}", shopId, fileName, paused);
+                return BoxPlanWords.refusal(paused);
+            }
             // Stream from Tomcat's on-disk temp file straight to the box —
             // never load the (100MB+) backup into the cloud's heap.
             long fileId;
@@ -97,35 +105,34 @@ public class BackupFileController {
                     companyId, rel, fileName, fileId, file.getSize());
                 return null;
             });
-            return Map.of("ok", true, "fileId", fileId, "size", file.getSize());
+            return ResponseEntity.ok(Map.of("ok", true, "fileId", fileId, "size", file.getSize()));
         } catch (Exception e) {
             String key = companyId + "/" + (rel.isEmpty() ? "" : rel + "/") + fileName;
             log.error("backup upload failed ({} {}): {}", shopId, key, e.toString());
             // A full box is not a bad gateway, and calling it one is what hid
             // this for a year: the agent logged a line nobody read, the phone
             // told the shop to go and look at a backup job that was working
-            // perfectly, and the shop believed it. Say which it is.
-            if (looksFull(e)) {
-                throw new ResponseStatusException(HttpStatus.INSUFFICIENT_STORAGE,
-                        "the cloud box for this shop is full — " + whatFillsIt(companyId));
+            // perfectly, and the shop believed it. Say which it is - and since
+            // 06-11-2026, say when the reason is a plan that has ended, because
+            // the answer to that is renewing it, not buying more space.
+            if (BoxPlanWords.looksFull(e)) {
+                String paused = BoxPlanWords.pausedWhy(usageOrNull(tt));
+                return BoxPlanWords.refusal(paused != null ? paused
+                        : "the cloud box for this shop is full — " + whatFillsIt(companyId));
             }
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "box upload failed: " + e.getMessage());
         }
     }
 
-    /** The box's own words when an upload would cross the account's limit. */
-    private static boolean looksFull(Throwable e) {
-        for (Throwable t = e; t != null; t = t.getCause()) {
-            String m = t.getMessage();
-            if (m == null) continue;
-            String s = m.toLowerCase();
-            if (s.contains("storage limit") || s.contains("payload_too_large")
-                    || s.contains(" 413") || s.contains("413:")) {
-                return true;
-            }
+    /** The box's reading, or null when it cannot be had; never fails the caller. */
+    private MagizhchiBoxClient.Usage usageOrNull(TenantToken tt) {
+        try {
+            return box.usage(tt.apiKey);
+        } catch (Exception e) {
+            log.warn("could not read box usage: {}", e.toString());
+            return null;
         }
-        return false;
     }
 
     /**
@@ -250,19 +257,27 @@ public class BackupFileController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "no tenant in context");
 
         long used = -1, limit = -1;
+        MagizhchiBoxClient.Usage u = null;
         try {
-            MagizhchiBoxClient.Usage u = box.usage(loadTenantToken(shopId).apiKey);
-            used = u.usedBytes(); limit = u.limitBytes();
+            u = box.usage(loadTenantToken(shopId).apiKey);
         } catch (Exception e) {
             // Fall back to what the nightly watch last saw, rather than claiming
             // health we cannot actually confirm.
             try {
                 Map<String,Object> row = publicJdbc.queryForMap(
-                    "SELECT used_bytes, limit_bytes FROM public.box_quota WHERE shop_id = ?", shopId);
-                used  = ((Number) row.get("used_bytes")).longValue();
-                limit = ((Number) row.get("limit_bytes")).longValue();
+                    "SELECT used_bytes, limit_bytes, plan_code, plan_label, plan_state, " +
+                    "       plan_expires_at, grace_ends_at, pending_payment " +
+                    "  FROM public.box_quota WHERE shop_id = ?", shopId);
+                u = new MagizhchiBoxClient.Usage(
+                        ((Number) row.get("used_bytes")).longValue(),
+                        ((Number) row.get("limit_bytes")).longValue(),
+                        (String) row.get("plan_code"), (String) row.get("plan_label"),
+                        (String) row.get("plan_state"),
+                        instantOf(row.get("plan_expires_at")), instantOf(row.get("grace_ends_at")),
+                        (String) row.get("pending_payment"));
             } catch (Exception ignored) { /* no reading at all */ }
         }
+        if (u != null) { used = u.usedBytes(); limit = u.limitBytes(); }
 
         int pct = (limit > 0 && used >= 0) ? (int) Math.round(100.0 * used / limit) : -1;
 
@@ -349,13 +364,22 @@ public class BackupFileController {
         String backupFolder = (String) t.get("backup_folder");
 
         String reason, advice;
+        // What the box says about its plan. From 06-11-2026 a paid plan ends by
+        // itself; once it has, a box holding more than the free 5 GB refuses
+        // everything - and "storage is full (1915% used), raise the plan" would
+        // be the wrong answer to a plan that only needs renewing.
+        String planNote = BoxPlanWords.note(u, java.time.Instant.now());
+        boolean paused = u != null && u.uploadsPaused();
+        if (paused) {
+            reason = "PLAN_ENDED_UPLOADS_PAUSED";
+            advice = "The shop PC is fine. " + planNote;
         // Blaming storage needs the storage figure to actually SAY so. An
         // earlier cut of this blamed a full box whenever reports were arriving
         // and dumps were not, which on a box at 2% would have announced "your
         // cloud storage is full (2% used)" and sent somebody off to buy space
         // they already had. Lopsided is the symptom; only the percentage is
         // evidence of the cause.
-        if (full || (lopsided && pct >= 90)) {
+        } else if (full || (lopsided && pct >= 90)) {
             reason = "CLOUD_FULL";
             advice = "The shop PC is fine — its cloud storage is full"
                    + (pct >= 0 ? " (" + pct + "% used)" : "")
@@ -422,6 +446,19 @@ public class BackupFileController {
             advice = "Backups are arriving.";
         }
 
+        // A plan that is ending, in grace, or ended within the free space is not
+        // stopping anything yet. Whatever else is wrong stays the headline, with
+        // the plan said after it; on a box that is otherwise fine the plan IS the
+        // news, under a reason of its own so the phone shows it (it hides OK).
+        if (!paused && planNote != null) {
+            if ("OK".equals(reason) || "FILLING".equals(reason)) {
+                reason = u.planEnded() ? "PLAN_ENDED" : u.inGrace() ? "PLAN_GRACE" : "PLAN_ENDING";
+                advice = advice + " " + planNote;
+            } else {
+                advice = advice + " " + planNote;
+            }
+        }
+
         java.util.Map<String,Object> out = new java.util.HashMap<>();
         out.put("reason", reason);
         out.put("advice", advice);
@@ -432,7 +469,19 @@ public class BackupFileController {
         out.put("lastClosedDay", lastClosedDay);
         out.put("lastAnyFileAt", lastAny == null ? null : lastAny.toString());
         out.put("daysSinceBackup", dumpAgeDays);
+        out.put("planCode", u == null ? null : u.planCode());
+        out.put("planLabel", u == null ? null : u.planLabel());
+        out.put("planState", u == null ? null : u.planState());
+        out.put("planExpiresAt", u == null || u.planExpiresAt() == null ? null : u.planExpiresAt().toString());
+        out.put("graceEndsAt", u == null || u.graceEndsAt() == null ? null : u.graceEndsAt().toString());
+        out.put("renewalBeingChecked", u != null && u.renewalBeingChecked());
         return out;
+    }
+
+    private static java.time.Instant instantOf(Object o) {
+        if (o instanceof java.sql.Timestamp t) return t.toInstant();
+        if (o instanceof java.time.OffsetDateTime d) return d.toInstant();
+        return null;
     }
 
     private static long ageDays(Object ts) {
@@ -480,23 +529,52 @@ public class BackupFileController {
      * another backup again, and the second is much worse - that is precisely the
      * state these shops have been in. The floor still holds, so the newest few of
      * every kind survive, and photos are never touched.
+     *
+     * <p><b>Only when it works.</b> Nothing is deleted unless deleting everything
+     * allowed would actually make the file fit, and never on a plan that has
+     * ended. From 06-11-2026 a lapsed plan drops the box to the free 5 GB; a
+     * shop holding 95 GB of photos then cannot be helped by deleting backups,
+     * and without this check every refused upload would have wiped three weeks
+     * of them for nothing.
+     *
+     * @return the box's reading, or null when it could not be had
      */
-    private void makeRoomFor(TenantToken tt, String companyId, long needBytes) {
-        if (needBytes <= 0) return;
+    private MagizhchiBoxClient.Usage makeRoomFor(TenantToken tt, String companyId, long needBytes) {
+        MagizhchiBoxClient.Usage u;
         try {
-            MagizhchiBoxClient.Usage u = box.usage(tt.apiKey);
-            if (u.limitBytes() <= 0 || u.fits(needBytes)) return;
-            long short0 = needBytes - u.freeBytes();
-            log.info("box for {} is {} short of room for a {} file — retiring oldest backups",
-                     companyId, mb(short0), mb(needBytes));
-            // Ignore the age rule, keep the floor, oldest first, stop once it fits.
-            long freed = drop(tt, companyId, prunable(companyId, 0), short0);
-            log.info("freed {} of the {} needed for {}", mb(freed), mb(short0), companyId);
+            u = box.usage(tt.apiKey);
         } catch (Exception e) {
             // Not fatal: the upload is still worth attempting, and if the box
             // does refuse it the catch above now says so in plain words.
-            log.warn("could not check or make room on the box for {}: {}", companyId, e.toString());
+            log.warn("could not check the box for {}: {}", companyId, e.toString());
+            return null;
         }
+        if (needBytes <= 0 || u.limitBytes() <= 0 || u.fits(needBytes)) return u;
+        if (u.planEnded()) {
+            log.warn("box for {} is short of room because its plan ended ({} of {}): "
+                   + "no backup deleted - the plan needs renewing", companyId,
+                     mb(u.usedBytes()), mb(u.limitBytes()));
+            return u;
+        }
+        try {
+            long short0 = needBytes - u.freeBytes();
+            // Ignore the age rule, keep the floor, oldest first, stop once it fits.
+            List<Held> candidates = prunable(companyId, 0);
+            long could = candidates.stream().mapToLong(Held::size).sum();
+            if (could < short0) {
+                log.warn("box for {} is {} short of room for a {} file, and every backup that "
+                       + "may go would free only {} - none deleted", companyId, mb(short0),
+                         mb(needBytes), mb(could));
+                return u;
+            }
+            log.info("box for {} is {} short of room for a {} file — retiring oldest backups",
+                     companyId, mb(short0), mb(needBytes));
+            long freed = drop(tt, companyId, candidates, short0);
+            log.info("freed {} of the {} needed for {}", mb(freed), mb(short0), companyId);
+        } catch (Exception e) {
+            log.warn("could not make room on the box for {}: {}", companyId, e.toString());
+        }
+        return u;
     }
 
     /**

@@ -120,7 +120,12 @@
     <section class="card">
       <h2>Shops</h2>
       <p class="sub">Space is what each shop actually holds: its rows in the cloud database, and the photos and
-        backups in Magizhchi Share. The cost column splits the monthly bill by that share.</p>
+        backups in Magizhchi Share. The cost column splits the monthly bill by that share.
+        Box plan is the shop's Magizhchi Box account as the box last reported it (every morning at 07:00):
+        a plan that ends drops to the free 5 GB a week later, and a shop holding more than that can upload nothing.</p>
+      <div class="row" style="margin:0 0 10px">
+        <div style="flex:0 0 auto"><button class="ghost small" onclick="checkBoxes()" id="boxBtn">Check Box now</button></div>
+      </div>
       <div style="overflow-x:auto">
         <table>
           <thead><tr>
@@ -128,6 +133,7 @@
             <th class="num">Bills</th><th class="num hide">Customers</th>
             <th class="num hide">Photos</th><th class="num hide">Backups</th>
             <th class="num">Database</th><th class="num">Share</th><th class="num">Total</th>
+            <th>Box plan</th>
             <th class="num">Cost</th><th>Sign-ins</th><th></th>
           </tr></thead>
           <tbody id="shopRows"></tbody>
@@ -391,6 +397,60 @@ function sendingPill(s) {
   if (h <= 24 * 7) return `<span class="pill warn">${Math.round(h / 24)} d ago</span>`;
   return `<span class="pill bad">${Math.round(h / 24)} d ago</span>`;
 }
+function day(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return String(d.getDate()).padStart(2, '0') + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + d.getFullYear();
+}
+// The shop's Magizhchi Box account: how full against its limit, and where its
+// plan stands. From 06-11-2026 a paid plan ends by itself, a week of grace
+// keeps the space, then the limit drops to the free 5 GB.
+function boxPlanCell(s) {
+  if (!s.box_checked_at) return '<span class="muted">not read yet</span>';
+  const used = Number(s.box_used_bytes || 0), limit = Number(s.box_limit_bytes || 0);
+  const pct = limit > 0 ? Math.round(100 * used / limit) : 0;
+  const fill = `<div class="muted">${bytes(used)} of ${bytes(limit)}${limit > 0 ? ' (' + pct + '%)' : ''}</div>`;
+  const label = esc(s.plan_label || '');
+  const ends = day(s.plan_expires_at);
+  const daysLeft = s.plan_expires_at ? Math.ceil((new Date(s.plan_expires_at) - Date.now()) / 86400000) : null;
+  const renewing = s.pending_payment === 'PENDING_VERIFICATION'
+      ? ' <span class="pill warn" title="A renewal has been paid for and is waiting on the Payments page in Magizhchi Box">paid, to approve</span>' : '';
+  let pill;
+  switch (s.plan_state) {
+    case 'EXPIRED':
+      pill = used >= limit && limit > 0
+        ? '<span class="pill bad" title="The plan ended and the space went back to the free plan; this shop holds more than that, so every upload is refused">ended - uploads stopped</span>'
+        : '<span class="pill bad">ended - free plan</span>';
+      break;
+    case 'GRACE':
+      pill = `<span class="pill bad" title="The plan ended; its space is kept until this date, then it drops to the free 5 GB">ended - space until ${day(s.grace_ends_at)}</span>`;
+      break;
+    case 'ACTIVE':
+      pill = daysLeft !== null && daysLeft <= 30
+        ? `<span class="pill warn">${label} to ${ends}</span>`
+        : `<span class="pill ok">${label}${ends ? ' to ' + ends : ''}</span>`;
+      break;
+    case 'FREE':
+      pill = `<span class="pill${pct >= 80 ? ' warn' : ''}">Free</span>`;
+      break;
+    default:
+      pill = label ? `<span class="pill">${label}</span>` : '<span class="muted">plan not reported</span>';
+  }
+  const err = s.box_error ? ' <span class="pill bad" title="' + esc(s.box_error) + '">not readable</span>' : '';
+  return pill + renewing + err + fill;
+}
+async function checkBoxes() {
+  const b = document.getElementById('boxBtn');
+  b.disabled = true; b.textContent = 'Asking every box…';
+  try {
+    const rows = await api('/v1/admin/box/check', { method: 'POST' });
+    const bad = rows.filter(r => r.error).length;
+    show(msgEl(), `Asked ${rows.length} shop box(es)` + (bad ? `, ${bad} could not be read` : '') + '.', bad ? 'err' : 'ok');
+    await refresh();
+  } catch (e) { show(msgEl(), e.message, 'err'); }
+  finally { b.disabled = false; b.textContent = 'Check Box now'; }
+}
 function drawShops(shops) {
   document.getElementById('shopRows').innerHTML = shops.map(s => {
     const total = Number(s.db_bytes || 0) + Number(s.box_bytes || 0);
@@ -417,6 +477,7 @@ function drawShops(shops) {
       <td class="num">${bytes(s.db_bytes)}</td>
       <td class="num">${bytes(s.box_bytes)}</td>
       <td class="num">${bytes(total)}</td>
+      <td>${boxPlanCell(s)}</td>
       <td class="num">${money(s.cost_amount)}<div class="muted">${Number(s.cost_percent).toFixed(1)}%</div>
           <div class="bar"><i style="width:${Math.min(100, Number(s.cost_percent))}%"></i></div></td>
       <td><div class="emails">${emails || '<span class="pill bad">nobody</span>'}</div>

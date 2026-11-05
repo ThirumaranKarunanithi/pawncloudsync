@@ -46,7 +46,7 @@ public class BillImageController {
 
     /** Sync-agent uploads an image. Body: file + companyId + materialType + billNumber + imageName. */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Map<String,Object> upload(
+    public ResponseEntity<Map<String,Object>> upload(
             @RequestParam("file")          MultipartFile file,
             @RequestParam("companyId")     String companyId,
             @RequestParam("materialType")  String materialType,
@@ -73,10 +73,26 @@ public class BillImageController {
                     companyId, materialType, billNumber, imageName, fileId, file.getSize());
                 return null;
             });
-            return Map.of("ok", true, "fileId", fileId, "size", file.getSize());
+            return ResponseEntity.ok(Map.of("ok", true, "fileId", fileId, "size", file.getSize()));
         } catch (Exception e) {
             log.error("bill image upload failed ({} {}/{}/{}): {}",
                       shopId, companyId, materialType + "/" + billNumber, imageName, e.toString());
+            // A box that refuses for want of room is not a bad gateway. As a 502
+            // the agent took it for a passing fault and sent the same photo three
+            // more times, every pass; as a 507 it stops the pass at once and shows
+            // the words below in its progress window.
+            if (BoxPlanWords.looksFull(e)) {
+                MagizhchiBoxClient.Usage u = null;
+                try { u = box.usage(tt.apiKey); } catch (Exception ue) {
+                    log.warn("could not read box usage for {}: {}", shopId, ue.toString());
+                }
+                String paused = BoxPlanWords.pausedWhy(u);
+                return BoxPlanWords.refusal(paused != null ? paused
+                        : "the cloud box for this shop is full"
+                          + (u == null ? "" : " (" + BoxPlanWords.gb(u.usedBytes()) + " of "
+                                              + BoxPlanWords.gb(u.limitBytes()) + ")")
+                          + " - bill photos are kept for good, so more of them need a bigger box plan.");
+            }
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "box upload failed: " + e.getMessage());
         }

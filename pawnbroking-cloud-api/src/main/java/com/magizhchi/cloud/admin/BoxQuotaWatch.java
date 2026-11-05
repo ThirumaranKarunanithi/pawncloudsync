@@ -1,5 +1,6 @@
 package com.magizhchi.cloud.admin;
 
+import com.magizhchi.cloud.share.BoxPlanWords;
 import com.magizhchi.cloud.share.MagizhchiBoxClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,6 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +77,7 @@ public class BoxQuotaWatch {
 
         List<Map<String, Object>> out = new ArrayList<>();
         int warned = 0;
+        Instant now = Instant.now();
         for (Map<String, Object> s : shops) {
             String shopId = String.valueOf(s.get("shop_id"));
             try {
@@ -83,9 +86,23 @@ public class BoxQuotaWatch {
                         : (int) Math.round(100.0 * u.usedBytes() / u.limitBytes());
                 int band = bandOf(pct);
                 int prev = record(shopId, u.usedBytes(), u.limitBytes(), null);
+                String warnedPlan = recordPlan(shopId, u);
+
+                // The plan first. Once it has ended, "1915% full" is a symptom of
+                // that and the band mail would send people to buy space when the
+                // plan only needs renewing - so it says the plan instead.
+                String kind = planKind(u, now);
+                String key = kind == null ? null : kind + "|" + u.planExpiresAt();
+                if (key != null && !key.equals(warnedPlan)) {
+                    if (tellPlan(s, admins, kind, u, now)) {
+                        warned++;
+                        jdbc.update("UPDATE public.box_quota SET plan_warned=? WHERE shop_id=?", key, shopId);
+                    }
+                }
+                boolean planSaysIt = u.planEnded();
 
                 if (band > prev) {
-                    if (tell(s, admins, pct, u)) warned++;
+                    if (!planSaysIt && tell(s, admins, pct, u)) warned++;
                     jdbc.update("UPDATE public.box_quota SET warned_band=?, warned_at=now() " +
                                 " WHERE shop_id=?", band, shopId);
                 } else if (band < prev) {
@@ -94,8 +111,16 @@ public class BoxQuotaWatch {
                     jdbc.update("UPDATE public.box_quota SET warned_band=? WHERE shop_id=?",
                                 band, shopId);
                 }
-                out.add(Map.of("shop_id", shopId, "used_bytes", u.usedBytes(),
-                               "limit_bytes", u.limitBytes(), "pct", pct, "band", band));
+                Map<String, Object> row = new java.util.LinkedHashMap<>();
+                row.put("shop_id", shopId);
+                row.put("used_bytes", u.usedBytes());
+                row.put("limit_bytes", u.limitBytes());
+                row.put("pct", pct);
+                row.put("band", band);
+                row.put("plan_label", u.planLabel());
+                row.put("plan_state", u.planState());
+                row.put("plan_expires_at", u.planExpiresAt() == null ? null : u.planExpiresAt().toString());
+                out.add(row);
             } catch (Exception e) {
                 // A box we cannot read must not look like a shop that is empty.
                 log.warn("could not read box usage for {}: {}", shopId, e.toString());
@@ -128,6 +153,84 @@ public class BoxQuotaWatch {
             "  checked_at  = now(), last_error = EXCLUDED.last_error " +
             "RETURNING warned_band", Integer.class, shopId, used, limit, error);
         return prev == null ? 0 : prev;
+    }
+
+    /**
+     * Keeps the box's word on the plan beside the numbers, for the console and
+     * for the phone when the box cannot be asked. Returns the plan warning
+     * already sent for this shop.
+     */
+    private String recordPlan(String shopId, MagizhchiBoxClient.Usage u) {
+        jdbc.update("UPDATE public.box_quota SET plan_code=?, plan_label=?, plan_state=?, " +
+                    "       plan_expires_at=?::timestamptz, grace_ends_at=?::timestamptz, pending_payment=? " +
+                    " WHERE shop_id=?",
+                    u.planCode(), u.planLabel(), u.planState(),
+                    u.planExpiresAt() == null ? null : java.sql.Timestamp.from(u.planExpiresAt()),
+                    u.graceEndsAt() == null ? null : java.sql.Timestamp.from(u.graceEndsAt()),
+                    u.pendingStatus(), shopId);
+        List<String> w = jdbc.queryForList(
+                "SELECT plan_warned FROM public.box_quota WHERE shop_id=?", String.class, shopId);
+        return w.isEmpty() ? null : w.get(0);
+    }
+
+    /** ENDING (within 7 days), GRACE, ENDED, or null when the plan needs nobody. */
+    static String planKind(MagizhchiBoxClient.Usage u, Instant now) {
+        if (u.planEnded()) return "ENDED";
+        if (u.inGrace()) return "GRACE";
+        if (u.endsWithin(now, 7)) return "ENDING";
+        return null;
+    }
+
+    /**
+     * Tells Magizhchi's admins that a shop's box plan is ending or has ended.
+     *
+     * <p>The box already mails the account's own address - the shop's sign-in -
+     * from 7 days out. That is not where this is decided: the shops' plans are
+     * looked after by Magizhchi, and until now nobody there would have heard a
+     * thing until the shop rang to say its photos had stopped. Karumbalai's plan
+     * had lapsed on 01-09-2026 and would have dropped to 5 GB holding 95 GB.
+     */
+    private boolean tellPlan(Map<String, Object> shop, List<String> admins, String kind,
+                             MagizhchiBoxClient.Usage u, Instant now) {
+        if (admins.isEmpty()) {
+            log.warn("box plan for {} is {} but there is no admin to tell", shop.get("shop_id"), kind);
+            return false;
+        }
+        String name = String.valueOf(shop.getOrDefault("display_name", shop.get("shop_id")));
+        boolean paused = u.uploadsPaused();
+        String subject = switch (kind) {
+            case "ENDING" -> name + ": box plan ends on " + BoxPlanWords.day(u.planExpiresAt());
+            case "GRACE"  -> name + ": box plan has ended, space kept until " + BoxPlanWords.day(u.graceEndsAt());
+            default -> paused ? "URGENT: " + name + ": uploads have stopped, the box plan has ended"
+                              : name + ": box plan has ended, back to the free " + BoxPlanWords.gb(u.limitBytes());
+        };
+        String html =
+            "<div style=\"font-family:Segoe UI,Arial,sans-serif;font-size:15px;color:#2b2b2b\">"
+          + "<h2 style=\"color:#6B1020;margin:0 0 12px\">" + esc(subject) + "</h2>"
+          + (paused
+             ? "<p style=\"background:#FDECEC;border-left:4px solid #CC0000;padding:10px 12px\">"
+             + "<b>No photo, report or database backup from this shop is reaching the cloud.</b> "
+             + "Nothing stored is lost; it all opens and downloads as before.</p>"
+             : "")
+          + "<p>" + esc(BoxPlanWords.note(u, now)) + "</p>"
+          + (u.planEnded()
+             ? "<p><b>Now:</b> the free plan &nbsp; <b>Using:</b> " + BoxPlanWords.gb(u.usedBytes())
+             + " of " + BoxPlanWords.gb(u.limitBytes()) + "</p>"
+             : "<p><b>Plan:</b> " + esc(u.planLabel() == null ? "unknown" : u.planLabel())
+             + " &nbsp; <b>Ends:</b> " + BoxPlanWords.day(u.planExpiresAt())
+             + (u.inGrace() ? " &nbsp; <b>Space kept until:</b> " + BoxPlanWords.day(u.graceEndsAt()) : "")
+             + " &nbsp; <b>Using:</b> " + BoxPlanWords.gb(u.usedBytes()) + " of " + BoxPlanWords.gb(u.limitBytes())
+             + "</p>")
+          + "<p><b>What to do</b></p><ul>"
+          + "<li>Renew this shop's box plan: approve a payment for its account on Magizhchi Box's "
+          + "Payments page, or move its plan date on as was done for the other shops.</li>"
+          + "<li>The box has also mailed the shop's own sign-in address about this.</li>"
+          + "</ul>"
+          + "<p style=\"color:#666;font-size:13px\">Sent once when a plan is 7 days from its end, "
+          + "once when it ends, and once when its space goes back to the free plan.</p></div>";
+        boolean sent = mailer.send(admins, subject, html);
+        if (sent) log.info("told {} admin(s) that {}'s box plan is {}", admins.size(), name, kind);
+        return sent;
     }
 
     /** The warning itself. Plain, specific, and it names what will stop. */

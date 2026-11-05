@@ -230,10 +230,76 @@ public class MagizhchiBoxClient {
             throw new RuntimeException("box deleteFile " + r.statusCode() + ": " + r.body());
     }
 
-    /** What an account has used and what it is allowed, in bytes. */
-    public record Usage(long usedBytes, long limitBytes) {
+    /**
+     * What an account has used and what it is allowed, in bytes, and where its
+     * plan stands.
+     *
+     * <p>From 06-11-2026 a paid box plan ends by itself: GRACE for a week (space
+     * kept), then EXPIRED, when the limit goes back to the free plan's 5 GB and
+     * every upload is refused while the account holds more than that. The plan
+     * fields are null on a box older than that change, and then nothing here
+     * behaves any differently from before.
+     *
+     * @param planState     FREE, ACTIVE, GRACE or EXPIRED (null = not reported)
+     * @param pendingStatus PENDING_PAYMENT or PENDING_VERIFICATION while a renewal
+     *                      is under way, else null
+     */
+    public record Usage(long usedBytes, long limitBytes,
+                        String planCode, String planLabel, String planState,
+                        java.time.Instant planExpiresAt, java.time.Instant graceEndsAt,
+                        String pendingStatus) {
+        public Usage(long usedBytes, long limitBytes) {
+            this(usedBytes, limitBytes, null, null, null, null, null, null);
+        }
         public long freeBytes() { return Math.max(0L, limitBytes - usedBytes); }
         public boolean fits(long size) { return usedBytes + size <= limitBytes; }
+
+        /** The paid plan lapsed and its grace is over: the space is the free plan's again. */
+        public boolean planEnded() { return "EXPIRED".equals(planState); }
+        /** The paid plan lapsed; its space is kept until {@link #graceEndsAt}. */
+        public boolean inGrace() { return "GRACE".equals(planState); }
+        /** Ended, and holding more than the free plan allows: the box refuses every upload. */
+        public boolean uploadsPaused() { return planEnded() && limitBytes > 0 && usedBytes >= limitBytes; }
+        /** A running paid plan that ends within {@code days} of {@code now}. */
+        public boolean endsWithin(java.time.Instant now, int days) {
+            return "ACTIVE".equals(planState) && planExpiresAt != null
+                && planExpiresAt.isAfter(now)
+                && !planExpiresAt.isAfter(now.plus(java.time.Duration.ofDays(days)));
+        }
+        /** A renewal has been paid for and is waiting for Magizhchi to approve it. */
+        public boolean renewalBeingChecked() { return "PENDING_VERIFICATION".equals(pendingStatus); }
+    }
+
+    /** An instant as the box writes it: ISO text, or epoch seconds or millis if Jackson was set that way. */
+    static java.time.Instant instant(JsonNode n) {
+        if (n == null || n.isNull() || n.isMissingNode()) return null;
+        try {
+            if (n.isNumber()) {
+                double v = n.asDouble();
+                return v > 1e11 ? java.time.Instant.ofEpochMilli((long) v)
+                                : java.time.Instant.ofEpochMilli(Math.round(v * 1000));
+            }
+            String s = n.asText("").trim();
+            if (s.isEmpty()) return null;
+            return java.time.OffsetDateTime.parse(s).toInstant();
+        } catch (Exception e) {
+            try { return java.time.Instant.parse(n.asText()); } catch (Exception ignored) { return null; }
+        }
+    }
+
+    private static String text(JsonNode n, String field) {
+        JsonNode v = n.path(field);
+        return v.isMissingNode() || v.isNull() ? null : v.asText(null);
+    }
+
+    /** Reads a {@code /api/storage/usage} answer. Package-visible for the test. */
+    static Usage parseUsage(String json) throws Exception {
+        JsonNode n = M.readTree(json);
+        JsonNode pending = n.path("pendingPayment");
+        return new Usage(n.path("usedBytes").asLong(0L), n.path("limitBytes").asLong(0L),
+                text(n, "planCode"), text(n, "planLabel"), text(n, "planState"),
+                instant(n.get("planExpiresAt")), instant(n.get("graceEndsAt")),
+                pending.isObject() ? text(pending, "status") : null);
     }
 
     /**
@@ -249,8 +315,7 @@ public class MagizhchiBoxClient {
         HttpResponse<String> r = http.send(req, HttpResponse.BodyHandlers.ofString());
         if (r.statusCode() / 100 != 2)
             throw new RuntimeException("box usage " + r.statusCode() + ": " + r.body());
-        JsonNode n = M.readTree(r.body());
-        return new Usage(n.path("usedBytes").asLong(0L), n.path("limitBytes").asLong(0L));
+        return parseUsage(r.body());
     }
 
     private static String jsonEscape(String s) {

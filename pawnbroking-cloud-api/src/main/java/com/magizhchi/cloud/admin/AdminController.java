@@ -38,17 +38,19 @@ public class AdminController {
     private final AdminOtp otp;
     private final TenantBootstrap tenants;
     private final PruneService prune;
+    private final BoxQuotaWatch boxWatch;
     /** Same BCrypt the mobile app's password login uses, over the same table. */
     private final org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder pwd
             = new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
 
     public AdminController(JdbcTemplate jdbc, JwtService jwt, AdminOtp otp,
-                           TenantBootstrap tenants, PruneService prune) {
+                           TenantBootstrap tenants, PruneService prune, BoxQuotaWatch boxWatch) {
         this.jdbc = jdbc;
         this.jwt = jwt;
         this.otp = otp;
         this.tenants = tenants;
         this.prune = prune;
+        this.boxWatch = boxWatch;
     }
 
     // ── sign in ───────────────────────────────────────────────────────────────
@@ -531,6 +533,18 @@ public class AdminController {
         return prune.run(admin, dry);
     }
 
+    /**
+     * Asks every shop's box now, instead of waiting for 07:00: how full it is
+     * and where its plan stands. The same pass as the morning one, so a shop
+     * that has crossed a line is mailed about it here too, once.
+     */
+    @PostMapping("/box/check")
+    public List<Map<String, Object>> checkBoxes(@RequestHeader(value = "Authorization", required = false) String auth) {
+        String admin = requireAdmin(auth);
+        log.info("admin {} asked every shop's box now", admin);
+        return boxWatch.sweep();
+    }
+
     // ── the numbers behind a shop row ─────────────────────────────────────────
 
     private List<Map<String, Object>> shopRows() {
@@ -538,8 +552,14 @@ public class AdminController {
                 "SELECT t.shop_id, t.display_name, t.schema_name, t.active, t.created_at, " +
                 "       (t.magizhchi_token IS NOT NULL) AS photo_key, " +
                 "       (SELECT count(*) FROM public.shop_credentials sc " +
-                "         WHERE sc.shop_id = t.shop_id AND sc.revoked_at IS NULL) AS live_keys " +
-                "  FROM public.tenants t ORDER BY t.shop_id");
+                "         WHERE sc.shop_id = t.shop_id AND sc.revoked_at IS NULL) AS live_keys, " +
+                // The box's own word, as the 07:00 watch (or Check Box now) last
+                // read it: how full against its limit, and where its plan stands.
+                "       q.used_bytes AS box_used_bytes, q.limit_bytes AS box_limit_bytes, " +
+                "       q.checked_at AS box_checked_at, q.last_error AS box_error, " +
+                "       q.plan_label, q.plan_state, q.plan_expires_at, q.grace_ends_at, q.pending_payment " +
+                "  FROM public.tenants t LEFT JOIN public.box_quota q ON q.shop_id = t.shop_id " +
+                " ORDER BY t.shop_id");
 
         // One pass for every schema's size — cheaper than a query per shop.
         Map<String, Long> dbBytes = new HashMap<>();
@@ -561,6 +581,11 @@ public class AdminController {
             row.put("created_at", t.get("created_at"));
             row.put("photo_key", t.get("photo_key"));
             row.put("live_keys", t.get("live_keys"));
+            for (String k : new String[]{"box_used_bytes", "box_limit_bytes", "box_checked_at", "box_error",
+                                         "plan_label", "plan_state", "plan_expires_at", "grace_ends_at",
+                                         "pending_payment"}) {
+                row.put(k, t.get(k));
+            }
             row.put("emails", jdbc.queryForList(
                     "SELECT email, role FROM public.user_shop_access " +
                     "WHERE shop_id = ? AND revoked_at IS NULL ORDER BY email", shopId));

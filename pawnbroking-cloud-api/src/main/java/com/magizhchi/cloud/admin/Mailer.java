@@ -29,10 +29,10 @@ import java.util.List;
 @Component
 public class Mailer {
     private static final Logger log = LoggerFactory.getLogger(Mailer.class);
-    private static final String RESEND_URL = "https://api.resend.com/emails";
-
     private final String apiKey;
     private final String from;
+    /** Resend's endpoint; a setting only so a local test can catch the mail. */
+    private final String resendUrl;
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10)).build();
 
@@ -41,9 +41,12 @@ public class Mailer {
     // working rather than two. Spring's relaxed binding reads the Railway
     // environment variables RESEND_API_KEY and RESEND_FROM into these.
     public Mailer(@Value("${resend.api-key:}") String apiKey,
-                  @Value("${resend.from-address:}") String from) {
+                  @Value("${resend.from-address:}") String from,
+                  @Value("${resend.url:https://api.resend.com/emails}") String resendUrl) {
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.from   = from   == null ? "" : from.trim();
+        this.resendUrl = resendUrl == null || resendUrl.isBlank()
+                ? "https://api.resend.com/emails" : resendUrl.trim();
     }
 
     public boolean configured() { return !apiKey.isBlank() && !from.isBlank(); }
@@ -73,7 +76,7 @@ public class Mailer {
                     + "\"subject\":\"" + esc(subject) + "\","
                     + "\"html\":\"" + esc(html) + "\"}";
         try {
-            HttpRequest req = HttpRequest.newBuilder(URI.create(RESEND_URL))
+            HttpRequest req = HttpRequest.newBuilder(URI.create(resendUrl))
                     .header("Authorization", "Bearer " + apiKey)
                     .header("Content-Type", "application/json")
                     .timeout(Duration.ofSeconds(20))
