@@ -846,9 +846,13 @@ BEGIN
     CREATE INDEX IF NOT EXISTS idx_cash_drawer_opening_day
         ON cash_drawer_opening (company_id, opened_at);
 
-    -- Both go to the cloud like every other table the shops keep.
+    -- Both go to the cloud like every other table the shops keep. Not before
+    -- the agent has made sync_capture (a shop file run by hand in pgAdmin on a
+    -- PC the agent has never run on): the agent attaches every table's trigger
+    -- itself when it starts, so nothing is lost by waiting for it.
     FOREACH v_tab IN ARRAY ARRAY['company_cash_drawer_hardware', 'cash_drawer_opening'] LOOP
-        IF NOT EXISTS (SELECT 1 FROM pg_trigger
+        IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'sync_capture')
+           AND NOT EXISTS (SELECT 1 FROM pg_trigger
                         WHERE tgname = 'trg_sync_' || v_tab AND NOT tgisinternal) THEN
             EXECUTE format('CREATE TRIGGER trg_sync_%I AFTER INSERT OR UPDATE OR DELETE ON %I '
                         || 'FOR EACH ROW EXECUTE FUNCTION sync_capture()', v_tab, v_tab);
@@ -909,7 +913,9 @@ BEGIN
     CREATE INDEX IF NOT EXISTS idx_activity_bill
         ON activity_log (company_id, bill_number);
 
-    IF NOT EXISTS (SELECT 1 FROM pg_trigger
+    -- Not before the agent has made sync_capture: see the cash drawer step above.
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'sync_capture')
+       AND NOT EXISTS (SELECT 1 FROM pg_trigger
                     WHERE tgname = 'trg_sync_activity_log' AND NOT tgisinternal) THEN
         EXECUTE 'CREATE TRIGGER trg_sync_activity_log AFTER INSERT OR UPDATE OR DELETE ON activity_log '
              || 'FOR EACH ROW EXECUTE FUNCTION sync_capture()';

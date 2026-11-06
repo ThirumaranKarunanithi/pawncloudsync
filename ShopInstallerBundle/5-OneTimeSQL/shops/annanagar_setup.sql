@@ -179,6 +179,8 @@ BEGIN
     IF to_regclass('public.company_billing') IS NULL THEN
         RAISE EXCEPTION 'Wrong database: this is "%", not the shop database. db.url in sync.properties must end in /pawnbroking. Nothing was changed.', current_database();
     END IF;
+    -- For this run only: the steps below alter the guarded tables, and S5o lays the guard down again.
+    PERFORM set_config('magizhchi.guard_change', 'yes', false);
 END $$;
 
 
@@ -919,6 +921,714 @@ BEGIN
 END $$;
 
 
+-- S5k One bill number series across both metals, for the shops that want it.
+--
+--     A shop has always had two counters - gold on R8124 while silver is
+--     on RS1639. Some want one running number across the counter instead,
+--     so a day's bills read 8124, 8125, 8126 whatever the metal was. With
+--     this on, BOTH metals take their next number from the GOLD counter
+--     and both advance it.
+--
+--     Off by default, so every shop already running keeps the numbering
+--     it has. Nothing renumbers an existing bill.
+--
+--     The app will not let it be turned on while silver holds a number
+--     the gold series is going to reach, because the primary key of
+--     company_billing is (company_id, jewel_material_type, bill_number) -
+--     the metal is part of the key, so the database itself would accept
+--     the same number twice, once in each metal.
+DO $$
+BEGIN
+    IF to_regclass('public.company') IS NULL THEN
+        PERFORM set_config('mb.one_series', 'no company table - skipped', false);
+        RETURN;
+    END IF;
+
+    ALTER TABLE company ADD COLUMN IF NOT EXISTS shared_bill_number boolean NOT NULL DEFAULT false;
+
+    PERFORM set_config('mb.one_series',
+        (SELECT CASE WHEN count(*) FILTER (WHERE shared_bill_number) = 0
+                     THEN 'ok - every company numbers gold and silver apart'
+                     ELSE count(*) FILTER (WHERE shared_bill_number) || ' company/companies on one series'
+                END
+           FROM company), false);
+END $$;
+
+
+-- S5l The cash drawer that opens itself, and a note of every time it did.
+--
+--     The drawer is wired into the POS receipt printer and opens when the
+--     printer pulses it. Most printers can be set to pulse on every job,
+--     and that is how it has been working - which made the drawer's
+--     timing the RECEIPT's timing. Once receipts moved to printing after
+--     the bill was saved, the drawer began opening after the cash had
+--     already been needed.
+--
+--     So the app opens it itself, at the moment somebody reaches for the
+--     money. These two tables hold which printer it is wired to, how
+--     hard to pulse it, when it may open - and, so the day's count means
+--     something, every time it did open and who opened it.
+--
+--     Off until a shop sets it up. A shop with no drawer sees none of it.
+DO $$
+DECLARE
+    v_tab  TEXT;
+    v_made INT := 0;
+BEGIN
+    CREATE TABLE IF NOT EXISTS company_cash_drawer_hardware (
+        company_id    VARCHAR(100) NOT NULL PRIMARY KEY REFERENCES company(id),
+        drawer_on     BOOLEAN      NOT NULL DEFAULT false,
+        printer_name  VARCHAR(255),
+        drawer_pin    INTEGER      NOT NULL DEFAULT 1,     -- 1 = pin 2, 2 = pin 5
+        pulse_ms      INTEGER      NOT NULL DEFAULT 100,
+        moments       VARCHAR(255),                        -- DENOMINATION,DAY_COUNT,BUTTON
+        created_date  TIMESTAMP    NOT NULL DEFAULT now(),
+        user_id       VARCHAR(100)
+    );
+
+    CREATE TABLE IF NOT EXISTS cash_drawer_opening (
+        company_id    VARCHAR(100) NOT NULL REFERENCES company(id),
+        opened_at     TIMESTAMP    NOT NULL DEFAULT now(),
+        user_id       VARCHAR(100),
+        reason        VARCHAR(255)
+    );
+    CREATE INDEX IF NOT EXISTS idx_cash_drawer_opening_day
+        ON cash_drawer_opening (company_id, opened_at);
+
+    -- Both go to the cloud like every other table the shops keep. Not before
+    -- the agent has made sync_capture (a shop file run by hand in pgAdmin on a
+    -- PC the agent has never run on): the agent attaches every table's trigger
+    -- itself when it starts, so nothing is lost by waiting for it.
+    FOREACH v_tab IN ARRAY ARRAY['company_cash_drawer_hardware', 'cash_drawer_opening'] LOOP
+        IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'sync_capture')
+           AND NOT EXISTS (SELECT 1 FROM pg_trigger
+                        WHERE tgname = 'trg_sync_' || v_tab AND NOT tgisinternal) THEN
+            EXECUTE format('CREATE TRIGGER trg_sync_%I AFTER INSERT OR UPDATE OR DELETE ON %I '
+                        || 'FOR EACH ROW EXECUTE FUNCTION sync_capture()', v_tab, v_tab);
+            v_made := v_made + 1;
+        END IF;
+    END LOOP;
+
+    PERFORM set_config('mb.drawer_kick',
+        (SELECT CASE WHEN count(*) FILTER (WHERE drawer_on) = 0
+                     THEN 'ok - no shop has turned the drawer on'
+                     ELSE count(*) FILTER (WHERE drawer_on) || ' company/companies opening the drawer'
+                END
+           FROM company_cash_drawer_hardware), false);
+END $$;
+
+
+-- S5m What each person did, in the order they did it.
+--
+--     The owner wants to read a day the way it happened: signed in at
+--     9.02, opened Gold Bill Opening at 9.03, changed the Amount from
+--     50,000 to 60,000 at 9.05, saved bill R8125 at 9.07, closed the
+--     screen at 9.09.
+--
+--     EVENTS, not keystrokes. One line when a box is left with something
+--     different in it, not one per letter. A shop doing 45 bills on its
+--     busiest day writes a few thousand lines that way; keeping every
+--     keypress would be tens of thousands of times more, would be the
+--     largest table in the system by far, and would be unreadable.
+--
+--     Every line carries the bill number (or the entry's id) it belonged
+--     to, and WHO three ways - the sign-in name, the employee id behind
+--     it and the name to read - because a user can be renamed and an
+--     employee can leave, and the ids are what still make sense later.
+--
+--     Passwords are never written, not even wrong ones.
+DO $$
+DECLARE
+    v_made INT := 0;
+BEGIN
+    CREATE TABLE IF NOT EXISTS activity_log (
+        id           BIGSERIAL    PRIMARY KEY,
+        company_id   VARCHAR(100),
+        user_id      VARCHAR(100),
+        emp_id       VARCHAR(100),
+        emp_name     VARCHAR(255),
+        action       VARCHAR(40),
+        screen       VARCHAR(120),
+        bill_number  VARCHAR(100),
+        detail       VARCHAR(500),
+        happened_at  TIMESTAMP    NOT NULL DEFAULT now()
+    );
+
+    -- The two ways it is ever read: a person's day, and everything about one bill.
+    CREATE INDEX IF NOT EXISTS idx_activity_when
+        ON activity_log (company_id, happened_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_activity_who
+        ON activity_log (company_id, user_id, happened_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_activity_bill
+        ON activity_log (company_id, bill_number);
+
+    -- Not before the agent has made sync_capture: see the cash drawer step above.
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'sync_capture')
+       AND NOT EXISTS (SELECT 1 FROM pg_trigger
+                    WHERE tgname = 'trg_sync_activity_log' AND NOT tgisinternal) THEN
+        EXECUTE 'CREATE TRIGGER trg_sync_activity_log AFTER INSERT OR UPDATE OR DELETE ON activity_log '
+             || 'FOR EACH ROW EXECUTE FUNCTION sync_capture()';
+        v_made := 1;
+    END IF;
+
+    -- How long to keep it, and what to keep, are the shop's own (Company Module -> Employee Activity).
+    -- A busy counter writes a few thousand lines a day; a year of that is a bigger table than the bills.
+    -- Until a shop chooses, it is a year and everything - which is what it was before anybody was asked.
+    CREATE TABLE IF NOT EXISTS company_activity_settings (
+        company_id      VARCHAR(100) PRIMARY KEY,
+        keep_days       INTEGER      NOT NULL DEFAULT 365,   -- 0 = keep everything
+        record_typed    BOOLEAN      NOT NULL DEFAULT TRUE,
+        record_screens  BOOLEAN      NOT NULL DEFAULT TRUE,
+        record_presses  BOOLEAN      NOT NULL DEFAULT TRUE
+    );
+
+    -- The app throws the old lines away itself, by each company's own setting; this only clears what was
+    -- kept before there was a setting, so an existing shop does not carry two years of it into the new rule.
+    DELETE FROM activity_log WHERE happened_at < now() - INTERVAL '1 year';
+
+    -- The screens that take money in and out were called Income and Expenses, but each holds two kinds:
+    -- money in is INCOME or LIABILITY, money out is EXPENSE or ASSET. A loan taken is money in and not
+    -- income; a safe bought is money out and not an expense. They are Money In and Money Out now.
+    --
+    -- The Role Module saves a role's rights BY SCREEN NAME, so without this every shop's staff would
+    -- quietly lose their rights to these six screens the day the new app was installed.
+    IF to_regclass('public.role_detail') IS NOT NULL THEN
+        UPDATE role_detail SET screen_name = replace(replace(screen_name, ' EXPENSES', ' MONEY OUT'),
+                                                     ' INCOME', ' MONEY IN')
+         WHERE screen_name IN ('COMPANY INCOME', 'COMPANY EXPENSES', 'EMPLOYEE INCOME',
+                               'EMPLOYEE EXPENSES', 'RE-PLEDGE INCOME', 'RE-PLEDGE EXPENSES');
+    END IF;
+    IF to_regclass('public.screens') IS NOT NULL THEN
+        UPDATE screens SET screen_name = replace(replace(screen_name, ' EXPENSES', ' MONEY OUT'),
+                                                 ' INCOME', ' MONEY IN')
+         WHERE screen_name IN ('COMPANY INCOME', 'COMPANY EXPENSES', 'EMPLOYEE INCOME',
+                               'EMPLOYEE EXPENSES', 'RE-PLEDGE INCOME', 'RE-PLEDGE EXPENSES');
+    END IF;
+
+    -- The main screen's search box is called txtBillNumber, so until 07-10-2026 every line recorded while a
+    -- number sat in it was marked as being ABOUT that bill - opening another screen, picking a company. A
+    -- bill's history filled up with things that had nothing to do with it. The lines are kept; only the bill
+    -- number comes off them, because it was never true.
+    UPDATE activity_log SET bill_number = NULL
+     WHERE bill_number IS NOT NULL AND upper(COALESCE(screen, '')) LIKE 'MAIN SCREEN%';
+
+    PERFORM set_config('mb.activity',
+        (SELECT CASE WHEN count(*) = 0 THEN 'ok - nothing recorded yet'
+                     ELSE count(*) || ' line(s), oldest ' || to_char(min(happened_at), 'DD-MM-YYYY')
+                END
+           FROM activity_log), false);
+END $$;
+
+
+--      Screen events said OPENED and CLOSED until 07-10-2026, which are the app's
+--      own words for a BILL being open or settled. On a bill's own history
+--      "TIRU CLOSED GOLD BILL CLOSING" read as though the bill had been closed,
+--      when the screen had only been looked at and shut. The lines already
+--      written are brought into line with the new wording; nothing else changes.
+DO $$
+DECLARE v_said INT := 0;
+BEGIN
+    IF to_regclass('public.activity_log') IS NOT NULL THEN
+        UPDATE activity_log SET action = 'SCREEN ' || action
+         WHERE action IN ('OPENED', 'CLOSED');
+        GET DIAGNOSTICS v_said = ROW_COUNT;
+        PERFORM set_config('mb.screen_words',
+            CASE WHEN v_said = 0 THEN 'ok - nothing to put right'
+                 ELSE v_said || ' line(s) reworded' END, false);
+    END IF;
+END $$;
+
+-- S5n Who wrote this row, and who changed it last.
+--  Every business table already carried a created date and a created user, and
+--  the app filled them on 52 tables out of 66. What no table carried was the
+--  other half: who changed the row afterwards. Two tables had the columns,
+--  and one of those two filled the date on all 7,234 rows and the user on
+--  none of them.
+--
+--  Filling them from the app would mean editing 63 INSERTs and 95 UPDATEs in
+--  the full app and as many again in the lite one - about 320 statements that
+--  move money, each one a chance to break a save that works today, and every
+--  screen written afterwards would have to remember. So the database does it.
+--  A row written by any screen, by the mobile sync, or by hand in pgAdmin
+--  carries the right names either way.
+--
+--  It fires BEFORE the row is written, which matters: sync_capture is an AFTER
+--  trigger, so the stamped values are the ones that reach the cloud. The cloud
+--  keeps payloads as jsonb in projections, so the two new columns arrive as two
+--  new keys and need nothing done to them there.
+--
+--  Nothing the app already sets is overwritten. On an insert the trigger only
+--  fills a created column the statement left empty, so the 107 places that
+--  pass CommonConstants.USERID keep winning. On an update it sets the last-
+--  changed pair and touches nothing else.
+-- ===========================================================================
+
+-- ---------------------------------------------------------------------------
+--  Who is signed in. The app sets this on its connection; sync_capture has
+--  read app.shop_id the same way for years. Unset - a hand edit in pgAdmin,
+--  or the sync agent - leaves the user columns alone rather than blanking a
+--  name that is already there.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.magizhchi_who() RETURNS text
+LANGUAGE sql STABLE AS $$
+    SELECT nullif(btrim(coalesce(current_setting('pawn.user_id', true), '')), '')
+$$;
+
+COMMENT ON FUNCTION public.magizhchi_who() IS
+    'The signed-in user, as the app put it on this connection; NULL if nobody said.';
+
+-- ---------------------------------------------------------------------------
+--  The stamp itself. One function for every table: it looks at the row it was
+--  handed rather than at a list of tables, so a table added later is covered
+--  the moment the trigger is put on it.
+--
+--  The row goes out to jsonb and back. That is what lets one function serve
+--  sixty tables, and it round-trips the awkward types - material_type, gender,
+--  interest_type, repledge_status, the numerics and the dates all come back as
+--  themselves.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.magizhchi_stamp_who() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE
+    row_json jsonb := to_jsonb(NEW);
+    patch    jsonb := '{}'::jsonb;
+    who      text  := public.magizhchi_who();
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        -- Only what the statement left empty. A screen that names the user wins.
+        IF row_json ? 'created_date' AND row_json->>'created_date' IS NULL THEN
+            patch := patch || jsonb_build_object('created_date', now());
+        END IF;
+        IF row_json ? 'created_at' AND row_json->>'created_at' IS NULL THEN
+            patch := patch || jsonb_build_object('created_at', now());
+        END IF;
+        IF who IS NOT NULL THEN
+            IF row_json ? 'created_user_id'
+               AND nullif(btrim(coalesce(row_json->>'created_user_id', '')), '') IS NULL THEN
+                patch := patch || jsonb_build_object('created_user_id', who);
+            END IF;
+            -- On most tables the creator is spelt user_id. It is only ever filled
+            -- here when the insert left it blank, so the two status toggles that
+            -- write it on purpose are unaffected.
+            IF row_json ? 'user_id'
+               AND nullif(btrim(coalesce(row_json->>'user_id', '')), '') IS NULL THEN
+                patch := patch || jsonb_build_object('user_id', who);
+            END IF;
+        END IF;
+    ELSE
+        IF row_json ? 'last_updated_date' THEN
+            patch := patch || jsonb_build_object('last_updated_date', now());
+        END IF;
+        IF who IS NOT NULL AND row_json ? 'last_updated_user_id' THEN
+            patch := patch || jsonb_build_object('last_updated_user_id', who);
+        END IF;
+    END IF;
+
+    IF patch <> '{}'::jsonb THEN
+        NEW := jsonb_populate_record(NEW, row_json || patch);
+    END IF;
+    RETURN NEW;
+END $$;
+
+COMMENT ON FUNCTION public.magizhchi_stamp_who() IS
+    'Fills the created pair when a statement leaves it empty, and the last-changed pair on every update.';
+
+-- ---------------------------------------------------------------------------
+--  The columns, and the trigger, on every business table.
+--
+--  The sync plumbing is left out: sync_outbox is a 300,000-row queue that is
+--  written and emptied by the agent, and the two upload tables are its
+--  bookkeeping. Nobody asks who changed a queue entry.
+-- ---------------------------------------------------------------------------
+DO $$
+DECLARE
+    t        text;
+    added    int := 0;
+    hooked   int := 0;
+    filled   int := 0;
+    n        bigint;
+BEGIN
+    FOR t IN
+        SELECT c.relname
+          FROM pg_class c
+          JOIN pg_namespace ns ON ns.oid = c.relnamespace
+         WHERE ns.nspname = 'public'
+           AND c.relkind = 'r'
+           AND c.relname NOT LIKE 'sync\_%'
+           AND c.relname NOT IN ('kit_notes')
+         ORDER BY c.relname
+    LOOP
+        -- the last-changed pair, on every table
+        IF NOT EXISTS (SELECT 1 FROM pg_attribute
+                        WHERE attrelid = ('public.' || quote_ident(t))::regclass
+                          AND attname = 'last_updated_user_id' AND NOT attisdropped) THEN
+            EXECUTE format('ALTER TABLE public.%I ADD COLUMN last_updated_user_id varchar(100)', t);
+            added := added + 1;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_attribute
+                        WHERE attrelid = ('public.' || quote_ident(t))::regclass
+                          AND attname = 'last_updated_date' AND NOT attisdropped) THEN
+            EXECUTE format('ALTER TABLE public.%I ADD COLUMN last_updated_date timestamp without time zone', t);
+            added := added + 1;
+        END IF;
+
+        -- a created pair for the twelve tables that never had one. customer_details,
+        -- company_settings, role_detail and screens are all written by screens, and
+        -- none of them could say by whom.
+        IF NOT EXISTS (SELECT 1 FROM pg_attribute
+                        WHERE attrelid = ('public.' || quote_ident(t))::regclass
+                          AND attname IN ('created_date', 'created_at') AND NOT attisdropped) THEN
+            EXECUTE format('ALTER TABLE public.%I ADD COLUMN created_date timestamp without time zone', t);
+            added := added + 1;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_attribute
+                        WHERE attrelid = ('public.' || quote_ident(t))::regclass
+                          AND attname IN ('created_user_id', 'user_id') AND NOT attisdropped) THEN
+            EXECUTE format('ALTER TABLE public.%I ADD COLUMN created_user_id varchar(100)', t);
+            added := added + 1;
+        END IF;
+
+        -- the trigger. Dropped and remade so a re-run cannot leave two.
+        EXECUTE format('DROP TRIGGER IF EXISTS trg_stamp_who_%s ON public.%I', t, t);
+        EXECUTE format('CREATE TRIGGER trg_stamp_who_%s BEFORE INSERT OR UPDATE ON public.%I '
+                       'FOR EACH ROW EXECUTE FUNCTION public.magizhchi_stamp_who()', t, t);
+        hooked := hooked + 1;
+    END LOOP;
+
+    -- The rows already there keep their own history: a row changed before today
+    -- has no honest last-changed name, and inventing one would be worse than the
+    -- blank. Only the created date of rows whose insert never set it is filled,
+    -- and only where the row can date itself from a column beside it.
+    IF EXISTS (SELECT 1 FROM pg_attribute
+                WHERE attrelid = 'public.repledge'::regclass
+                  AND attname = 'started_date' AND NOT attisdropped) THEN
+        UPDATE public.repledge SET created_date = started_date
+         WHERE created_date IS NULL AND started_date IS NOT NULL;
+        GET DIAGNOSTICS n = ROW_COUNT;
+        filled := filled + n;
+    END IF;
+
+    -- The exe prints this as step 30. It is set OUT HERE, not inside the block below: that block's
+    -- handler rolls back when kit_notes is absent - which is every time the exe runs this file - and it
+    -- would take the setting back out with it. That is exactly how step 30 came out blank the first time.
+    PERFORM set_config('mb.who_wrote',
+        format('%s table(s) stamped by the database', hooked), false);
+
+    -- kit_notes only exists while the kit script is running, and this file is
+    -- also run on its own. The note goes in its OWN block: an exception handler
+    -- around the whole loop would undo every column it had just added.
+    BEGIN
+    INSERT INTO public.kit_notes VALUES (4, 'who wrote this row',
+            format('%s column(s) added, %s table(s) stamped by the database, %s created date(s) dated from the row',
+                   added, hooked, filled));
+    EXCEPTION WHEN undefined_table THEN
+        RAISE NOTICE 'who wrote this row: % column(s) added, % table(s) stamped, % date(s) filled',
+            added, hooked, filled;
+    END;
+END $$;
+
+-- S5o The closed-day guard: what is written on a closed day stays written.
+--     The app checks this too, but only on its own screens; a write from
+--     pgAdmin or a script has to pass here. It refuses:
+--       - moving a date onto or off a closed day, deleting such a bill included;
+--       - changing the money that belongs to a closed day: the opening figures
+--         once the opening day is closed, the closing figures once the closing
+--         day is closed. A bill opened last year still closes today.
+--     A note, a name or an address goes straight through, and so does the
+--     advance total, which later days add to on purpose.
+--     The date setting (allow_to_change_*_date) is the one switch: where it
+--     is ON the guard steps aside, so a shop still entering old data carries
+--     on. A company with no closed day yet has nothing to protect, and is let
+--     through too: a guard the setup put there must not stop a new shop's
+--     first bill.
+--
+--     Dropping or disabling it is refused as well, and the app looks at every
+--     sign-in, puts it back if it has gone and writes a TO CHECK line, which
+--     reaches the cloud and the phone. This stops anyone who has the postgres
+--     password from doing it casually. It cannot stop someone who knows this
+--     file: the postgres account can do anything. Keeping that password from
+--     the staff is the one thing that does.
+--
+--     To take it off a shop on purpose:
+--       SELECT set_config('magizhchi.guard_change', 'yes', false);
+--       DROP EVENT TRIGGER magizhchi_guard_keep_drop;
+--       DROP EVENT TRIGGER magizhchi_guard_keep_alter;
+--       DROP TRIGGER trg_ledger_day_company_billing ON company_billing;
+--       DROP TRIGGER trg_ledger_day_repledge_billing ON repledge_billing;
+--       DROP TRIGGER trg_ledger_day_company_advance ON company_advance_amount;
+--       DELETE FROM company_settings WHERE setting_key = 'LEDGER_GUARD';
+CREATE OR REPLACE FUNCTION public.magizhchi_enforce_ledger_day() RETURNS trigger
+LANGUAGE plpgsql
+AS $fn$
+DECLARE
+    v_oldj      jsonb;
+    v_newj      jsonb;
+    v_rowj      jsonb;
+    v_company   text;
+    v_material  text;
+    v_flag_col  text;
+    v_date_col  text;
+    v_money_col text;
+    v_moved     text;
+    v_allowed   boolean;
+    v_last      date;
+    v_open      date;
+    v_old       date;
+    v_new       date;
+    i           int;
+BEGIN
+    IF TG_OP <> 'INSERT' THEN
+        v_oldj := to_jsonb(OLD);
+    END IF;
+    IF TG_OP <> 'DELETE' THEN
+        v_newj := to_jsonb(NEW);
+    END IF;
+    v_rowj := COALESCE(v_newj, v_oldj);
+
+    v_company  := v_rowj ->> 'company_id';
+    v_material := v_rowj ->> 'jewel_material_type';
+
+    -- Arguments arrive as (setting, date column, its money columns, ...).
+    FOR i IN 0 .. array_length(TG_ARGV, 1) - 3 BY 3 LOOP
+
+        v_flag_col := TG_ARGV[i];
+        v_date_col := TG_ARGV[i + 1];
+
+        v_old := NULLIF(v_oldj ->> v_date_col, '')::date;
+        v_new := NULLIF(v_newj ->> v_date_col, '')::date;
+
+        v_moved := NULL;
+        IF TG_OP = 'UPDATE' AND v_old IS NOT NULL THEN
+            FOREACH v_money_col IN ARRAY string_to_array(TG_ARGV[i + 2], ',') LOOP
+                IF (v_oldj -> v_money_col) IS DISTINCT FROM (v_newj -> v_money_col) THEN
+                    v_moved := v_money_col;
+                    EXIT;
+                END IF;
+            END LOOP;
+        END IF;
+
+        CONTINUE WHEN v_new IS NOT DISTINCT FROM v_old AND v_moved IS NULL;
+
+        SELECT bool_or((to_jsonb(s) ->> v_flag_col)::boolean)
+          INTO v_allowed
+          FROM company_other_settings s
+         WHERE s.company_id = v_company
+           AND (v_material IS NULL OR s.jewel_material_type::text = v_material);
+
+        CONTINUE WHEN COALESCE(v_allowed, false);
+
+        SELECT todays_date
+          INTO v_last
+          FROM company_todays_account
+         WHERE company_id = v_company
+           AND ref_mark = 'L';
+
+        CONTINUE WHEN v_last IS NULL;
+
+        v_open := v_last + 1;
+
+        IF v_new IS NOT DISTINCT FROM v_old THEN
+            IF v_old <= v_last THEN
+                RAISE EXCEPTION USING
+                    ERRCODE = 'MZ001',
+                    MESSAGE = format(
+                        '%s.%s cannot be changed: it belongs to %s, and that day has already been accounted.',
+                        TG_TABLE_NAME, v_moved, to_char(v_old, 'DD-MM-YYYY')),
+                    DETAIL  = format('Ledger is open on %s (company %s).',
+                                     to_char(v_open, 'DD-MM-YYYY'), v_company),
+                    HINT    = 'Changing it would change a printed day''s totals after the fact. Ask the owner to turn on entry mode if this really has to be corrected.';
+            END IF;
+            CONTINUE;
+        END IF;
+
+        IF v_new IS NOT NULL AND v_new <> v_open THEN
+            RAISE EXCEPTION USING
+                ERRCODE = 'MZ001',
+                MESSAGE = format(
+                    '%s.%s cannot be set to %s: the ledger is open on %s.',
+                    TG_TABLE_NAME, v_date_col,
+                    to_char(v_new, 'DD-MM-YYYY'), to_char(v_open, 'DD-MM-YYYY')),
+                DETAIL  = format('Last accounted day is %s (company %s).',
+                                 to_char(v_last, 'DD-MM-YYYY'), v_company),
+                HINT    = 'That day has already been accounted and printed. Close the bill on the open day, or ask the owner to turn on entry mode for this shop.';
+        END IF;
+
+        IF v_old IS NOT NULL AND v_old <> v_open THEN
+            RAISE EXCEPTION USING
+                ERRCODE = 'MZ001',
+                MESSAGE = format(
+                    '%s.%s cannot be moved off %s: that day has already been accounted.',
+                    TG_TABLE_NAME, v_date_col, to_char(v_old, 'DD-MM-YYYY')),
+                DETAIL  = format('Ledger is open on %s (company %s).',
+                                 to_char(v_open, 'DD-MM-YYYY'), v_company),
+                HINT    = 'Taking a bill out of a printed day changes that day''s totals after the fact. Ask the owner to turn on entry mode if this really has to be corrected.';
+        END IF;
+
+    END LOOP;
+
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+    RETURN NEW;
+END
+$fn$;
+
+-- Null when the guard is whole; otherwise what is wrong with it, in words for the activity line.
+CREATE OR REPLACE FUNCTION public.magizhchi_guard_state() RETURNS text
+LANGUAGE plpgsql
+AS $fn$
+DECLARE
+    v_bad text;
+BEGIN
+    SELECT string_agg(w.tg, ', ' ORDER BY w.tg)
+      INTO v_bad
+      FROM (VALUES ('company_billing',        'trg_ledger_day_company_billing'),
+                   ('repledge_billing',       'trg_ledger_day_repledge_billing'),
+                   ('company_advance_amount', 'trg_ledger_day_company_advance')) AS w(tb, tg)
+      LEFT JOIN pg_trigger t
+             ON t.tgname = w.tg AND t.tgrelid = to_regclass('public.' || w.tb)
+     WHERE to_regclass('public.' || w.tb) IS NOT NULL
+       AND (t.oid IS NULL OR t.tgenabled IN ('D', 'R'));
+    IF v_bad IS NOT NULL THEN
+        RETURN 'switched off or removed: ' || v_bad;
+    END IF;
+
+    -- Only a superuser can have made these, so only then can they be missed.
+    IF (SELECT rolsuper FROM pg_roles WHERE rolname = current_user)
+       AND (SELECT count(*) FROM pg_event_trigger
+             WHERE evtname IN ('magizhchi_guard_keep_drop', 'magizhchi_guard_keep_alter')
+               AND evtenabled <> 'D') < 2 THEN
+        RETURN 'its watch on the database was switched off or removed';
+    END IF;
+    RETURN NULL;
+END
+$fn$;
+
+-- Refuses what would take the guard away. The setup and this file's restore set
+-- magizhchi.guard_change; nothing else has a reason to.
+CREATE OR REPLACE FUNCTION public.magizhchi_guard_keep() RETURNS event_trigger
+LANGUAGE plpgsql
+AS $fn$
+DECLARE
+    r record;
+BEGIN
+    IF current_setting('magizhchi.guard_change', true) = 'yes' THEN
+        RETURN;
+    END IF;
+    IF TG_EVENT = 'sql_drop' THEN
+        FOR r IN SELECT * FROM pg_event_trigger_dropped_objects() LOOP
+            IF (r.object_type = 'trigger' AND r.object_identity LIKE 'trg\_ledger\_day\_%')
+               OR (r.object_type = 'function' AND r.object_identity ~ '^public\.magizhchi_(enforce_ledger_day|guard_)') THEN
+                RAISE EXCEPTION 'The closed-day guard cannot be removed (%). See S5o in shop_setup.sql.', r.object_identity;
+            END IF;
+        END LOOP;
+    ELSE
+        -- An ALTER that has nothing to do with the guard must not be stopped because the guard is
+        -- already off: only one on a guarded table, and only if that table's trigger is off now.
+        FOR r IN SELECT c.objid FROM pg_event_trigger_ddl_commands() c
+                  WHERE c.classid IN ('pg_class'::regclass, 'pg_trigger'::regclass) LOOP
+            IF EXISTS (SELECT 1 FROM pg_trigger t
+                        WHERE (t.tgrelid = r.objid OR t.oid = r.objid)
+                          AND t.tgname LIKE 'trg\_ledger\_day\_%'
+                          AND t.tgenabled IN ('D', 'R')) THEN
+                RAISE EXCEPTION 'The closed-day guard cannot be switched off. See S5o in shop_setup.sql.';
+            END IF;
+            IF EXISTS (SELECT 1 FROM pg_trigger t
+                        WHERE t.oid = r.objid AND t.tgname NOT LIKE 'trg\_ledger\_day\_%'
+                          AND t.tgrelid IN (to_regclass('public.company_billing'),
+                                            to_regclass('public.repledge_billing'),
+                                            to_regclass('public.company_advance_amount'))
+                          AND NOT EXISTS (SELECT 1 FROM pg_trigger g
+                                           WHERE g.tgrelid = t.tgrelid AND g.tgname LIKE 'trg\_ledger\_day\_%')) THEN
+                RAISE EXCEPTION 'The closed-day guard cannot be renamed. See S5o in shop_setup.sql.';
+            END IF;
+        END LOOP;
+    END IF;
+END
+$fn$;
+
+-- Lays the guard down, or puts it back. The setup calls this, and so does the app when it finds it gone.
+CREATE OR REPLACE FUNCTION public.magizhchi_guard_restore() RETURNS integer
+LANGUAGE plpgsql
+AS $fn$
+DECLARE
+    v_guards CONSTANT text[][] := ARRAY[
+        ['company_billing', 'trg_ledger_day_company_billing',
+         'allow_to_change_bill_opening_date', 'opening_date', 'amount,interest,document_charge,open_taken_amount,togive_amount,given_amount',
+         'allow_to_change_bill_closing_date', 'closing_date', 'close_taken_amount,toget_amount,got_amount,discount_amount,notice_charge_amount,fine_charge_amount,total_other_charges,card_lost_charge'],
+        ['repledge_billing', 'trg_ledger_day_repledge_billing',
+         'allow_to_change_repledge_bill_opening_date', 'opening_date', 'amount,interest,document_charge,open_taken_amount,toget_amount,got_amount',
+         'allow_to_change_repledge_bill_closing_date', 'closing_date', 'close_taken_amount,togive_amount,given_amount']];
+    v_hooked int := 0;
+    i        int;
+BEGIN
+    PERFORM set_config('magizhchi.guard_change', 'yes', true);
+
+    FOR i IN 1 .. array_length(v_guards, 1) LOOP
+        CONTINUE WHEN to_regclass('public.' || v_guards[i][1]) IS NULL;
+        EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', v_guards[i][2], v_guards[i][1]);
+        EXECUTE format('CREATE TRIGGER %I BEFORE INSERT OR UPDATE OR DELETE ON public.%I '
+                       'FOR EACH ROW EXECUTE FUNCTION public.magizhchi_enforce_ledger_day(%L, %L, %L, %L, %L, %L)',
+                       v_guards[i][2], v_guards[i][1],
+                       v_guards[i][3], v_guards[i][4], v_guards[i][5],
+                       v_guards[i][6], v_guards[i][7], v_guards[i][8]);
+        v_hooked := v_hooked + 1;
+    END LOOP;
+
+    IF to_regclass('public.company_advance_amount') IS NOT NULL THEN
+        DROP TRIGGER IF EXISTS trg_ledger_day_company_advance ON public.company_advance_amount;
+        CREATE TRIGGER trg_ledger_day_company_advance
+            BEFORE INSERT OR UPDATE OR DELETE ON public.company_advance_amount
+            FOR EACH ROW EXECUTE FUNCTION public.magizhchi_enforce_ledger_day(
+                'allow_to_change_advance_amount_date', 'paid_date', 'bill_amount,paid_amount,total_amount');
+        v_hooked := v_hooked + 1;
+    END IF;
+
+    BEGIN
+        DROP EVENT TRIGGER IF EXISTS magizhchi_guard_keep_drop;
+        DROP EVENT TRIGGER IF EXISTS magizhchi_guard_keep_alter;
+        CREATE EVENT TRIGGER magizhchi_guard_keep_drop ON sql_drop
+            WHEN TAG IN ('DROP TRIGGER', 'DROP FUNCTION')
+            EXECUTE FUNCTION public.magizhchi_guard_keep();
+        CREATE EVENT TRIGGER magizhchi_guard_keep_alter ON ddl_command_end
+            WHEN TAG IN ('ALTER TABLE', 'ALTER TRIGGER')
+            EXECUTE FUNCTION public.magizhchi_guard_keep();
+    EXCEPTION WHEN insufficient_privilege THEN
+        RAISE NOTICE 'closed-day guard: only a superuser can add its watch on the database';
+    END;
+    RETURN v_hooked;
+END
+$fn$;
+
+DO $$
+DECLARE
+    hooked int;
+    free   bigint;
+BEGIN
+    hooked := public.magizhchi_guard_restore();
+
+    -- How the app tells "removed" from "never installed", should every other piece go.
+    IF to_regclass('public.company_settings') IS NOT NULL AND to_regclass('public.company') IS NOT NULL THEN
+        INSERT INTO company_settings (company_id, setting_key, setting_value)
+        SELECT c.id, 'LEDGER_GUARD', 'ON' FROM company c
+        ON CONFLICT (company_id, setting_key) DO NOTHING;
+    END IF;
+
+    -- Said in the report so whoever runs the exe sees which shops are not held to it.
+    SELECT count(*) INTO free
+      FROM company_other_settings s
+     WHERE 'true' IN (to_jsonb(s) ->> 'allow_to_change_bill_opening_date',
+                      to_jsonb(s) ->> 'allow_to_change_bill_closing_date',
+                      to_jsonb(s) ->> 'allow_to_change_repledge_bill_opening_date',
+                      to_jsonb(s) ->> 'allow_to_change_repledge_bill_closing_date',
+                      to_jsonb(s) ->> 'allow_to_change_advance_amount_date');
+    PERFORM set_config('mb.ledger_guard',
+        format('%s table(s) guarded%s', hooked,
+               CASE WHEN free > 0
+                    THEN format(' - date setting ON in %s line(s) of Other Settings: those are NOT held to it', free)
+                    ELSE '' END), false);
+END $$;
+
 
 -- #####################################################################
 --  X1 to X5  -  tables the DESKTOP app needs.
@@ -1050,7 +1760,14 @@ DECLARE
         'repledge_bill_debit','repledge_other_debit',
         'employee_advance_amount_credit','employee_other_amount_credit',
         'company_bill_credit','company_other_credit',
-        'repledge_bill_credit','repledge_other_credit'];
+        'repledge_bill_credit','repledge_other_credit',
+        -- The settings Bill Closing prices a bill with. Without these
+        -- four the cloud can show what a bill was lent against but not
+        -- what it would cost to close today: the close formula, the
+        -- month reduction and minimum, the fraction a few leftover days
+        -- count as, and the fine slabs. They are a few dozen rows each.
+        'company_formula','company_reduce_months_or_days',
+        'company_month_setting','fine_charges'];
 BEGIN
     -- Told to leave the history alone this run.
     IF 'auto' = 'skip' THEN
@@ -1126,6 +1843,85 @@ BEGIN
     PERFORM set_config('mb.history', format(
         'SENT - %s rows queued for the cloud just now. Leave the PC on; the agent sends 25 at a time.',
         grand), false);
+END $$;
+
+
+-- S6b The four settings tables Bill Closing prices a bill with. Without
+--     them the phone can show what a bill was lent against but not what
+--     it would cost to close today:
+--
+--       company_formula                the close formula itself
+--       company_reduce_months_or_days  the reduction and the minimum
+--       company_month_setting          what a few leftover days count as
+--       fine_charges                   the slabs past the accepted term
+--
+--     They were missing from S6's list, and triggers alone never sent
+--     them because settings tables do not change. S6 carries them now,
+--     but it will not run twice on a shop that has already sent its
+--     history - so this queues them on their own for those shops.
+--
+--     Four no-op updates: each row is set to the value it already holds,
+--     which fires the capture trigger. Nothing anywhere changes. Marked
+--     on company_formula so a second run does nothing; S6's own marker
+--     lives on sync_outbox and is rewritten wholesale, so it cannot be
+--     shared.
+DO $$
+DECLARE
+    t      TEXT;
+    n      BIGINT;
+    total  BIGINT := 0;
+    missing BOOLEAN := FALSE;
+    tables TEXT[] := ARRAY['company_formula', 'company_reduce_months_or_days',
+                           'company_month_setting', 'fine_charges'];
+BEGIN
+    IF to_regclass('public.sync_outbox') IS NULL THEN
+        PERFORM set_config('mb.settings',
+            'NOT SENT - the agent has never set this database up.', false);
+        RETURN;
+    END IF;
+    IF to_regclass('public.company_formula') IS NULL THEN
+        PERFORM set_config('mb.settings',
+            'NOT ON THIS SHOP - company_formula does not exist here.', false);
+        RETURN;
+    END IF;
+
+    IF obj_description('public.company_formula'::regclass, 'pg_class')
+       LIKE '%closing settings queued%' THEN
+        PERFORM set_config('mb.settings', 'DONE EARLIER - not sent again.', false);
+        RETURN;
+    END IF;
+
+    -- S6 just ran and its list already carries these four, so queueing
+    -- them again would only send the same rows twice.
+    IF COALESCE(current_setting('mb.history', true), '') LIKE 'SENT%' THEN
+        EXECUTE format('COMMENT ON TABLE company_formula IS %L',
+                       format('closing settings queued %s with the history',
+                              to_char(now(), 'DD-MM-YYYY HH24:MI')));
+        PERFORM set_config('mb.settings', 'SENT - with the history, just now.', false);
+        RETURN;
+    END IF;
+
+    FOREACH t IN ARRAY tables LOOP
+        IF to_regclass('public.' || t) IS NULL THEN
+            missing := TRUE;
+            CONTINUE;
+        END IF;
+        -- company_id is on all four and never null, so writing it back
+        -- to itself touches the row without altering it.
+        EXECUTE format('UPDATE %I SET company_id = company_id', t);
+        GET DIAGNOSTICS n = ROW_COUNT;
+        total := total + n;
+    END LOOP;
+
+    EXECUTE format('COMMENT ON TABLE company_formula IS %L',
+                   format('closing settings queued %s, %s rows',
+                          to_char(now(), 'DD-MM-YYYY HH24:MI'), total));
+    PERFORM pg_notify('sync_channel', 'settings');
+
+    PERFORM set_config('mb.settings', format(
+        'SENT - %s row(s) queued so the phone can work out what a bill owes.%s',
+        total, CASE WHEN missing THEN ' (one or more of the four is not on this shop)'
+                    ELSE '' END), false);
 END $$;
 
 
@@ -1248,7 +2044,13 @@ SELECT step, item, status FROM (
     (23, 'Desktop rows: customer_details', current_setting('mb.rows_customers', true)),
     (24, 'Jewel count on every bill',  COALESCE(current_setting('mb.jewel_count', true), 'ok')),
     (25, 'Jewels, a line each',        COALESCE(current_setting('mb.jewel_lines', true), 'ok')),
-    (26, 'Cash drawers',               COALESCE(current_setting('mb.cash_drawers', true), 'ok'))
+    (26, 'Cash drawers',               COALESCE(current_setting('mb.cash_drawers', true), 'ok')),
+    (27, 'Bill number series',         COALESCE(current_setting('mb.one_series', true), 'ok')),
+    (28, 'Cash drawer opening',        COALESCE(current_setting('mb.drawer_kick', true), 'ok')),
+    (29, 'Employee activity',          COALESCE(current_setting('mb.activity', true), 'ok')),
+    (30, 'Who wrote this row',         COALESCE(current_setting('mb.who_wrote', true), 'ok')),
+    (31, 'Screen lines reworded',      COALESCE(current_setting('mb.screen_words', true), 'ok')),
+    (32, 'Closed-day guard',           COALESCE(current_setting('mb.ledger_guard', true), 'ok'))
 ) AS report(step, item, status)
 ORDER BY step;
 
