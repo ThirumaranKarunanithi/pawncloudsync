@@ -1741,6 +1741,59 @@ public class ApiService {
         });
     }
 
+    // ── Cloud box plan (1.6) ──────────────────────────────────────────────────
+
+    /**
+     * The shop's cloud box plan: where it stands, what is on offer, and the
+     * last few payments. From 06-11-2026 a paid plan ends by itself and the
+     * shop pays to renew it; the cloud relays the box's own renewal calls.
+     */
+    public static void boxPlan(Callback<JSONObject> cb) {
+        EXEC.execute(() -> {
+            try {
+                cb.onSuccess(boxCall(authed(HttpUrl.parse(AppConfig.BOX_PLAN)).get().build()));
+            } catch (Exception e) { cb.onError(e.getMessage()); }
+        });
+    }
+
+    /** Starts (or picks up the unpaid) payment for a plan. Answers with its UPI link. */
+    public static void boxRenew(String planCode, String billingCycle, Callback<JSONObject> cb) {
+        EXEC.execute(() -> {
+            try {
+                JSONObject body = new JSONObject().put("planCode", planCode).put("billingCycle", billingCycle);
+                cb.onSuccess(boxCall(authed(HttpUrl.parse(AppConfig.BOX_RENEW))
+                        .post(RequestBody.create(body.toString(), JSON)).build()));
+            } catch (Exception e) { cb.onError(e.getMessage()); }
+        });
+    }
+
+    /** Hands in the UTR the payment app showed; Magizhchi then approves it. */
+    public static void boxSubmitUtr(String reference, String utr, Callback<JSONObject> cb) {
+        EXEC.execute(() -> {
+            try {
+                HttpUrl url = HttpUrl.parse(AppConfig.BOX_RENEW).newBuilder()
+                        .addPathSegment(reference).addPathSegment("utr").build();
+                JSONObject body = new JSONObject().put("utr", utr);
+                cb.onSuccess(boxCall(authed(url).post(RequestBody.create(body.toString(), JSON)).build()));
+            } catch (Exception e) { cb.onError(e.getMessage()); }
+        });
+    }
+
+    /** The cloud's own sentence on a refusal, never "API error 403: {...}". */
+    private static JSONObject boxCall(Request req) throws Exception {
+        try (Response res = CLIENT.newCall(req).execute()) {
+            String raw = res.body() != null ? res.body().string() : "{}";
+            if (res.code() == 401) checkStatus(res, raw);
+            if (res.code() == 404 && raw.contains("\"path\""))
+                throw new Exception("The cloud has not been updated for box plans yet.");
+            if (!res.isSuccessful())
+                throw new Exception(extractError(raw, res.code(), "The cloud could not do that"));
+            return new JSONObject(raw);
+        } catch (java.io.IOException e) {
+            throw new Exception("The cloud could not be reached just now. Check the internet and try again.");
+        }
+    }
+
     /**
      * Downloads one backup file to {@code dest}, streaming straight to disk so
      * a 100MB+ dump never sits in the app's heap. Writes to a ".part" file and

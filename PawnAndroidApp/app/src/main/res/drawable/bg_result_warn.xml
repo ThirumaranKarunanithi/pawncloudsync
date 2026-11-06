@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A notice that needs doing soon but has not failed yet: a plan ending, a payment being checked. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/gold_wash" />
+    <stroke android:width="1dp" android:color="@color/gold_wash_line" />
+    <corners android:radius="9dp" />
+</shape>

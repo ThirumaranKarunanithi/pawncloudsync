@@ -55,6 +55,14 @@ public class AppConfig {
      *  the only side that can see whether the shop's storage is full. */
     public static final String BACKUP_HEALTH   = BASE_URL + "/v1/files/backup/health";
 
+    // ── Cloud box plan (1.6) ──────────────────────────────────────────────────
+    /** The shop's box plan, usage, the plans on offer and recent payments. The
+     *  cloud relays the box's renewal calls with the shop's own box token, so
+     *  the phone never holds that token. */
+    public static final String BOX_PLAN  = BASE_URL + "/v1/box/plan";
+    /** POST {planCode, billingCycle}; then POST {BOX_RENEW}/{reference}/utr {utr}. Owner only. */
+    public static final String BOX_RENEW = BASE_URL + "/v1/box/renew";
+
     /** How many downloaded backups to keep on the phone. Older local copies
      *  are pruned only AFTER a newer one has downloaded successfully, so the
      *  device always retains several restore points. */

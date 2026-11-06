@@ -92,6 +92,14 @@
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/moreBoxPlan"
+        style="@style/MoreRow">
+        <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic3d_lock" />
+        <TextView style="@style/MoreRowLabel" android:text="Cloud Box Plan" />
+        <ImageView style="@style/MoreRowChevron" />
+    </LinearLayout>
+
+    <LinearLayout
         android:id="@+id/moreSettings"
         style="@style/MoreRow">
         <ImageView style="@style/MoreRowIcon" android:src="@drawable/ic3d_gear" />

@@ -257,7 +257,14 @@ public class BackupFilesActivity extends AppCompatActivity {
 
         if (reason != null && !"OK".equals(reason)) {
             boolean bad = !"FILLING".equals(reason);
-            tvStaleWarning.setText((bad ? "⚠ " : "ℹ ") + advice);
+            // A plan that has ended or a full box is fixed by paying, so the
+            // warning opens the plan screen (1.6). The rest are fixed at the shop.
+            boolean plan = reason.startsWith("PLAN_") || "CLOUD_FULL".equals(reason);
+            tvStaleWarning.setText((bad ? "⚠ " : "ℹ ") + advice
+                    + (plan ? "\n\nTap to see the cloud box plan and renew it." : ""));
+            tvStaleWarning.setOnClickListener(plan
+                    ? v -> startActivity(new Intent(this, BoxPlanActivity.class)) : null);
+            tvStaleWarning.setClickable(plan);
             tvStaleWarning.setVisibility(View.VISIBLE);
         } else if (reason != null) {
             tvStaleWarning.setVisibility(View.GONE);

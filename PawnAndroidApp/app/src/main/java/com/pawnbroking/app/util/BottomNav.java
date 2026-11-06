@@ -116,6 +116,7 @@ public final class BottomNav {
         // no harm and keeps one code path.
         row(body, R.id.moreNotifications, sheet, a, NotificationsActivity.class,   companyId, companyName);
         row(body, R.id.moreBackups,       sheet, a, BackupFilesActivity.class,     companyId, companyName);
+        row(body, R.id.moreBoxPlan,       sheet, a, com.pawnbroking.app.BoxPlanActivity.class, companyId, companyName);
         row(body, R.id.moreSettings,      sheet, a, SettingsActivity.class,        companyId, companyName);
 
         sheet.show();

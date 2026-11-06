@@ -92,6 +92,7 @@ public final class Cinema implements Application.ActivityLifecycleCallbacks {
         PLATES.put(EmployeeActivityActivity.class, R.drawable.plate_activity);
         PLATES.put(NotificationsActivity.class,    R.drawable.plate_notifications);
         PLATES.put(BackupFilesActivity.class,      R.drawable.plate_backups);
+        PLATES.put(com.pawnbroking.app.BoxPlanActivity.class, R.drawable.plate_backups);
         PLATES.put(SettingsActivity.class,         R.drawable.plate_settings);
         PLATES.put(ShopPickerActivity.class,       R.drawable.plate_shops);
     }

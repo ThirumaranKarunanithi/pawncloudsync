@@ -51,6 +51,20 @@
             android:paddingEnd="@dimen/page_pad"
             android:paddingBottom="@dimen/sp_xl">
 
+            <!-- ── The cloud box plan, only when it needs something done (1.6) ── -->
+            <TextView
+                android:id="@+id/tvBoxStrip"
+                style="@style/Royal.Body"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="@dimen/sp_md"
+                android:background="@drawable/bg_result_bad"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="12dp"
+                android:textColor="@color/ruby_ink"
+                android:visibility="gone" />
+
             <!-- ── Which company ─────────────────────────────────── -->
             <LinearLayout
                 android:layout_width="match_parent"

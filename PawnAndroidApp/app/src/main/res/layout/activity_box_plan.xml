@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The shop's cloud box plan and renewing it (1.6).
+  Top: where the plan stands and how full the box is. Then what needs doing,
+  a payment under way, the plans on offer with Monthly / Yearly, the Pay
+  button (owners only) and the last few payments.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/parchment"
+    android:orientation="vertical">
+
+    <include layout="@layout/view_band" />
+
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefresh"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="@dimen/page_pad"
+                android:paddingTop="@dimen/sp_lg"
+                android:paddingEnd="@dimen/page_pad"
+                android:paddingBottom="@dimen/sp_xxl">
+
+                <ProgressBar
+                    android:id="@+id/progressBar"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:layout_margin="32dp"
+                    android:indeterminateTint="@color/gold_rule" />
+
+                <TextView
+                    android:id="@+id/tvError"
+                    style="@style/Royal.Body"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_result_bad"
+                    android:padding="12dp"
+                    android:textColor="@color/ruby_ink"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:id="@+id/content"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <!-- ── The plan now ───────────────────────────────── -->
+                    <LinearLayout
+                        style="@style/Royal.Card"
+                        android:paddingStart="@dimen/sp_lg"
+                        android:paddingTop="@dimen/sp_md"
+                        android:paddingEnd="@dimen/sp_lg"
+                        android:paddingBottom="@dimen/sp_lg">
+
+                        <TextView
+                            style="@style/Royal.Cap"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="THIS SHOP'S CLOUD BOX" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/tvPlanName"
+                                style="@style/Royal.Title"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:textSize="@dimen/t_title" />
+
+                            <TextView
+                                android:id="@+id/tvPlanState"
+                                style="@style/Royal.Pill.Open"
+                                android:layout_marginStart="@dimen/sp_sm" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tvPlanDates"
+                            style="@style/Royal.Label"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp" />
+
+                        <ProgressBar
+                            android:id="@+id/barUsed"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="8dp"
+                            android:layout_marginTop="@dimen/sp_md"
+                            android:max="1000"
+                            android:progressBackgroundTint="@color/parchment_line"
+                            android:progressTint="@color/wine" />
+
+                        <TextView
+                            android:id="@+id/tvUsed"
+                            style="@style/Royal.Label"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp" />
+                    </LinearLayout>
+
+                    <!-- ── What needs doing ───────────────────────────── -->
+                    <TextView
+                        android:id="@+id/tvNote"
+                        style="@style/Royal.Body"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/sp_md"
+                        android:background="@drawable/bg_result_bad"
+                        android:padding="12dp"
+                        android:textColor="@color/ruby_ink"
+                        android:visibility="gone" />
+
+                    <!-- ── A payment under way ────────────────────────── -->
+                    <LinearLayout
+                        android:id="@+id/boxPending"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/sp_md"
+                        android:background="@drawable/bg_result_warn"
+                        android:orientation="vertical"
+                        android:padding="12dp"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:id="@+id/tvPending"
+                            style="@style/Royal.Body"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content" />
+
+                        <LinearLayout
+                            android:id="@+id/rowPendingButtons"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:orientation="horizontal">
+
+                            <Button
+                                android:id="@+id/btnPayAgain"
+                                style="@style/Royal.Button.Outline"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:layout_marginEnd="@dimen/sp_sm"
+                                android:text="Pay with UPI"
+                                android:textSize="@dimen/t_body" />
+
+                            <Button
+                                android:id="@+id/btnEnterUtr"
+                                style="@style/Royal.Button"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:text="Enter UTR"
+                                android:textSize="@dimen/t_body" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- ── Renew or change ────────────────────────────── -->
+                    <LinearLayout
+                        android:id="@+id/sectionRenew"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <LinearLayout style="@style/RoyalSectionRow">
+
+                            <TextView
+                                android:id="@+id/tvRenewHead"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:letterSpacing="0.16"
+                                android:text="RENEW OR CHANGE THE PLAN"
+                                android:textColor="@color/gold_ink"
+                                android:textSize="@dimen/t_fine"
+                                android:textStyle="bold" />
+
+                            <View
+                                android:layout_width="0dp"
+                                android:layout_height="1dp"
+                                android:layout_marginStart="10dp"
+                                android:layout_weight="1"
+                                android:background="@color/parchment_line" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/chipYearly"
+                                style="@style/Royal.Chip.Selected"
+                                android:text="YEARLY" />
+
+                            <TextView
+                                android:id="@+id/chipMonthly"
+                                style="@style/Royal.Chip"
+                                android:text="MONTHLY" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/listPlans"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/sp_md"
+                            android:orientation="vertical" />
+
+                        <Button
+                            android:id="@+id/btnPay"
+                            style="@style/Royal.Button"
+                            android:layout_marginTop="@dimen/sp_md"
+                            android:text="Pay with UPI" />
+
+                        <TextView
+                            android:id="@+id/tvOwnerOnly"
+                            style="@style/Royal.Body"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/sp_md"
+                            android:background="@drawable/bg_result_warn"
+                            android:padding="12dp"
+                            android:visibility="gone" />
+
+                        <TextView
+                            android:id="@+id/tvHowItWorks"
+                            style="@style/Royal.Label"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="@dimen/sp_sm"
+                            android:text="You pay Magizhchi Software by UPI. Then type the 12-digit UTR (the UPI reference number your payment app shows). The plan comes back as soon as Magizhchi approves the payment, usually the same day. Nothing stored in the box is ever deleted." />
+                    </LinearLayout>
+
+                    <!-- ── Payments ───────────────────────────────────── -->
+                    <LinearLayout
+                        android:id="@+id/sectionPayments"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <LinearLayout style="@style/RoyalSectionRow">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:letterSpacing="0.16"
+                                android:text="PAYMENTS"
+                                android:textColor="@color/gold_ink"
+                                android:textSize="@dimen/t_fine"
+                                android:textStyle="bold" />
+
+                            <View
+                                android:layout_width="0dp"
+                                android:layout_height="1dp"
+                                android:layout_marginStart="10dp"
+                                android:layout_weight="1"
+                                android:background="@color/parchment_line" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/listPayments"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+        </ScrollView>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+</LinearLayout>

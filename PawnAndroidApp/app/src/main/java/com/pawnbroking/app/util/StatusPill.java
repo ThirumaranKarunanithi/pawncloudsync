@@ -80,6 +80,18 @@ public final class StatusPill {
         apply(tv, bg, fg);
     }
 
+    /**
+     * A pill by how it should read rather than by a bill status: "good"
+     * (emerald), "warn" (gold), "bad" (wine) or anything else (quiet). Used by
+     * the cloud box plan screen, whose states are not a bill's.
+     */
+    public static void paintTone(TextView tv, String tone) {
+        if ("good".equals(tone))      apply(tv, R.drawable.pill_open,    R.color.emerald_ink);
+        else if ("warn".equals(tone)) apply(tv, R.drawable.pill_gold,    R.color.gold_ink);
+        else if ("bad".equals(tone))  apply(tv, R.drawable.pill_overdue, R.color.on_wine);
+        else                          apply(tv, R.drawable.pill_closed,  R.color.ink_body);
+    }
+
     private static void apply(TextView tv, int bg, int fg) {
         // A pill needs its padding back: setBackgroundResource drops
         // whatever the layout set.

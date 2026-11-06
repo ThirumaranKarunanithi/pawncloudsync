@@ -37,6 +37,7 @@
         <activity android:name=".BillingActivity"          android:exported="false" />
         <activity android:name=".NotificationsActivity"    android:exported="false" />
         <activity android:name=".BackupFilesActivity"      android:exported="false" />
+        <activity android:name=".BoxPlanActivity"          android:exported="false" />
 
         <!-- Lets the user share a downloaded backup out to Drive/WhatsApp/etc.
              without exposing the app's private storage. -->

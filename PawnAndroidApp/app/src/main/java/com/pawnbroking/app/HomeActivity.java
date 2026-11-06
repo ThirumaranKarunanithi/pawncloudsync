@@ -161,6 +161,59 @@ public class HomeActivity extends AppCompatActivity {
         // Refresh badge immediately and start the 30s poll loop.
         refreshBellBadge();
         pollHandler.postDelayed(pollRunnable, POLL_INTERVAL_MS);
+        refreshBoxStrip();
+    }
+
+    // ── Cloud box plan strip (1.6) ────────────────────────────────────────────
+    // From 06-11-2026 a paid cloud box plan ends by itself, and when it has,
+    // photos and backups stop reaching the cloud. The owner hardly ever opens
+    // Backups, so Home says it - only when something needs doing - and a tap
+    // opens the plan screen to renew. Asked at most every 10 minutes per shop.
+
+    private static final long BOX_CHECK_MS = 10 * 60 * 1000L;
+    private static long boxCheckedAt;
+    private static String boxCheckedShop;
+    private static JSONObject boxLast;
+
+    /** The plan screen's own answer, so Home does not go on saying "renew" after a payment. */
+    static void boxPlanSeen(String shop, JSONObject data) {
+        boxLast = data; boxCheckedAt = System.currentTimeMillis(); boxCheckedShop = shop;
+    }
+
+    private void refreshBoxStrip() {
+        String shop = ApiService.getCurrentShopId(this);
+        boolean fresh = boxLast != null && shop != null && shop.equals(boxCheckedShop)
+                && System.currentTimeMillis() - boxCheckedAt < BOX_CHECK_MS;
+        if (fresh) { applyBoxStrip(boxLast); return; }
+        if (shop == null || !shop.equals(boxCheckedShop)) applyBoxStrip(null);
+        ApiService.boxPlan(new ApiService.Callback<JSONObject>() {
+            @Override public void onSuccess(JSONObject data) {
+                boxLast = data; boxCheckedAt = System.currentTimeMillis(); boxCheckedShop = shop;
+                runOnUiThread(() -> { if (!isFinishing()) applyBoxStrip(data); });
+            }
+            @Override public void onError(String msg) { /* an older cloud, or offline: say nothing */ }
+        });
+    }
+
+    private void applyBoxStrip(JSONObject p) {
+        TextView strip = findViewById(R.id.tvBoxStrip);
+        if (strip == null) return;
+        String attention = p == null || p.isNull("attention") ? null : p.optString("attention", null);
+        JSONObject pending = p == null ? null : p.optJSONObject("pendingPayment");
+        boolean checking = pending != null && "PENDING_VERIFICATION".equals(pending.optString("status"));
+        if (attention == null || attention.isEmpty()) { strip.setVisibility(View.GONE); return; }
+
+        boolean bad = !checking && ("PAUSED".equals(attention) || "ENDED".equals(attention) || "FULL".equals(attention));
+        String text = checking
+                ? "Cloud box plan: your payment is being checked by Magizhchi. The plan comes back once it is approved."
+                : p.optString("headline", "The cloud box plan needs renewing.") + "  ›";
+        strip.setText(text);
+        int pad = strip.getPaddingTop();
+        strip.setBackgroundResource(bad ? R.drawable.bg_result_bad : R.drawable.bg_result_warn);
+        strip.setPadding(pad, pad, pad, pad);
+        strip.setTextColor(androidx.core.content.ContextCompat.getColor(this, bad ? R.color.ruby_ink : R.color.ink));
+        strip.setOnClickListener(v -> startActivity(new Intent(this, BoxPlanActivity.class)));
+        strip.setVisibility(View.VISIBLE);
     }
 
     @Override protected void onPause() {
