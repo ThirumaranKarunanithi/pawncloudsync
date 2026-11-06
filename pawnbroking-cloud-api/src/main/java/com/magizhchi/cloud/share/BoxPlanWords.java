@@ -75,6 +75,7 @@ public final class BoxPlanWords {
                  + gb(u.limitBytes()) + " (" + gb(u.usedBytes()) + " used). Uploads stop once that is full."
                  + renewing(u);
         }
+        // Once a renewal is paid for, "renew it" would contradict the line after it.
         if (u.inGrace()) {
             boolean over = u.usedBytes() > FREE_BYTES;
             return "The shop's " + plan(u) + " ended"
@@ -82,12 +83,12 @@ public final class BoxPlanWords {
                  + ". Its space is kept until " + day(u.graceEndsAt())
                  + "; after that it goes back to the free " + gb(FREE_BYTES)
                  + (over ? ", and as it holds " + gb(u.usedBytes()) + ", uploads would stop" : "")
-                 + ". Ask for the plan to be renewed before then." + renewing(u);
+                 + "." + (u.renewalBeingChecked() ? renewing(u) : " Renew the plan before then.");
         }
         if (u.endsWithin(now, 7)) {
-            return "The shop's " + plan(u) + " ends on " + day(u.planExpiresAt())
-                 + ". Ask for it to be renewed before then so backups and photos keep going up."
-                 + renewing(u);
+            return "The shop's " + plan(u) + " ends on " + day(u.planExpiresAt()) + "."
+                 + (u.renewalBeingChecked() ? renewing(u)
+                    : " Renew it before then so backups and photos keep going up.");
         }
         return null;
     }

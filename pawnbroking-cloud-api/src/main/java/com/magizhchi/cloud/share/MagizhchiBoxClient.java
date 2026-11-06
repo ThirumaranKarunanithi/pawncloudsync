@@ -318,6 +318,62 @@ public class MagizhchiBoxClient {
         return parseUsage(r.body());
     }
 
+    /**
+     * A box answer exactly as it came, so a caller can hand the box's own
+     * status and words on (404 "Unknown plan", 409 "already approved") rather
+     * than flattening every refusal into one error.
+     */
+    public record Answer(int status, String body) {
+        public boolean ok() { return status / 100 == 2; }
+        public JsonNode json() {
+            try { return M.readTree(body == null || body.isBlank() ? "{}" : body); }
+            catch (Exception e) { return M.createObjectNode(); }
+        }
+        /** The box's sentence for a refusal: message, else error, else the status. */
+        public String words() {
+            JsonNode n = json();
+            String m = n.path("message").asText("");
+            if (m.isBlank()) m = n.path("error").asText("");
+            return m.isBlank() ? "the cloud box answered " + status : m;
+        }
+    }
+
+    /**
+     * The four renewal calls the box allows an API token since 06-11-2026.
+     * Each acts only on the token owner's own account, which for a shop is the
+     * account its photos and backups go to - the one whose plan needs paying for.
+     */
+    public Answer plans(String apiKey)                  { return call(apiKey, "GET",  "/api/plans", null); }
+    public Answer myPayments(String apiKey)             { return call(apiKey, "GET",  "/api/payments/me", null); }
+    public Answer storageUsageRaw(String apiKey)        { return call(apiKey, "GET",  "/api/storage/usage", null); }
+    public Answer checkout(String apiKey, String planCode, String billingCycle) {
+        return call(apiKey, "POST", "/api/payments/checkout",
+                "{\"planCode\":\"" + jsonEscape(planCode) + "\",\"billingCycle\":\"" + jsonEscape(billingCycle) + "\"}");
+    }
+    public Answer submitUtr(String apiKey, String reference, String utr) {
+        return call(apiKey, "POST", "/api/payments/"
+                + java.net.URLEncoder.encode(reference, StandardCharsets.UTF_8) + "/utr",
+                "{\"utr\":\"" + jsonEscape(utr) + "\"}");
+    }
+
+    private Answer call(String apiKey, String method, String path, String json) {
+        HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(baseUrl + path))
+                .header("X-Api-Key", apiKey)
+                .timeout(Duration.ofSeconds(30));
+        if (json != null) {
+            b.header("Content-Type", "application/json")
+             .method(method, HttpRequest.BodyPublishers.ofString(json));
+        } else {
+            b.method(method, HttpRequest.BodyPublishers.noBody());
+        }
+        try {
+            HttpResponse<String> r = http.send(b.build(), HttpResponse.BodyHandlers.ofString());
+            return new Answer(r.statusCode(), r.body());
+        } catch (Exception e) {
+            return new Answer(502, "{\"message\":\"the cloud box could not be reached\"}");
+        }
+    }
+
     private static String jsonEscape(String s) {
         return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }

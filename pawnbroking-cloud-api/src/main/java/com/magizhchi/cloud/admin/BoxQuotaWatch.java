@@ -222,8 +222,9 @@ public class BoxQuotaWatch {
              + " &nbsp; <b>Using:</b> " + BoxPlanWords.gb(u.usedBytes()) + " of " + BoxPlanWords.gb(u.limitBytes())
              + "</p>")
           + "<p><b>What to do</b></p><ul>"
-          + "<li>Renew this shop's box plan: approve a payment for its account on Magizhchi Box's "
-          + "Payments page, or move its plan date on as was done for the other shops.</li>"
+          + "<li>The shop's owner can renew it from the phone app (More, then Cloud box plan): "
+          + "it pays by UPI there, and you approve that payment on Magizhchi Box's Payments page.</li>"
+          + "<li>Or move its plan date on, as was done for the other shops.</li>"
           + "<li>The box has also mailed the shop's own sign-in address about this.</li>"
           + "</ul>"
           + "<p style=\"color:#666;font-size:13px\">Sent once when a plan is 7 days from its end, "
