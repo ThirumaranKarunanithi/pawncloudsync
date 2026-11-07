@@ -277,9 +277,15 @@ public class DataController {
         args.add(table);
         StringBuilder w = new StringBuilder(" WHERE table_name = ? AND NOT deleted ");
 
+        // Every word, anywhere in the row, in any order: "9442407766 chain" is that customer's bills with a
+        // chain in them - a customer who knows neither the bill number nor the amount names the jewel.
+        // One word is exactly the old search.
         if (q != null && !q.isBlank()) {
-            w.append(" AND payload::text ILIKE ? ");
-            args.add("%" + q + "%");
+            String[] words = q.trim().split("\\s+");
+            for (int i = 0; i < Math.min(words.length, 8); i++) {
+                w.append(" AND payload::text ILIKE ? ");
+                args.add("%" + words[i] + "%");
+            }
         }
         if (companyId != null && !companyId.isBlank() && !"ALL".equalsIgnoreCase(companyId)) {
             w.append(" AND payload->>'company_id' = ? "); args.add(companyId);
