@@ -13,10 +13,14 @@ public class Bill {
     public final double openTakenAmount;
     public final String status;
     public final String items;
+    /** Grams as the bill records them; 0 when the row has none (never invented). */
+    public final double grossWeight;
+    public final double netWeight;
 
     public Bill(String billNumber, String materialType, String customerName,
                 String mobileNumber, String openingDate, String acceptedClosingDate,
-                double amount, double openTakenAmount, String status, String items) {
+                double amount, double openTakenAmount, String status, String items,
+                double grossWeight, double netWeight) {
         this.billNumber = billNumber;
         this.materialType = materialType;
         this.customerName = customerName;
@@ -27,6 +31,8 @@ public class Bill {
         this.openTakenAmount = openTakenAmount;
         this.status = status;
         this.items = items;
+        this.grossWeight = grossWeight;
+        this.netWeight = netWeight;
     }
 
     /**
@@ -48,7 +54,9 @@ public class Bill {
             toDouble(j.opt("amount")),
             toDouble(j.opt("open_taken_amount")),
             j.optString("status", ""),
-            j.optString("items", null)
+            j.isNull("items") ? null : j.optString("items", null),
+            toDouble(j.opt("gross_weight")),
+            toDouble(j.opt("net_weight"))
         );
     }
 

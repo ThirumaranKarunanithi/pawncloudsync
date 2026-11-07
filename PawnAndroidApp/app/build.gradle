@@ -21,8 +21,8 @@ android {
         // 7 / 1.6 (06-11-2026): Cloud Box Plan screen - see the plan, pay to
         // renew it by UPI and hand in the UTR (owners only); Home and Backups
         // say when the plan has ended or is about to.
-        versionCode 7
-        versionName "1.6"
+        versionCode 8
+        versionName "1.7"
     }
 
     buildTypes {

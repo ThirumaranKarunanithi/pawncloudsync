@@ -95,6 +95,8 @@ public class HomeActivity extends AppCompatActivity {
         findViewById(R.id.btnBilling).setOnClickListener(v        -> open(BillingActivity.class));
         findViewById(R.id.btnMonthlyReport).setOnClickListener(v  -> open(MonthlyReportActivity.class));
         findViewById(R.id.btnEmployeeActivity).setOnClickListener(v -> open(EmployeeActivityActivity.class));
+        rateScreen = new java.lang.ref.WeakReference<>(this);
+        setUpRateTiles();
 
         loadCompanies();
 
@@ -162,6 +164,8 @@ public class HomeActivity extends AppCompatActivity {
         refreshBellBadge();
         pollHandler.postDelayed(pollRunnable, POLL_INTERVAL_MS);
         refreshBoxStrip();
+        rateScreen = new java.lang.ref.WeakReference<>(this);
+        refreshRate(false);
     }
 
     // ── Cloud box plan strip (1.6) ────────────────────────────────────────────
@@ -214,6 +218,192 @@ public class HomeActivity extends AppCompatActivity {
         strip.setTextColor(androidx.core.content.ContextCompat.getColor(this, bad ? R.color.ruby_ink : R.color.ink));
         strip.setOnClickListener(v -> startActivity(new Intent(this, BoxPlanActivity.class)));
         strip.setVisibility(View.VISIBLE);
+    }
+
+    // ── Today's rate (1.7) ────────────────────────────────────────────────────
+    // The shop's rate board: 22 carat gold and silver a gram, and the company
+    // rate under each, for the company on screen. The cloud answers from what
+    // the shop's desktop took at its first sign-in of the day, or reads
+    // goodreturns.in itself when the desktop has not yet today. The last answer
+    // per shop and company is kept on the phone, so the board is there at once
+    // and offline, with its date; the cloud is asked again every 5 minutes at
+    // most, and on a tap of Refresh.
+
+    private static final long RATE_CHECK_MS = 5 * 60 * 1000L;
+    private static final java.util.Map<String, Long> rateAskedAt = new java.util.HashMap<>();
+    private static final String RATE_PREFS = "todays_rate";
+    private JSONObject rateShown;
+
+    private void setUpRateTiles() {
+        View gold = findViewById(R.id.tileRateGold), silver = findViewById(R.id.tileRateSilver);
+        gold.setBackgroundResource(R.drawable.bg_rate_gold);
+        silver.setBackgroundResource(R.drawable.bg_rate_silver);
+        ((TextView) gold.findViewById(R.id.rateMetal)).setText("GOLD");
+        ((TextView) gold.findViewById(R.id.rateKind)).setText("22 carat, a gram");
+        ((android.widget.ImageView) gold.findViewById(R.id.rateIcon)).setImageResource(R.drawable.ic3d_rate_gold);
+        ((TextView) silver.findViewById(R.id.rateMetal)).setText("SILVER");
+        ((TextView) silver.findViewById(R.id.rateKind)).setText("a gram");
+        ((android.widget.ImageView) silver.findViewById(R.id.rateIcon)).setImageResource(R.drawable.ic3d_rate_silver);
+        // The padding was set before the background, which would otherwise replace it with its own.
+        for (View t : new View[] {gold, silver}) {
+            int s = getResources().getDimensionPixelSize(R.dimen.sp_lg);
+            t.setPadding(s, dp(10), dp(10), dp(11));
+            t.setOnClickListener(v -> showRateDetails());
+        }
+    }
+
+    private int dp(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
+
+    private String rateKey() {
+        return ApiService.getCurrentShopId(this) + "|" + (selectedCompany == null ? "" : selectedCompany.id);
+    }
+
+    private JSONObject keptRate(String key) {
+        String s = getSharedPreferences(RATE_PREFS, MODE_PRIVATE).getString(key, null);
+        try { return s == null ? null : new JSONObject(s); } catch (Exception e) { return null; }
+    }
+
+    private void refreshRate(boolean force) {
+        if (selectedCompany == null) return;
+        final String key = rateKey();
+        JSONObject kept = keptRate(key);
+        applyRate(kept);
+        Long asked = rateAskedAt.get(key);
+        long now = System.currentTimeMillis();
+        if (!force && asked != null && now - asked < RATE_CHECK_MS) return;   // asked lately, or still asking
+        rateAskedAt.put(key, now);
+        final android.content.Context app = getApplicationContext();
+        // The answer goes to the Home on screen when it comes, not to the one that asked: a Home redrawn
+        // meanwhile (dark theme at start, a turn of the phone) does not ask again while this is on its way.
+        ApiService.todaysRate(selectedCompany.id, new ApiService.Callback<JSONObject>() {
+            @Override public void onSuccess(JSONObject data) {
+                app.getSharedPreferences(RATE_PREFS, MODE_PRIVATE).edit().putString(key, data.toString()).apply();
+                HomeActivity a = rateScreen.get();
+                if (a == null) return;
+                a.runOnUiThread(() -> {
+                    if (a.isFinishing() || a.isDestroyed() || !key.equals(a.rateKey())) return;
+                    a.applyRate(data);
+                    if (force) Toast.makeText(a, "Today's rate is up to date", Toast.LENGTH_SHORT).show();
+                });
+            }
+            @Override public void onError(String msg) {
+                // Offline, or a cloud from before 1.7: keep what is shown (it carries its own date).
+                rateAskedAt.remove(key);
+                HomeActivity a = rateScreen.get();
+                if (force && a != null) a.runOnUiThread(() -> Toast.makeText(a,
+                        "The cloud could not be reached just now", Toast.LENGTH_SHORT).show());
+            }
+        });
+    }
+
+    /** The Home on screen, for an answer that comes after a redraw. */
+    private static java.lang.ref.WeakReference<HomeActivity> rateScreen = new java.lang.ref.WeakReference<>(null);
+
+    /** Fills the board from the cloud's answer; null or "not available" hides it. */
+    private void applyRate(JSONObject r) {
+        View section = findViewById(R.id.rateSection);
+        rateShown = r;
+        if (r == null || !r.optBoolean("available", false)
+                || (r.optJSONObject("gold") == null && r.optJSONObject("silver") == null)) {
+            section.setVisibility(View.GONE);
+            return;
+        }
+        fillRateTile(findViewById(R.id.tileRateGold), r.optJSONObject("gold"));
+        fillRateTile(findViewById(R.id.tileRateSilver), r.optJSONObject("silver"));
+        boolean both = r.optJSONObject("gold") != null && r.optJSONObject("silver") != null;
+        findViewById(R.id.tileRateSilver).setVisibility(r.optJSONObject("silver") == null ? View.GONE : View.VISIBLE);
+        findViewById(R.id.tileRateGold).setVisibility(r.optJSONObject("gold") == null ? View.GONE : View.VISIBLE);
+        findViewById(R.id.rateGap).setVisibility(both ? View.VISIBLE : View.GONE);
+
+        // A kept answer from an earlier day says "today" no longer: say its date instead.
+        java.time.LocalDate asOf = parseDay(r.optString("as_of", ""));
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Kolkata"));
+        boolean isToday = r.optBoolean("today", false) && today.equals(asOf);
+        String note = r.optString("note", "");
+        if (r.optBoolean("today", false) && !isToday && asOf != null) {
+            String city = r.isNull("city") ? "" : r.optString("city", "");
+            note = (city.isEmpty() ? "" : city + " · ") + "as on " + asOf.format(DAY_DMY)
+                    + " · could not reach the cloud";
+        }
+        TextView day = findViewById(R.id.tvRateDay);
+        day.setText(asOf == null ? "" : (isToday ? asOf.format(DAY_HEAD) : "AS ON " + asOf.format(DAY_SHORT))
+                .toUpperCase(java.util.Locale.ENGLISH));
+        ((TextView) findViewById(R.id.tvRateNote)).setText(note);
+        int mark = androidx.core.content.ContextCompat.getColor(this, isToday ? R.color.emerald : R.color.amber);
+        findViewById(R.id.dotRate).getBackground().mutate().setTint(mark);
+        section.setVisibility(View.VISIBLE);
+    }
+
+    private static final java.time.format.DateTimeFormatter DAY_HEAD =
+            java.time.format.DateTimeFormatter.ofPattern("EEE dd MMM", java.util.Locale.ENGLISH);
+    private static final java.time.format.DateTimeFormatter DAY_SHORT =
+            java.time.format.DateTimeFormatter.ofPattern("dd MMM", java.util.Locale.ENGLISH);
+    private static final java.time.format.DateTimeFormatter DAY_DMY =
+            java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy", java.util.Locale.ENGLISH);
+
+    private static java.time.LocalDate parseDay(String s) {
+        try { return s == null || s.isEmpty() ? null : java.time.LocalDate.parse(s); } catch (Exception e) { return null; }
+    }
+
+    private void fillRateTile(View tile, JSONObject m) {
+        if (m == null) return;
+        ((TextView) tile.findViewById(R.id.rateFigure)).setText(rupees(m.optDouble("rate", 0)));
+        String p = m.isNull("percent") ? null : String.valueOf(m.optInt("percent"));
+        ((TextView) tile.findViewById(R.id.rateCompanyLabel)).setText(p == null ? "Company rate" : "Company " + p + " %");
+        ((TextView) tile.findViewById(R.id.rateCompany)).setText(rupees(m.optDouble("company_rate", 0)));
+    }
+
+    /** ₹13,139 / ₹204.90 / ₹1,05,112: Indian grouping, paise only when there are some. */
+    private static String rupees(double v) {
+        java.text.NumberFormat f = java.text.NumberFormat.getNumberInstance(new java.util.Locale("en", "IN"));
+        boolean whole = Math.abs(v - Math.rint(v)) < 0.005;
+        f.setMinimumFractionDigits(whole ? 0 : 2);
+        f.setMaximumFractionDigits(whole ? 0 : 2);
+        return "₹" + f.format(v);
+    }
+
+    /** The board's tap: every figure in full - a sovereign, a kilo - where it came from, and Refresh. */
+    private void showRateDetails() {
+        JSONObject r = rateShown;
+        if (r == null) return;
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
+        JSONObject g = r.optJSONObject("gold"), s = r.optJSONObject("silver");
+        if (g != null) {
+            rateHead(b, "GOLD · 22 CARAT");
+            double rate = g.optDouble("rate", 0);
+            b.append(rupees(rate)).append("  a gram\n");
+            b.append(rupees(Math.round(rate * 8))).append("  a sovereign (8 grams)\n");
+            b.append(rupees(g.optDouble("company_rate", 0))).append("  company rate")
+                    .append(g.isNull("percent") ? "" : " (" + g.optInt("percent") + " %)").append("\n");
+        }
+        if (s != null) {
+            if (b.length() > 0) b.append("\n");
+            rateHead(b, "SILVER");
+            double rate = s.optDouble("rate", 0);
+            b.append(rupees(rate)).append("  a gram\n");
+            b.append(rupees(Math.round(rate * 1000))).append("  a kilo\n");
+            b.append(rupees(s.optDouble("company_rate", 0))).append("  company rate")
+                    .append(s.isNull("percent") ? "" : " (" + s.optInt("percent") + " %)").append("\n");
+        }
+        b.append("\n").append(((TextView) findViewById(R.id.tvRateNote)).getText());
+        if (r.optBoolean("live", false)) {
+            b.append("\n\nThe company rate here is at the company's %. The shop's own figures change when the desktop "
+                    + "takes today's rate at sign-in (or with \"Get today's rate now\" in the Company Module).");
+        }
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Today's rate" + (selectedCompany == null ? "" : " - " + selectedCompany.name))
+                .setMessage(b)
+                .setNeutralButton("Refresh", (d, w) -> refreshRate(true))
+                .setPositiveButton("OK", null)
+                .show();
+    }
+
+    private void rateHead(android.text.SpannableStringBuilder b, String text) {
+        int from = b.length();
+        b.append(text).append("\n");
+        b.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), from, b.length() - 1, 0);
+        b.setSpan(new android.text.style.ForegroundColorSpan(
+                androidx.core.content.ContextCompat.getColor(this, R.color.gold_ink)), from, b.length() - 1, 0);
     }
 
     @Override protected void onPause() {
@@ -269,12 +459,14 @@ public class HomeActivity extends AppCompatActivity {
                         @Override public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
                             selectedCompany = companies.get(pos);
                             attachBar();
+                            refreshRate(false);
                             loadCharts();
                         }
                         @Override public void onNothingSelected(AdapterView<?> p) {}
                     });
                     selectedCompany = companies.get(0);
                     attachBar();
+                    refreshRate(false);
                     layoutContent.setVisibility(View.VISIBLE);
                     loadCharts();
                 });

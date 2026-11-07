@@ -66,6 +66,60 @@
         android:textColor="@color/ink_mute"
         android:textSize="@dimen/t_small" />
 
+    <!-- What was pledged (1.7). A customer who knows neither the bill number nor the
+         amount names the jewel - "a dollar chain, two kolusu" - so the card says it. -->
+    <LinearLayout
+        android:id="@+id/rowJewels"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_jewel_strip"
+        android:baselineAligned="false"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="10dp"
+        android:paddingTop="7dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="7dp">
+
+        <TextView
+            android:id="@+id/tvItems"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:lineSpacingExtra="2dp"
+            android:maxLines="3"
+            android:textColor="@color/ink"
+            android:textSize="@dimen/t_body" />
+
+        <LinearLayout
+            android:id="@+id/colWeight"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:gravity="end"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvGross"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFeatureSettings="tnum"
+                android:textColor="@color/ink"
+                android:textSize="@dimen/t_small"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvNet"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFeatureSettings="tnum"
+                android:textColor="@color/ink_mute"
+                android:textSize="@dimen/t_fine" />
+        </LinearLayout>
+    </LinearLayout>
+
     <!-- Money · date -->
     <LinearLayout
         android:layout_width="match_parent"

@@ -37,7 +37,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_marginStart="10dp"
-                android:hint="Bill number, name or mobile"
+                android:hint="Bill no, name, mobile or jewel"
                 android:imeOptions="actionSearch"
                 android:inputType="text"
                 android:textSize="@dimen/t_body" />

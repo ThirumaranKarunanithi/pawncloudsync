@@ -63,6 +63,10 @@ public class AppConfig {
     /** POST {planCode, billingCycle}; then POST {BOX_RENEW}/{reference}/utr {utr}. Owner only. */
     public static final String BOX_RENEW = BASE_URL + "/v1/box/renew";
 
+    // ── Today's rate (1.7) ────────────────────────────────────────────────────
+    /** ?companyId= : 22 carat gold and silver a gram and the company rate, for Home's rate board. */
+    public static final String TODAYS_RATE = BASE_URL + "/v1/data/todays-rate";
+
     /** How many downloaded backups to keep on the phone. Older local copies
      *  are pruned only AFTER a newer one has downloaded successfully, so the
      *  device always retains several restore points. */

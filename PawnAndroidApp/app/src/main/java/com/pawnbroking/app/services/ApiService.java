@@ -1779,6 +1779,29 @@ public class ApiService {
         });
     }
 
+    // ── Today's rate (1.7) ────────────────────────────────────────────────────
+
+    /**
+     * Today's 22 carat gold and silver a gram for one company, with its company
+     * rate, as the shop's desktop took them (or as the cloud read them when the
+     * desktop has not yet today). Any failure - an older cloud included - is
+     * onError, and Home simply keeps what it showed.
+     */
+    public static void todaysRate(String companyId, Callback<JSONObject> cb) {
+        EXEC.execute(() -> {
+            try {
+                HttpUrl.Builder url = HttpUrl.parse(AppConfig.TODAYS_RATE).newBuilder();
+                if (companyId != null && !companyId.isEmpty()) url.addQueryParameter("companyId", companyId);
+                try (Response res = CLIENT.newCall(authed(url.build()).get().build()).execute()) {
+                    String raw = res.body() != null ? res.body().string() : "{}";
+                    if (res.code() == 401) checkStatus(res, raw);
+                    if (!res.isSuccessful()) throw new Exception("HTTP " + res.code());
+                    cb.onSuccess(new JSONObject(raw));
+                }
+            } catch (Exception e) { cb.onError(e.getMessage()); }
+        });
+    }
+
     /** The cloud's own sentence on a refusal, never "API error 403: {...}". */
     private static JSONObject boxCall(Request req) throws Exception {
         try (Response res = CLIENT.newCall(req).execute()) {

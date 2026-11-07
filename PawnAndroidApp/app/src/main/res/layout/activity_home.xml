@@ -7,6 +7,7 @@
   More sheet reaches the rest.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/parchment"
@@ -87,6 +88,101 @@
                     android:layout_width="match_parent"
                     android:layout_height="44dp"
                     android:popupBackground="@color/surface" />
+            </LinearLayout>
+
+            <!-- ── Today's rate (1.7): the shop's rate board ─────────
+                 22 carat gold and silver a gram, as the shop's desktop took
+                 them (or as the cloud read them when it has not yet today),
+                 and the company rate under each. Hidden until the cloud has
+                 answered once; the last answer is kept for the next start. -->
+            <LinearLayout
+                android:id="@+id/rateSection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout style="@style/RoyalSectionRow">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:letterSpacing="0.16"
+                        android:text="TODAY'S RATE"
+                        android:textColor="@color/gold_ink"
+                        android:textSize="@dimen/t_fine"
+                        android:textStyle="bold" />
+
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="10dp"
+                        android:layout_marginEnd="10dp"
+                        android:layout_weight="1"
+                        android:background="@color/parchment_line" />
+
+                    <TextView
+                        android:id="@+id/tvRateDay"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:letterSpacing="0.10"
+                        android:textColor="@color/ink_mute"
+                        android:textSize="@dimen/t_fine"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:baselineAligned="false"
+                    android:orientation="horizontal">
+
+                    <include
+                        android:id="@+id/tileRateGold"
+                        layout="@layout/item_rate_tile"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1" />
+
+                    <Space
+                        android:id="@+id/rateGap"
+                        android:layout_width="@dimen/sp_md"
+                        android:layout_height="1dp" />
+
+                    <include
+                        android:id="@+id/tileRateSilver"
+                        layout="@layout/item_rate_tile"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/rowRateNote"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/sp_sm"
+                    android:gravity="top"
+                    android:orientation="horizontal"
+                    android:paddingStart="2dp"
+                    android:paddingEnd="2dp">
+
+                    <View
+                        android:id="@+id/dotRate"
+                        android:layout_width="7dp"
+                        android:layout_height="7dp"
+                        android:layout_marginTop="5dp"
+                        android:layout_marginEnd="7dp"
+                        android:background="@drawable/dot_rate" />
+
+                    <TextView
+                        android:id="@+id/tvRateNote"
+                        style="@style/RoyalTileSub"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:maxLines="2"
+                        android:ellipsize="end" />
+                </LinearLayout>
             </LinearLayout>
 
             <!-- ── Operations ────────────────────────────────────── -->

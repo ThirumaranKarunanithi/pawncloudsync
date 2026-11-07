@@ -52,6 +52,8 @@
     <color name="gold_pale">#F0DA9B</color>
     <color name="gold_wash">#FBF0D9</color>
     <color name="gold_wash_line">#E3CD93</color>
+    <!-- A searched word inside a bill card's jewels (Bills list, 1.7). -->
+    <color name="jewel_mark">#EFD58C</color>
 
     <!-- ── Parchment: page, cards, hairlines ────────────────────────── -->
     <color name="parchment">#FCF8F1</color>

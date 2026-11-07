@@ -105,14 +105,25 @@ public class BillsActivity extends AppCompatActivity {
         etSearch.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int st, int c, int a) {}
             @Override public void onTextChanged(CharSequence s, int st, int b, int c) {}
-            @Override public void afterTextChanged(Editable s) { load(true); }
+            // Asked once typing pauses: one question for "9442407766 chain", not one per letter.
+            @Override public void afterTextChanged(Editable s) {
+                typing.removeCallbacks(askNow);
+                typing.postDelayed(askNow, 350);
+            }
         });
 
         load(true);
     }
 
+    private final android.os.Handler typing = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable askNow = () -> load(true);
+    /** Only the newest question's answer is shown: an older one arriving late would add its bills to the list. */
+    private int asked;
+
     private void load(boolean reset) {
+        final int mine = ++asked;
         if (reset) { page = 0; bills.clear(); adapter.notifyDataSetChanged(); }
+        adapter.setHighlight(etSearch.getText().toString());
         progressBar.setVisibility(View.VISIBLE);
         btnLoadMore.setVisibility(View.GONE);
 
@@ -121,6 +132,7 @@ public class BillsActivity extends AppCompatActivity {
             new ApiService.Callback<ApiService.BillsResult>() {
                 @Override public void onSuccess(ApiService.BillsResult result) {
                     runOnUiThread(() -> {
+                        if (mine != asked || isFinishing()) return;
                         progressBar.setVisibility(View.GONE);
                         total = result.total;
                         int added = result.bills.size();
@@ -142,6 +154,7 @@ public class BillsActivity extends AppCompatActivity {
                 }
                 @Override public void onError(String message) {
                     runOnUiThread(() -> {
+                        if (mine != asked || isFinishing()) return;
                         progressBar.setVisibility(View.GONE);
                         Toast.makeText(BillsActivity.this, "Error: " + message, Toast.LENGTH_SHORT).show();
                     });

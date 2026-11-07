@@ -825,6 +825,22 @@ public class CinemaRender {
         sc.add(at(sign, x, y, z, rx, ry, 0), Mat.metal(1.0, .80, .40, .07), x, y, z, r);
     }
 
+    /** A cast bar as the trade knows it: the top smaller than the foot, every side sloping in. Long on Z. */
+    static Sdf bullion(double w, double h, double d) {
+        double k = .34, n = Math.sqrt(1 + k * k);          // how far each side comes in per unit of height
+        return both(box(w, h, d, h * .16), (x, y, z) -> Math.max(
+                (Math.abs(x) - (w - (y + h) * k)) / n,
+                (Math.abs(z) - (d - (y + h) * k)) / n));
+    }
+
+    /** Three bars: two side by side on the bench, the third across their backs. Turned ry degrees. */
+    static void bullionStack(Scene sc, double ry, Mat m) {
+        double w = .32, h = .17, d = .62;
+        Sdf bar = bullion(w, h, d);
+        Sdf stack = union(at(bar, -.35, h, 0), at(bar, .35, h, 0), at(bar, 0, 3 * h, 0, 0, 3, 0));
+        sc.add(at(stack, 0, 0, 0, 0, ry, 0), m, 0, 3 * h, 0, 1.15);
+    }
+
     /** A coin stack, each slightly out of true, as a stack really sits. */
     static void stack(Scene sc, double x, double z, int count, double r, double h, Mat m, long seed) {
         SplittableRandom q = new SplittableRandom(seed);
@@ -1321,6 +1337,18 @@ public class CinemaRender {
         {
             Scene s = icon("ic3d_scale", 0, 1.1, 5.6, 1.05, 25);
             scales(s, 0, 0, 1.55, 3, BRASS);
+            a.add(s);
+        }
+        {
+            // Home's Today's Rate tiles (1.7): the same stack in each metal, so the two read as a pair.
+            Scene s = icon("ic3d_rate_gold", -.55, 1.75, 4.7, .5, 24);
+            bullionStack(s, 26, Mat.metal(1.00, .766, .336, .24));
+            a.add(s);
+        }
+        {
+            Scene s = icon("ic3d_rate_silver", -.55, 1.75, 4.7, .5, 24);
+            bullionStack(s, 26, Mat.metal(.90, .93, .97, .24));
+            s.grade = new Grade().temp(-.07, -.02).tone(1.1, .35, .96, 1.08, 0).film(0, 0, .18, 1.25);
             a.add(s);
         }
         {
